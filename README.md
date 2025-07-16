@@ -80,3 +80,6 @@ npx cap open android  # ou 'npx cap open ios'
 ## 📄 Licence
 
 Ce projet est sous licence MIT - voir le fichier [LICENSE](LICENSE) pour plus de détails.
+=======
+# ATLAS
+>>>>>>> 454457c49ed2e9c067164bb657334ef7c3f1bee8
