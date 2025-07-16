@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.prose {
+  @apply text-sm leading-relaxed;
+}
+
+.prose p {
+  @apply mb-2;
+}
+
+.prose ul {
+  @apply list-disc pl-4 mb-2;
+}
+
+.prose ol {
+  @apply list-decimal pl-4 mb-2;
+}
+
+.prose h1, .prose h2, .prose h3, .prose h4 {
+  @apply font-bold mb-2;
+}
+
+.prose h1 {
+  @apply text-xl;
+}
+
+.prose h2 {
+  @apply text-lg;
+}
+
+.prose h3 {
+  @apply text-base;
+}
+
+.prose code {
+  @apply bg-gray-100 px-1 rounded;
+}
+
+.prose blockquote {
+  @apply border-l-4 border-gray-300 pl-4 italic my-4;
+}
+
+body {
+  @apply bg-[#00051E];
+}
+
+.leaflet-container {
+  z-index: 1;
+}
+
+.leaflet-control-container {
+  z-index: 2;
+}
+
+textarea::placeholder {
+  @apply text-gray-400;
+}
+
+textarea {
+  @apply bg-transparent;
+}
+
+.swiper-pagination {
+  position: relative !important;
+  margin-top: 1rem;
+}
+
+.swiper-pagination-bullet {
+  width: 8px !important;
+  height: 8px !important;
+  margin: 0 4px !important;
+  background-color: rgba(255, 255, 255, 0.5) !important;
+}
+
+.swiper-pagination-bullet-active {
+  background-color: white !important;
+}
+
+.incident-marker {
+  z-index: 1000 !important;
+}
+
+.leaflet-marker-pane {
+  z-index: 1000 !important;
+}
+
+.leaflet-control-scale {
+  margin-left: 10px !important;
+  margin-bottom: 10px !important;
+  color: black;
+  background-color: rgba(255, 255, 255, 0.8);
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-weight: 500;
+}
