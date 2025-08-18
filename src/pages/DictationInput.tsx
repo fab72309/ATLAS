@@ -5,6 +5,7 @@ import { Swiper, SwiperSlide, useSwiper } from 'swiper/react';
 import { Swiper as SwiperType } from 'swiper';
 import { Pagination } from 'swiper/modules';
 import { analyzeEmergency } from '../utils/openai';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { saveDictationData, saveCommunicationData } from '../utils/firestore';
 import 'swiper/css';
 import 'swiper/css/pagination';
@@ -139,6 +140,7 @@ const DictationInput = () => {
 
   const handleSubmit = async () => {
     setIsLoading(true);
+    try { await Haptics.impact({ style: ImpactStyle.Light }); } catch {}
     
     try {
       // Vérifier si au moins une section contient du texte
@@ -291,7 +293,7 @@ const DictationInput = () => {
           <button
             onClick={handleSubmit}
             disabled={isLoading}
-            className="bg-[#FF1801] hover:bg-[#D91601] transition-colors text-white py-2 rounded-3xl text-base font-semibold w-full max-w-4xl mt-4 mb-4 mx-auto"
+            className="bg-[#FF1801] hover:bg-[#D91601] transition-colors text-white py-2 rounded-3xl text-base font-semibold w-full max-w-4xl mt-4 mb-[calc(env(safe-area-inset-bottom,0)+12px)] mx-auto"
           >
             {isLoading ? 'Sauvegarde en cours...' : 'Générer'}
           </button>

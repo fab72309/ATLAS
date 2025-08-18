@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { History, Share2, Sparkles } from 'lucide-react';
+import { Share2, Sparkles } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import HistoryDialog from '../components/HistoryDialog';
 import ShareDialog from '../components/ShareDialog';
@@ -92,11 +92,24 @@ const Results = () => {
     }
   };
 
-  // Parse sections from markdown output
+  // Parse sections from analysis. Prefer JSON structure if present.
   const displaySections = React.useMemo(() => {
     if (initialSections) return initialSections;
     if (!analysis) return [];
     
+    // Try JSON parse first
+    try {
+      const obj = JSON.parse(analysis);
+      if (obj && Array.isArray(obj.sections)) {
+        return obj.sections
+          .filter((s: any) => s && s.title && s.content)
+          .map((s: any) => ({ title: String(s.title), content: String(s.content) }));
+      }
+      if (obj && obj.title && obj.content) {
+        return [{ title: String(obj.title), content: String(obj.content) }];
+      }
+    } catch {}
+
     if (type === 'communication') {
       return [{
         title: 'Point de Situation',
@@ -157,7 +170,7 @@ const Results = () => {
         </div>
       </div>
       
-      <div className="fixed bottom-0 left-0 right-0 bg-[#00051E] p-4">
+      <div className="fixed bottom-0 left-0 right-0 bg-[#00051E] p-4" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 16px)' }}>
         <div className="w-full max-w-4xl mx-auto flex gap-2">
           <button
             onClick={() => navigate('/')}

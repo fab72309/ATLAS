@@ -2,8 +2,8 @@ import React from 'react';
 import { X, Mail, MessageSquare, Share2, FileImage, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
+import { Share } from '@capacitor/share';
+// Heavy libs are loaded on demand
 
 interface ShareDialogProps {
   isOpen: boolean;
@@ -46,6 +46,7 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
 
   const captureMap = async () => {
     if (!mapRef?.current) return null;
+    const { default: html2canvas } = await import('html2canvas');
     const canvas = await html2canvas(mapRef.current, {
       useCORS: true,
       allowTaint: true,
@@ -122,6 +123,7 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
         if (!canvas) return;
 
         const imgData = canvas.toDataURL('image/png');
+        const { jsPDF } = await import('jspdf');
         const pdf = new jsPDF({
           orientation: 'landscape',
           unit: 'mm',
@@ -184,16 +186,21 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
     const encodedSubject = encodeURIComponent(subject);
     const encodedBody = encodeURIComponent(body);
     
-    switch (method) {
-      case 'email':
-        window.location.href = `mailto:?subject=${encodedSubject}&body=${encodedBody}`;
-        break;
-      case 'sms':
-        window.location.href = `sms:?body=${encodedBody}`;
-        break;
-      case 'whatsapp':
-        window.location.href = `https://wa.me/?text=${encodedBody}`;
-        break;
+    try {
+      await Share.share({ title: subject, text: body });
+    } catch {
+      // Fallback web
+      switch (method) {
+        case 'email':
+          window.location.href = `mailto:?subject=${encodedSubject}&body=${encodedBody}`;
+          break;
+        case 'sms':
+          window.location.href = `sms:?body=${encodedBody}`;
+          break;
+        case 'whatsapp':
+          window.location.href = `https://wa.me/?text=${encodedBody}`;
+          break;
+      }
     }
     onClose();
   };
@@ -214,7 +221,6 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
             onClick={() => handleShare('email')}
             className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100"
             title="Partager par email"
-            title="Partager par email"
           >
             <Mail className="w-6 h-6" />
             <span>Partager par email</span>
@@ -222,7 +228,6 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
           <button
             onClick={() => handleShare('sms')}
             className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100"
-            title="Partager par SMS"
             title="Partager par SMS"
           >
             <MessageSquare className="w-6 h-6" />
@@ -232,7 +237,6 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
             onClick={() => handleShare('whatsapp')}
             className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100"
             title="Partager via WhatsApp"
-            title="Partager via WhatsApp"
           >
             <Share2 className="w-6 h-6" />
             <span>Partager via WhatsApp</span>
@@ -240,7 +244,6 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
           <button
             onClick={handlePDFExport}
             className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100"
-            title="Exporter en PDF"
             title="Exporter en PDF"
           >
             <Download className="w-6 h-6" />
@@ -250,7 +253,6 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
           <button
             onClick={handleImageExport}
             className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-gray-100"
-            title="Exporter en image"
             title="Exporter en image"
           >
             <FileImage className="w-6 h-6" />

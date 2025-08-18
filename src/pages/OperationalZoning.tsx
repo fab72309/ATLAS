@@ -4,8 +4,7 @@ import { MapPin, Search, Layers, Plus, Minus, Share2, Download, FileImage, X, Ma
 import { MapContainer, TileLayer, Marker, Circle, useMap, useMapEvents, ScaleControl } from 'react-leaflet';
 import axios from 'axios';
 import L from 'leaflet';
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
+// Heavy libs are loaded on demand
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import 'leaflet/dist/leaflet.css';
@@ -29,11 +28,12 @@ const redMarkerIcon = new L.Icon({
   className: 'incident-marker'
 });
 
-// Map layer URLs
+// Map layer URLs (use CORS-friendly providers)
 const MAP_LAYERS = {
   street: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-  satellite: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
-  hybrid: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}'
+  // Use Carto Voyager tiles (CORS-enabled). Replace with MapTiler/Mapbox if you have keys
+  satellite: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+  hybrid: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}.png'
 };
 
 // Component to handle map location updates
@@ -122,6 +122,7 @@ const ShareDialog: React.FC<{
 
   const captureMap = async () => {
     if (!mapRef.current) return null;
+    const { default: html2canvas } = await import('html2canvas');
     const canvas = await html2canvas(mapRef.current, {
       useCORS: true,
       allowTaint: true,
@@ -161,6 +162,7 @@ const ShareDialog: React.FC<{
       if (!canvas) return;
 
       const imgData = canvas.toDataURL('image/png');
+      const { jsPDF } = await import('jspdf');
       const pdf = new jsPDF({
         orientation: 'landscape',
         unit: 'mm',
@@ -291,7 +293,8 @@ const OperationalZoning = () => {
   const fetchWeather = useCallback(async (lat: number, lon: number) => {
     try {
       const response = await axios.get(
-        `https://api.weatherapi.com/v1/current.json?key=${import.meta.env.VITE_WEATHER_API_KEY}&q=${lat},${lon}&aqi=no`
+        `https://api.weatherapi.com/v1/current.json`,
+        { params: { key: import.meta.env.VITE_WEATHER_API_KEY, q: `${lat},${lon}`, aqi: 'no', lang: 'fr' } }
       );
       console.log('Weather data:', response.data); // Pour le débogage
       
@@ -466,7 +469,7 @@ const OperationalZoning = () => {
               autoFocus={!isLocationRequested}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
               placeholder="Rechercher une adresse..."
               className={`w-full px-4 py-2 pr-12 rounded-xl bg-white text-gray-800 placeholder-gray-400 focus:outline-none ${
                 error ? 'border-2 border-[#FF1801] focus:border-[#FF1801]' : ''
@@ -561,8 +564,13 @@ const OperationalZoning = () => {
               whenCreated={setMap}
             >
               <TileLayer
-                attribution={currentLayer === 'street' ? '&copy; OpenStreetMap contributors' : '&copy; Google Maps'}
+                attribution={
+                  currentLayer === 'street'
+                    ? '&copy; OpenStreetMap contributors'
+                    : '&copy; CARTO'
+                }
                 url={MAP_LAYERS[currentLayer]}
+                crossOrigin="anonymous"
               />
               <ScaleControl position="bottomleft" imperial={false} />
               <MapClickHandler onMapClick={handleMapClick} />

@@ -1,9 +1,5 @@
 import OpenAI from 'openai';
-
-const openai = new OpenAI({
-  apiKey: import.meta.env.VITE_OPENAI_API_KEY,
-  dangerouslyAllowBrowser: true
-});
+import { auth } from './firebase';
 
 const ASSISTANT_IDS = {
   group: 'asst_Bsocyc9ni7fjeReaEBBsHCzi',
@@ -13,6 +9,33 @@ const ASSISTANT_IDS = {
 
 export const analyzeEmergency = async (situation: string, type: 'group' | 'column' | 'communication') => {
   try {
+    // Prefer calling a server-side proxy if available
+    const proxyUrl = import.meta.env.VITE_OPENAI_PROXY_URL || '/api/analyze';
+    if (import.meta.env.VITE_OPENAI_PROXY_URL) {
+      let authHeader: Record<string, string> = {};
+      try {
+        const token = await auth.currentUser?.getIdToken?.();
+        if (token) authHeader = { Authorization: `Bearer ${token}` };
+      } catch {}
+      const response = await fetch(proxyUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeader },
+        body: JSON.stringify({ situation, type, response_format: 'json' })
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || 'Erreur serveur lors de l\'analyse.');
+      }
+      const data = await response.json();
+      // Expect data.result to be string; could be JSON string
+      return typeof data.result === 'string' ? data.result : JSON.stringify(data.result);
+    }
+
+    // Fallback: direct client call (not recommended for production)
+    const openai = new OpenAI({
+      apiKey: import.meta.env.VITE_OPENAI_API_KEY,
+      dangerouslyAllowBrowser: true
+    });
     // Create a thread
     const thread = await openai.beta.threads.create();
     
@@ -27,11 +50,15 @@ export const analyzeEmergency = async (situation: string, type: 'group' | 'colum
       assistant_id: ASSISTANT_IDS[type]
     });
     
-    // Wait for the run to complete
+    // Wait for the run to complete with timeout (60s)
+    const start = Date.now();
     let runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
     while (runStatus.status !== 'completed') {
       if (runStatus.status === 'failed') {
         throw new Error('L\'analyse a échoué. Veuillez réessayer.');
+      }
+      if (Date.now() - start > 60000) {
+        throw new Error('Délai dépassé pour l\'analyse. Veuillez réessayer.');
       }
       await new Promise(resolve => setTimeout(resolve, 1000));
       runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
@@ -39,8 +66,9 @@ export const analyzeEmergency = async (situation: string, type: 'group' | 'colum
     
     // Get the messages
     const messages = await openai.beta.threads.messages.list(thread.id);
-    const lastMessage = messages.data[0];
-    const content = lastMessage.content[0].type === 'text' ? lastMessage.content[0].text.value : '';
+    const assistantMessage = messages.data.find(m => m.role === 'assistant');
+    const contentParts = assistantMessage?.content?.filter((c: any) => c.type === 'text') || [];
+    const content = contentParts.map((c: any) => c.text?.value || '').join('\n').trim();
     if (!content) {
       throw new Error('Invalid response format from AI');
     }

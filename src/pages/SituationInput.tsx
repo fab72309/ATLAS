@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Mic, Sparkles } from 'lucide-react';
 import { SpeechRecognitionService } from '../utils/speechRecognition';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { saveCommunicationIAData } from '../utils/firestore';
 import CommandIcon from '../components/CommandIcon';
 import { analyzeEmergency } from '../utils/openai';
@@ -45,6 +46,7 @@ const SituationInput = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!situation.trim()) return;
+    try { await Haptics.impact({ style: ImpactStyle.Light }); } catch {}
     setIsLoading(true);
     
     try {
@@ -143,7 +145,7 @@ const SituationInput = () => {
           <button
             type="submit"
             disabled={isLoading}
-            className="bg-[#FF1801] hover:bg-[#D91601] transition-colors text-white py-2 rounded-3xl text-sm font-semibold w-full disabled:bg-gray-500 mb-3 flex items-center justify-center gap-2"
+            className="bg-[#FF1801] hover:bg-[#D91601] transition-colors text-white py-2 rounded-3xl text-sm font-semibold w-full disabled:bg-gray-500 mb-[calc(env(safe-area-inset-bottom,0)+12px)] flex items-center justify-center gap-2"
           >
             {isLoading ? 'Analyse en cours...' : (
               <>
