@@ -6,12 +6,15 @@ import CommandIcon from '../components/CommandIcon';
 const COMMAND_TITLES = {
   group: 'Chef de groupe',
   column: 'Chef de colonne',
+  site: 'Chef de site',
   communication: 'Communication OPS'
 } as const;
 
 const CommandTypeChoice = () => {
   const navigate = useNavigate();
   const { type } = useParams();
+  const validTypes = ['group','column','site','communication'] as const;
+  const currentType = validTypes.includes(type as any) ? (type as typeof validTypes[number]) : null;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -34,9 +37,15 @@ const CommandTypeChoice = () => {
           </p>
         </div>
 
-        <div className="w-full max-w-[200px] mb-4">
-          <CommandIcon type={type as 'group' | 'column' | 'communication'} />
-        </div>
+        {currentType ? (
+          <div className="w-full max-w-[200px] mb-4">
+            <CommandIcon type={currentType} />
+          </div>
+        ) : (
+          <div className="text-white bg-red-500/20 border border-red-500/40 rounded p-3 mb-4 text-sm">
+            Type non supporté. Revenez à l'accueil.
+          </div>
+        )}
 
         <div className="w-full max-w-xl space-y-4">
           <button

@@ -40,6 +40,33 @@ const SECTIONS_BY_TYPE = {
       placeholder: 'Définissez la chaîne de commandement...',
     },
   ],
+  site: [
+    {
+      id: 'situation',
+      title: 'Situation',
+      placeholder: 'Décrivez la situation actuelle...',
+    },
+    {
+      id: 'objectifs',
+      title: 'Objectifs',
+      placeholder: 'Définissez les objectifs...',
+    },
+    {
+      id: 'idees',
+      title: 'Idées de manœuvre',
+      placeholder: 'Détaillez les idées de manœuvre...',
+    },
+    {
+      id: 'execution',
+      title: 'Exécution',
+      placeholder: 'Précisez l\'exécution des actions...',
+    },
+    {
+      id: 'commandement',
+      title: 'Commandement',
+      placeholder: 'Définissez la chaîne de commandement...',
+    },
+  ],
   column: [
     {
       id: 'situation',
@@ -118,7 +145,10 @@ const SECTIONS_BY_TYPE = {
   ]
 } as const;
 
-const getSections = (type: string) => SECTIONS_BY_TYPE[type as keyof typeof SECTIONS_BY_TYPE];
+const getSections = (type: string) => {
+  const key = type as keyof typeof SECTIONS_BY_TYPE;
+  return SECTIONS_BY_TYPE[key] || SECTIONS_BY_TYPE.group;
+};
 
 const DictationInput = () => {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -184,7 +214,7 @@ const DictationInput = () => {
         });
       } else {
         const dataToSave = {
-          type: type as 'group' | 'column',
+          type: type as 'group' | 'column' | 'site',
           situation: sections.situation || '',
           objectifs: sections.objectifs || '',
           idees: sections.idees || '',
@@ -238,7 +268,7 @@ const DictationInput = () => {
         </div>
 
         <div className="w-full max-w-[200px] mb-4">
-          <CommandIcon type={type as 'group' | 'column' | 'communication'} />
+          <CommandIcon type={type as 'group' | 'column' | 'site' | 'communication'} />
         </div>
 
         <div className="w-full max-w-4xl flex-1 flex flex-col relative">
@@ -258,7 +288,7 @@ const DictationInput = () => {
             ))}
           </div>
 
-          <div className="flex-1 relative">
+          <div className="flex-1 relative min-h-[50vh]">
             <Swiper
               onBeforeInit={(swiper) => {
                 swiperRef.current = swiper;

@@ -50,7 +50,7 @@ const SituationInput = () => {
     setIsLoading(true);
     
     try {
-      const analysis = await analyzeEmergency(situation, type as 'group' | 'column' | 'communication');
+      const analysis = await analyzeEmergency(situation, type as 'group' | 'column' | 'site' | 'communication');
       
       if (type === 'communication') {
         // Extraire les sections du texte d'analyse
@@ -109,37 +109,38 @@ const SituationInput = () => {
         </div>
 
         <div className="w-full max-w-[200px] mb-4">
-          <CommandIcon type={type as 'group' | 'column'} />
+          <CommandIcon type={type as 'group' | 'column' | 'site' | 'communication'} />
         </div>
 
         <form onSubmit={handleSubmit} className="w-full max-w-4xl flex flex-col flex-1">
-          <div className="relative flex-1 mb-4">
-            <div className="absolute inset-0 bg-white rounded-3xl h-[calc(100vh-18rem)]"></div>
+          <div className="flex-1 mb-4">
             {error && (
-              <div className="absolute top-4 right-4 left-4 bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded-lg z-10 text-sm">
+              <div className="mb-2 bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded-lg text-sm">
                 {error}
               </div>
             )}
-            <textarea
-              value={situation}
-              onChange={(e) => setSituation(e.target.value)}
-              className="relative w-full h-[calc(100vh-18rem)] resize-none rounded-3xl p-3 text-gray-800 text-sm focus:outline-none bg-white"
-              placeholder={type === 'communication' ? 
-                "Décrivez la situation actuelle, l'engagement des secours, les moyens mis en œuvre..." :
-                "Décrivez la situation..."}
-              disabled={isLoading}
-            />
-            <button
-              type="button"
-              onClick={isListening ? stopSpeechRecognition : startSpeechRecognition}
-              disabled={isLoading}
-              className={`absolute bottom-4 right-4 ${
-                isListening ? 'bg-[#FF1801]' : 'bg-[#1A1A1A]'
-              } hover:bg-[#D91601] transition-colors rounded-full p-3`}
-              title={isListening ? 'Arrêter la dictée' : 'Démarrer la dictée'}
-            >
-              <Mic className="w-5 h-5 text-white" />
-            </button>
+            <div className="relative bg-white rounded-3xl p-2">
+              <textarea
+                value={situation}
+                onChange={(e) => setSituation(e.target.value)}
+                className="w-full min-h-[60vh] md:h-[calc(100vh-18rem)] resize-none rounded-2xl p-3 pr-12 text-gray-800 text-sm focus:outline-none bg-white"
+                placeholder={type === 'communication' ? 
+                  "Décrivez la situation actuelle, l'engagement des secours, les moyens mis en œuvre..." :
+                  "Décrivez la situation..."}
+                disabled={isLoading}
+              />
+              <button
+                type="button"
+                onClick={isListening ? stopSpeechRecognition : startSpeechRecognition}
+                disabled={isLoading}
+                className={`absolute bottom-3 right-3 ${
+                  isListening ? 'bg-[#FF1801]' : 'bg-[#1A1A1A]'
+                } hover:bg-[#D91601] transition-colors rounded-full p-3`}
+                title={isListening ? 'Arrêter la dictée' : 'Démarrer la dictée'}
+              >
+                <Mic className="w-5 h-5 text-white" />
+              </button>
+            </div>
           </div>
 
           <button

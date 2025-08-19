@@ -4,10 +4,11 @@ import { auth } from './firebase';
 const ASSISTANT_IDS = {
   group: 'asst_Bsocyc9ni7fjeReaEBBsHCzi',
   column: 'asst_Uk4muOm9jLF3TWsYY2n0dxSI',
+  site: 'asst_Bsocyc9ni7fjeReaEBBsHCzi',
   communication: 'asst_Hc0fc9SD87L763ZIMDVeNWzQ'
 } as const;
 
-export const analyzeEmergency = async (situation: string, type: 'group' | 'column' | 'communication') => {
+export const analyzeEmergency = async (situation: string, type: 'group' | 'column' | 'site' | 'communication') => {
   try {
     // Prefer calling a server-side proxy if available
     const proxyUrl = import.meta.env.VITE_OPENAI_PROXY_URL || '/api/analyze';
@@ -45,9 +46,10 @@ export const analyzeEmergency = async (situation: string, type: 'group' | 'colum
       content: situation
     });
     
-    // Run the assistant
+    // Run the assistant (fallback on group if type unsupported)
+    const assistantId = (ASSISTANT_IDS as any)[type] || ASSISTANT_IDS.group;
     const run = await openai.beta.threads.runs.create(thread.id, {
-      assistant_id: ASSISTANT_IDS[type]
+      assistant_id: assistantId
     });
     
     // Wait for the run to complete with timeout (60s)

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { History, Radio, Map } from 'lucide-react';
+import ShieldFlameIcon from '../components/ShieldFlameIcon';
 import HistoryDialog from '../components/HistoryDialog';
 
 const Home = () => {
@@ -29,30 +30,15 @@ const Home = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-6xl px-4">
         <div 
-          onClick={() => navigate('/command-type/group')}
+          onClick={() => navigate('/functions')}
           className="bg-[#1A1A1A] p-6 md:p-8 rounded-lg cursor-pointer hover:bg-[#2A2A2A] transition-colors border-2 border-white"
         >
           <div className="flex justify-center mb-4">
-            <div className="w-20 md:w-24 h-20 md:h-24 bg-black rounded-lg flex flex-col justify-center items-center">
-              <div className="w-12 md:w-16 h-3 bg-white mb-2"></div>
-              <div className="w-12 md:w-16 h-3 bg-white"></div>
+            <div className="w-20 md:w-24 h-20 md:h-24 bg-black rounded-lg flex items-center justify-center">
+              <ShieldFlameIcon className="w-12 md:w-16 h-12 md:h-16" />
             </div>
           </div>
-          <h2 className="text-xl md:text-2xl text-center">Chef de groupe</h2>
-        </div>
-        
-        <div 
-          onClick={() => navigate('/command-type/column')}
-          className="bg-[#1A1A1A] p-6 md:p-8 rounded-lg cursor-pointer hover:bg-[#2A2A2A] transition-colors border-2 border-white"
-        >
-          <div className="flex justify-center mb-4">
-            <div className="w-20 md:w-24 h-20 md:h-24 bg-black rounded-lg flex flex-col justify-center items-center">
-              <div className="w-12 md:w-16 h-3 bg-white mb-2"></div>
-              <div className="w-12 md:w-16 h-3 bg-white mb-2"></div>
-              <div className="w-12 md:w-16 h-3 bg-white"></div>
-            </div>
-          </div>
-          <h2 className="text-xl md:text-2xl text-center">Chef de colonne</h2>
+          <h2 className="text-xl md:text-2xl text-center">Fonctions opérationnelles</h2>
         </div>
 
         <div 

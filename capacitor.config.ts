@@ -7,7 +7,7 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: 'https',
     iosScheme: 'https',
-    url: 'http://localhost:5173',
+    url: 'http://localhost:5174',
     cleartext: true
   },
   ios: {

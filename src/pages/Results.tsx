@@ -36,7 +36,7 @@ const Results = () => {
         throw new Error('No situation text found');
       }
 
-      const analysis = await analyzeEmergency(situationText, type as 'group' | 'column' | 'communication');
+      const analysis = await analyzeEmergency(situationText, type as 'group' | 'column' | 'site' | 'communication');
       
       // Parse sections from the analysis
       let sections: Record<string, string> = {};
