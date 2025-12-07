@@ -2,17 +2,22 @@ import { Share } from '@capacitor/share';
 import { Clipboard } from '@capacitor/clipboard';
 import { jsPDF } from 'jspdf';
 import { OrdreInitial } from '../types/soiec';
-import { generateOrdreInitialText } from './soiec';
+import { generateOrdreInitialText, generateOrdreInitialShortText } from './soiec';
 
-export const exportOrdreToClipboard = async (ordre: OrdreInitial): Promise<void> => {
-    const text = generateOrdreInitialText(ordre);
+const buildMeta = (opts?: { adresse?: string; heure?: string }) => ({
+    adresse: opts?.adresse,
+    heure: opts?.heure
+});
+
+export const exportOrdreToClipboard = async (ordre: OrdreInitial, opts?: { adresse?: string; heure?: string }): Promise<void> => {
+    const text = generateOrdreInitialText(ordre, buildMeta(opts));
     await Clipboard.write({
         string: text
     });
 };
 
-export const exportOrdreToShare = async (ordre: OrdreInitial): Promise<void> => {
-    const text = generateOrdreInitialText(ordre);
+export const exportOrdreToShare = async (ordre: OrdreInitial, opts?: { adresse?: string; heure?: string }): Promise<void> => {
+    const text = generateOrdreInitialText(ordre, buildMeta(opts));
 
     const canShare = await Share.canShare();
     if (canShare.value) {
@@ -23,11 +28,11 @@ export const exportOrdreToShare = async (ordre: OrdreInitial): Promise<void> => 
         });
     } else {
         // Fallback clipboard si le partage n'est pas dispo
-        await exportOrdreToClipboard(ordre);
+        await exportOrdreToClipboard(ordre, opts);
     }
 };
 
-export const exportOrdreToPdf = (ordre: OrdreInitial): void => {
+export const exportOrdreToPdf = (ordre: OrdreInitial, opts?: { adresse?: string; heure?: string }): void => {
     const doc = new jsPDF();
     const date = new Date().toLocaleDateString('fr-FR');
     const time = new Date().toLocaleTimeString('fr-FR');
@@ -63,6 +68,15 @@ export const exportOrdreToPdf = (ordre: OrdreInitial): void => {
         doc.text(splitText, leftMargin, yPos);
         yPos += (splitText.length * lineHeight) + 2;
     };
+
+    // Meta
+    if (opts?.adresse) {
+        addText(`Adresse: ${opts.adresse}`, 11, 'bold');
+    }
+    if (opts?.heure) {
+        addText(`Heure de saisie: ${opts.heure}`, 11, 'bold');
+    }
+    yPos += 3;
 
     // S - SITUATION
     addText('S – SITUATION', 14, 'bold');
@@ -105,4 +119,74 @@ export const exportOrdreToPdf = (ordre: OrdreInitial): void => {
     addText(ordre.C);
 
     doc.save(`atlas-ordre-initial-${Date.now()}.pdf`);
+};
+
+export const exportOrdreToWord = async (ordre: OrdreInitial, opts?: { adresse?: string; heure?: string }) => {
+    const text = generateOrdreInitialText(ordre, buildMeta(opts));
+    const blob = new Blob([text], { type: 'application/msword' });
+    const fileName = `atlas-ordre-initial-${Date.now()}.doc`;
+    const file = new File([blob], fileName, { type: blob.type });
+
+    // Try Web Share with file first
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'Ordre Initial - A.T.L.A.S', text: 'Ordre initial (Word)' });
+        return;
+    }
+
+    // Fallback: download
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+};
+
+export const shareOrdreAsText = (ordre: OrdreInitial, channel: 'sms' | 'whatsapp' | 'mail', opts?: { adresse?: string; heure?: string }) => {
+    const text = generateOrdreInitialText(ordre, buildMeta(opts));
+    const shortText = generateOrdreInitialShortText(ordre);
+    const body = encodeURIComponent(text);
+    const shortBody = encodeURIComponent(shortText);
+
+    switch (channel) {
+        case 'sms':
+            window.location.href = `sms:?body=${shortBody}`;
+            break;
+        case 'whatsapp':
+            window.location.href = `https://wa.me/?text=${body}`;
+            break;
+        case 'mail':
+        default:
+            window.location.href = `mailto:?subject=${encodeURIComponent('Ordre Initial - A.T.L.A.S')}&body=${body}`;
+            break;
+    }
+};
+
+export const shareOrdreAsFile = async (
+    ordre: OrdreInitial,
+    format: 'pdf' | 'word',
+    channel: 'mail' | 'whatsapp' | 'sms',
+    opts?: { adresse?: string; heure?: string }
+) => {
+    const isPdf = format === 'pdf';
+    if (isPdf) {
+        const doc = new jsPDF();
+        const text = generateOrdreInitialText(ordre, buildMeta(opts));
+        doc.text(text, 10, 10, { maxWidth: 190 });
+        const blob = doc.output('blob');
+        const file = new File([blob], `atlas-ordre-initial-${Date.now()}.pdf`, { type: 'application/pdf' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({ files: [file], title: 'Ordre Initial - A.T.L.A.S', text: 'PDF' });
+            return;
+        }
+        // fallback download
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        return;
+    }
+
+    // word
+    await exportOrdreToWord(ordre, opts);
 };

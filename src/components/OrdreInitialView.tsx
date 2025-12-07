@@ -1,10 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { OrdreInitial } from '../types/soiec';
+import { SpeechRecognitionService } from '../utils/speechRecognition';
+import { DominanteType } from './DominantSelector';
+import { DOCTRINE_CONTEXT } from '../constants/doctrine';
 
 interface OrdreInitialViewProps {
   ordre: OrdreInitial | null;
   onChange?: (ordre: OrdreInitial) => void;
   hideToolbar?: boolean;
+  dominante?: DominanteType;
+  means?: { name: string; status: 'sur_place' | 'demande' }[];
 }
 
 // Types pour la gestion d'état locale
@@ -37,13 +42,39 @@ const safeRender = (content: any) => {
 // Générateur d'ID unique simple
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
-const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hideToolbar = false }) => {
+const DOCTRINE_DOMINANTE_MAP: Partial<Record<DominanteType, keyof typeof DOCTRINE_CONTEXT>> = {
+  Incendie: 'incendie_structure',
+  'Risque Gaz': 'fuite_gaz',
+  'Accident de circulation': 'secours_routier',
+  SMV: 'secours_personne_complexe',
+  SUAP: 'secours_personne_complexe',
+  NRBC: 'secours_personne_complexe',
+  'Risque Chimique': 'fuite_gaz',
+  'Risque Radiologique': 'secours_personne_complexe',
+};
+
+const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hideToolbar = false, dominante, means = [] }) => {
   const [columns, setColumns] = useState<Record<string, ColumnData>>({});
   const [draggedItem, setDraggedItem] = useState<{ id: string, sourceCol: string } | null>(null);
-  const [editingItem, setEditingItem] = useState<{ id: string, colId: string, content: string, mission?: string, moyen?: string } | null>(null);
+  const [editingItem, setEditingItem] = useState<{ id: string, colId: string, content: string, mission?: string, moyen?: string, moyen_supp?: string, details?: string } | null>(null);
+  const skipPropSyncRef = useRef(false);
+  const [isListening, setIsListening] = useState(false);
+  const [speechError, setSpeechError] = useState<string | null>(null);
+  const speechServiceRef = useRef<SpeechRecognitionService | null>(null);
+  const doctrineKey = useMemo(
+    () => (dominante ? DOCTRINE_DOMINANTE_MAP[dominante] : undefined),
+    [dominante]
+  );
+  const doctrineData = doctrineKey ? (DOCTRINE_CONTEXT as any)[doctrineKey] : null;
 
   // Initialisation des données
   useEffect(() => {
+    if (skipPropSyncRef.current) {
+      // We triggered the parent update ourselves; avoid re-initialising and clear the flag.
+      skipPropSyncRef.current = false;
+      return;
+    }
+
     if (!ordre) {
       // Initialize with empty structure
       setColumns({
@@ -89,25 +120,42 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
 
     // Convert columns back to OrdreInitial format
     const ordreData: OrdreInitial = {
-      S: columns.S?.items.map(i => i.content).join('\n') || '',
-      O: columns.O?.items.map(i => i.content) || [],
-      I: columns.I?.items.map(i => ({
+      S: columns.S?.items?.map(i => i.content).join('\n') || '',
+      O: columns.O?.items?.map(i => i.content) || [],
+      I: columns.I?.items?.map(i => ({
         mission: i.content,
         moyen: 'Non spécifié',
         moyen_supp: '',
         details: ''
       })) || [],
-      E: columns.E?.items.map(i => ({
+      E: columns.E?.items?.map(i => ({
         mission: i.mission || '',
         moyen: i.moyen || '',
         moyen_supp: i.moyen_supp || '',
         details: i.details || ''
       })) || [],
-      C: columns.C?.items.map(i => i.content).join('\n') || ''
+      C: columns.C?.items?.map(i => i.content).join('\n') || ''
     };
 
     onChange(ordreData);
+    skipPropSyncRef.current = true;
   }, [columns, onChange]);
+
+  // Nettoyer la reconnaissance à la fermeture de la modal
+  useEffect(() => {
+    return () => {
+      if (speechServiceRef.current) {
+        speechServiceRef.current.stop();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!editingItem) {
+      stopDictation();
+      setSpeechError(null);
+    }
+  }, [editingItem]);
 
   // Gestion du Drag & Drop
   const handleDragStart = (e: React.DragEvent, id: string, sourceCol: string) => {
@@ -172,7 +220,8 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
       id: generateId(),
       content: 'Nouvel élément',
       mission: colId === 'E' ? 'Nouvelle mission' : undefined,
-      moyen: colId === 'E' ? 'Moyen' : undefined
+      moyen: colId === 'E' ? 'Moyen' : undefined,
+      moyen_supp: colId === 'E' ? 'Renfort' : undefined
     };
 
     setColumns(prev => ({
@@ -189,7 +238,8 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
       colId,
       content: newItem.content,
       mission: newItem.mission,
-      moyen: newItem.moyen
+      moyen: newItem.moyen,
+      moyen_supp: newItem.moyen_supp
     });
   };
 
@@ -202,12 +252,61 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
         ...prev[editingItem.colId],
         items: prev[editingItem.colId].items.map(item =>
           item.id === editingItem.id
-            ? { ...item, content: editingItem.content, mission: editingItem.mission, moyen: editingItem.moyen }
+            ? {
+                ...item,
+                content: editingItem.content,
+                mission: editingItem.mission,
+                moyen: editingItem.moyen,
+                moyen_supp: editingItem.moyen_supp,
+                details: editingItem.details
+              }
             : item
         )
       }
     }));
     setEditingItem(null);
+  };
+
+  // Dictée vocale pour la modal
+  const ensureSpeechService = () => {
+    if (!speechServiceRef.current) {
+      speechServiceRef.current = new SpeechRecognitionService();
+    }
+    return speechServiceRef.current;
+  };
+
+  const stopDictation = () => {
+    ensureSpeechService().stop();
+    setIsListening(false);
+  };
+
+  const startDictation = (target: 'content' | 'mission') => {
+    const service = ensureSpeechService();
+    if (!editingItem) return;
+    setSpeechError(null);
+
+    if (!service.isRecognitionSupported()) {
+      setSpeechError('La reconnaissance vocale n\'est pas supportée par votre navigateur.');
+      return;
+    }
+
+    service.start({
+      onStart: () => setIsListening(true),
+      onEnd: () => setIsListening(false),
+      onError: (err) => {
+        setIsListening(false);
+        setSpeechError(err.message || 'Erreur de dictée');
+      },
+      onResult: (text) => {
+        setEditingItem((prev) => {
+          if (!prev) return prev;
+          if (target === 'content') {
+            return { ...prev, content: text };
+          }
+          return { ...prev, mission: text };
+        });
+      }
+    });
   };
 
   const handleDelete = (colId: string, itemId: string) => {
@@ -219,6 +318,31 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
       }
     }));
   };
+
+  const getSuggestions = (colId: string, query: string) => {
+    if (!doctrineData) return [];
+    const base: string[] =
+      colId === 'O'
+        ? doctrineData.objectifs || []
+        : (colId === 'I' || colId === 'E')
+          ? doctrineData.idees_manoeuvre || []
+          : [];
+    if (!base.length) return [];
+    const q = query.trim().toLowerCase();
+    const filtered = q
+      ? base.filter((item: string) => item.toLowerCase().includes(q))
+      : base;
+    return filtered.slice(0, 6);
+  };
+
+  const suggestions = useMemo(() => {
+    if (!editingItem) return [];
+    const query =
+      editingItem.colId === 'I' || editingItem.colId === 'E'
+        ? editingItem.mission || ''
+        : editingItem.content || '';
+    return getSuggestions(editingItem.colId, query);
+  }, [editingItem, doctrineData]);
 
   // Rendu d'une carte
   const renderCard = (item: CardItem, col: ColumnData) => {
@@ -259,7 +383,15 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
         {/* Actions (Edit/Delete) - Plus gros et positionnés */}
         <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 rounded p-1 backdrop-blur-md">
           <button
-            onClick={() => setEditingItem({ id: item.id, colId: col.id, content: item.content, mission: item.mission, moyen: item.moyen })}
+            onClick={() => setEditingItem({
+              id: item.id,
+              colId: col.id,
+              content: item.content,
+              mission: item.mission,
+              moyen: item.moyen,
+              moyen_supp: item.moyen_supp,
+              details: item.details
+            })}
             className="p-1.5 hover:bg-white/20 rounded text-blue-300 transition-colors"
             title="Modifier"
           >
@@ -339,15 +471,38 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
           <div className="bg-gray-900 border border-white/10 rounded-xl p-6 w-full max-w-lg shadow-2xl">
             <h3 className="text-lg font-bold text-white mb-4">Modifier l'élément</h3>
             <div className="space-y-4">
-              {editingItem.colId === 'I' ? (
+              {editingItem.colId === 'I' || editingItem.colId === 'E' ? (
                 <>
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1">Mission</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs text-gray-400">Mission</label>
+                      <button
+                        type="button"
+                        onClick={() => (isListening ? stopDictation() : startDictation('mission'))}
+                        className={`text-xs px-2 py-1 rounded ${isListening ? 'bg-red-500/20 text-red-200' : 'bg-white/5 text-gray-300 hover:bg-white/10'}`}
+                      >
+                        {isListening ? 'Arrêter la dictée' : 'Dicter'}
+                      </button>
+                    </div>
                     <input
                       value={editingItem.mission || ''}
                       onChange={e => setEditingItem({ ...editingItem, mission: e.target.value })}
                       className="w-full bg-black/30 border border-white/10 rounded p-2 text-white text-sm focus:border-blue-500 outline-none"
                     />
+                    {suggestions.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {suggestions.map((s, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setEditingItem(prev => prev ? { ...prev, mission: s } : prev)}
+                            className="px-3 py-1 bg-white/5 hover:bg-white/10 rounded text-xs text-gray-200 border border-white/10 transition-colors"
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div>
                     <label className="block text-xs text-gray-400 mb-1">Moyen</label>
@@ -356,19 +511,57 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
                       onChange={e => setEditingItem({ ...editingItem, moyen: e.target.value })}
                       className="w-full bg-black/30 border border-white/10 rounded p-2 text-white text-sm focus:border-blue-500 outline-none"
                     />
+                    {editingItem.colId === 'E' && means.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {means.map((m, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setEditingItem(prev => prev ? { ...prev, moyen: m.name } : prev)}
+                            className={`px-3 py-1 rounded-lg text-xs border ${m.status === 'demande' ? 'border-dashed border-yellow-400 text-yellow-200' : 'border-green-400 text-green-200'} bg-white/5 hover:bg-white/10`}
+                          >
+                            {m.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </>
               ) : (
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Contenu</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs text-gray-400">Contenu</label>
+                    <button
+                      type="button"
+                      onClick={() => (isListening ? stopDictation() : startDictation('content'))}
+                      className={`text-xs px-2 py-1 rounded ${isListening ? 'bg-red-500/20 text-red-200' : 'bg-white/5 text-gray-300 hover:bg-white/10'}`}
+                    >
+                      {isListening ? 'Arrêter la dictée' : 'Dicter'}
+                    </button>
+                  </div>
                   <textarea
                     value={editingItem.content}
                     onChange={e => setEditingItem({ ...editingItem, content: e.target.value })}
                     rows={5}
                     className="w-full bg-black/30 border border-white/10 rounded p-2 text-white text-sm focus:border-blue-500 outline-none"
                   />
+                  {suggestions.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {suggestions.map((s, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setEditingItem(prev => prev ? { ...prev, content: s } : prev)}
+                          className="px-3 py-1 bg-white/5 hover:bg-white/10 rounded text-xs text-gray-200 border border-white/10 transition-colors"
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
+              {speechError && <div className="text-xs text-red-300">{speechError}</div>}
               <div className="flex justify-end gap-2 mt-6">
                 <button onClick={() => setEditingItem(null)} className="px-4 py-2 text-gray-400 hover:text-white text-sm">Annuler</button>
                 <button onClick={handleSaveEdit} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm font-bold">Enregistrer</button>

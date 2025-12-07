@@ -9,6 +9,7 @@ import DictationCard from '../components/DictationCard';
 import DominantSelector, { DominanteType } from '../components/DominantSelector';
 import { saveCommunicationData, saveCommunicationIAData } from '../utils/firestore';
 import { analyzeEmergency } from '../utils/openai';
+import { addToHistory } from '../utils/history';
 
 const SECTIONS = [
   {
@@ -119,6 +120,12 @@ const CommunicationOps = () => {
 
       // Save to Communication_OPS_IA collection
       await saveCommunicationIAData(iaData);
+
+      addToHistory({
+        type: 'communication',
+        situation: fullSituation,
+        analysis: typeof analysis === 'string' ? analysis : JSON.stringify(analysis)
+      });
 
       // Navigate to results page
       navigate('/results', { 

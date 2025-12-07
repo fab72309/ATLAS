@@ -93,8 +93,15 @@ export const parseOrdreInitial = (jsonString: string): OrdreInitial => {
     }
 };
 
-export const generateOrdreInitialText = (ordre: OrdreInitial): string => {
+export const generateOrdreInitialText = (
+    ordre: OrdreInitial,
+    meta?: { adresse?: string; heure?: string }
+): string => {
     let text = "ORDRE INITIAL – Chef de groupe\n\n";
+
+    if (meta?.adresse) text += `Adresse: ${meta.adresse}\n`;
+    if (meta?.heure) text += `Heure de saisie: ${meta.heure}\n`;
+    if (meta?.adresse || meta?.heure) text += "\n";
 
     text += "S – SITUATION\n";
     text += `${ordre.S}\n\n`;

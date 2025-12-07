@@ -26,8 +26,17 @@ export const db = getFirestore(app);
 export const auth = getAuth(app);
 
 // Ensure an authenticated context for Firestore rules
-signInAnonymously(auth).catch((err) => {
-  console.warn('Anonymous auth failed:', err);
+export const authReady = new Promise<void>((resolve) => {
+  if (auth.currentUser) {
+    resolve();
+    return;
+  }
+  signInAnonymously(auth)
+    .then(() => resolve())
+    .catch((err) => {
+      console.warn('Anonymous auth failed:', err);
+      resolve();
+    });
 });
 
 // Enable offline persistence

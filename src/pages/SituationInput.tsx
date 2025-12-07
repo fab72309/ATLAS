@@ -7,6 +7,7 @@ import { saveCommunicationIAData } from '../utils/firestore';
 import CommandIcon from '../components/CommandIcon';
 import { analyzeEmergency } from '../utils/openai';
 import DominantSelector, { DominanteType } from '../components/DominantSelector';
+import { addToHistory } from '../utils/history';
 
 const SituationInput = () => {
   const [situation, setSituation] = useState('');
@@ -83,6 +84,15 @@ const SituationInput = () => {
           groupe_horaire: new Date(),
           dominante,
           ...sections
+        });
+      }
+
+      // Historiser uniquement les types supportés
+      if (type === 'group' || type === 'column' || type === 'site' || type === 'communication') {
+        addToHistory({
+          type: type as any,
+          situation,
+          analysis: typeof analysis === 'string' ? analysis : JSON.stringify(analysis)
         });
       }
 

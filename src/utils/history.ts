@@ -3,7 +3,7 @@ import { fr } from 'date-fns/locale';
 
 export interface HistoryEntry {
   id: string;
-  type: 'group' | 'column';
+  type: 'group' | 'column' | 'site' | 'communication';
   situation: string;
   analysis: string;
   timestamp: string;

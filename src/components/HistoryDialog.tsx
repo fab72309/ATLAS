@@ -19,6 +19,21 @@ const HistoryDialog: React.FC<HistoryDialogProps> = ({ isOpen, onClose }) => {
     onClose();
   };
 
+  const getTypeLabel = (type: HistoryEntry['type']) => {
+    switch (type) {
+      case 'group':
+        return 'Chef de groupe';
+      case 'column':
+        return 'Chef de colonne';
+      case 'site':
+        return 'Chef de site';
+      case 'communication':
+        return 'Communication OPS';
+      default:
+        return type;
+    }
+  };
+
   const handleBackdropClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
       onClose();
@@ -56,9 +71,7 @@ const HistoryDialog: React.FC<HistoryDialogProps> = ({ isOpen, onClose }) => {
                   className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
                 >
                   <div className="flex justify-between items-start mb-2">
-                    <span className="font-semibold">
-                      {entry.type === 'group' ? 'Chef de groupe' : 'Chef de colonne'}
-                    </span>
+                    <span className="font-semibold">{getTypeLabel(entry.type)}</span>
                     <span className="text-sm text-gray-500">{entry.timestamp}</span>
                   </div>
                   <p className="text-sm text-gray-600 line-clamp-2">{entry.situation}</p>

@@ -1,42 +1,74 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
-import { Share2, Download, Check, Copy, Bug } from 'lucide-react';
+import { Share2, Download, Check, Copy, Bug, FileText, Send } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import CommandIcon from '../components/CommandIcon';
 import OrdreInitialView from '../components/OrdreInitialView';
 import { parseOrdreInitial } from '../utils/soiec';
-import { exportOrdreToClipboard, exportOrdreToPdf, exportOrdreToShare } from '../utils/export';
+import { exportOrdreToClipboard, exportOrdreToPdf, exportOrdreToShare, exportOrdreToWord, shareOrdreAsText, shareOrdreAsFile } from '../utils/export';
 import { OrdreInitial } from '../types/soiec';
 
 const Results = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { analysis, type, displaySections, fromDictation } = location.state || {};
+  const { analysis, type, displaySections, fromDictation, ordre, adresse, heure_ordre } = location.state || {};
   const [copied, setCopied] = useState(false);
   const [ordreInitial, setOrdreInitial] = useState<OrdreInitial | null>(null);
   const [showDebug, setShowDebug] = useState(false);
+  const sections = Array.isArray(displaySections) ? displaySections : [];
+  const showDictationSections = !!fromDictation && sections.length > 0;
+  const meta = { adresse, heure: heure_ordre };
 
   const isGroup = type === 'group';
 
+  const stringifyAnalysis = () => {
+    const text = typeof analysis === 'string'
+      ? analysis
+      : JSON.stringify(analysis, null, 2);
+    return text || 'Aucune donnée disponible';
+  };
+
+  const handleWord = async () => {
+    if (isGroup && ordreInitial) {
+      await exportOrdreToWord(ordreInitial, meta);
+    }
+  };
+
+  const handleShareTextChannels = (channel: 'sms' | 'whatsapp' | 'mail') => {
+    if (isGroup && ordreInitial) {
+      shareOrdreAsText(ordreInitial, channel, meta);
+    }
+  };
+
+  const handleShareFileChannel = async (format: 'pdf' | 'word', channel: 'mail' | 'whatsapp' | 'sms') => {
+    if (isGroup && ordreInitial) {
+      await shareOrdreAsFile(ordreInitial, format, channel, meta);
+    }
+  };
+
   useEffect(() => {
+    if (ordre) {
+      setOrdreInitial(ordre);
+      return;
+    }
     if (isGroup && typeof analysis === 'string' && !fromDictation) {
       setOrdreInitial(parseOrdreInitial(analysis));
     }
-  }, [analysis, isGroup, fromDictation]);
+  }, [analysis, isGroup, fromDictation, ordre]);
 
   const handleCopy = async () => {
     try {
       if (isGroup && ordreInitial && !showDebug) {
-        await exportOrdreToClipboard(ordreInitial);
+        await exportOrdreToClipboard(ordreInitial, meta);
       } else {
         let textToCopy = '';
-        if (fromDictation) {
-          textToCopy = displaySections
+        if (showDictationSections) {
+          textToCopy = sections
             .map((s: any) => `${s.title}:\n${s.content}`)
-            .join('\n\n');
+            .join('\n\n') || 'Aucune donnée disponible';
         } else {
-          textToCopy = typeof analysis === 'string' ? analysis : JSON.stringify(analysis, null, 2);
+          textToCopy = stringifyAnalysis();
         }
         await navigator.clipboard.writeText(textToCopy);
       }
@@ -51,11 +83,11 @@ const Results = () => {
   const handleShare = async () => {
     try {
       if (isGroup && ordreInitial && !showDebug) {
-        await exportOrdreToShare(ordreInitial);
+        await exportOrdreToShare(ordreInitial, meta);
       } else {
-        const textToShare = fromDictation
-          ? displaySections.map((s: any) => `${s.title}:\n${s.content}`).join('\n\n')
-          : analysis;
+        const textToShare = showDictationSections
+          ? sections.map((s: any) => `${s.title}:\n${s.content}`).join('\n\n')
+          : stringifyAnalysis();
 
         if (navigator.share) {
           await navigator.share({
@@ -73,7 +105,7 @@ const Results = () => {
 
   const handleDownloadPDF = () => {
     if (isGroup && ordreInitial && !showDebug) {
-      exportOrdreToPdf(ordreInitial);
+      exportOrdreToPdf(ordreInitial, meta);
       return;
     }
 
@@ -90,8 +122,8 @@ const Results = () => {
 
     let yPos = 50;
 
-    if (fromDictation) {
-      displaySections.forEach((section: any) => {
+    if (showDictationSections) {
+      sections.forEach((section: any) => {
         if (yPos > 270) {
           doc.addPage();
           yPos = 20;
@@ -109,7 +141,7 @@ const Results = () => {
         yPos += splitText.length * 7 + 10;
       });
     } else {
-      const splitText = doc.splitTextToSize(typeof analysis === 'string' ? analysis : JSON.stringify(analysis, null, 2), 170);
+      const splitText = doc.splitTextToSize(stringifyAnalysis(), 170);
       doc.text(splitText, 20, yPos);
     }
 
@@ -167,6 +199,52 @@ const Results = () => {
               <Bug className="w-5 h-5" />
             </button>
           )}
+          {isGroup && ordreInitial && (
+            <>
+              <button
+                onClick={() => handleShareTextChannels('sms')}
+                className="p-2.5 bg-[#151515] hover:bg-[#1A1A1A] border border-white/10 rounded-xl text-gray-400 hover:text-white transition-all duration-200"
+                title="Partager par SMS"
+              >
+                SMS
+              </button>
+              <button
+                onClick={() => handleShareTextChannels('whatsapp')}
+                className="p-2.5 bg-[#151515] hover:bg-[#1A1A1A] border border-white/10 rounded-xl text-gray-400 hover:text-white transition-all duration-200"
+                title="Partager par WhatsApp"
+              >
+                WA
+              </button>
+              <button
+                onClick={() => handleShareTextChannels('mail')}
+                className="p-2.5 bg-[#151515] hover:bg-[#1A1A1A] border border-white/10 rounded-xl text-gray-400 hover:text-white transition-all duration-200"
+                title="Partager par Mail"
+              >
+                <Send className="w-5 h-5" />
+              </button>
+              <button
+                onClick={handleWord}
+                className="p-2.5 bg-[#151515] hover:bg-[#1A1A1A] border border-white/10 rounded-xl text-gray-400 hover:text-white transition-all duration-200"
+                title="Exporter Word"
+              >
+                <FileText className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => handleShareFileChannel('pdf', 'mail')}
+                className="px-3 py-2 bg-[#151515] hover:bg-[#1A1A1A] border border-white/10 rounded-xl text-gray-400 hover:text-white transition-all duration-200 text-xs"
+                title="Envoyer PDF (pièce jointe si supporté)"
+              >
+                PDF Mail
+              </button>
+              <button
+                onClick={() => handleShareFileChannel('word', 'mail')}
+                className="px-3 py-2 bg-[#151515] hover:bg-[#1A1A1A] border border-white/10 rounded-xl text-gray-400 hover:text-white transition-all duration-200 text-xs"
+                title="Envoyer Word (pièce jointe si supporté)"
+              >
+                Word Mail
+              </button>
+            </>
+          )}
           <button
             onClick={handleCopy}
             className="p-2.5 bg-[#151515] hover:bg-[#1A1A1A] border border-white/10 rounded-xl text-gray-400 hover:text-white transition-all duration-200"
@@ -190,28 +268,83 @@ const Results = () => {
           </button>
         </div>
 
-        <div className={`w-full ${isGroup ? 'max-w-full' : 'max-w-4xl'} flex-1 bg-[#151515] border border-white/10 rounded-3xl p-6 md:p-8 shadow-2xl overflow-y-auto animate-fade-in-down`} style={{ animationDelay: '0.3s' }}>
-          {fromDictation ? (
-            <div className="space-y-8">
-              {displaySections.map((section: any, index: number) => (
-                <div key={index} className="border-b border-white/5 last:border-0 pb-6 last:pb-0">
-                  <h3 className="text-lg font-bold text-blue-400 mb-3 flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                    {section.title}
-                  </h3>
-                  <div className="text-gray-300 leading-relaxed whitespace-pre-wrap pl-3.5 border-l border-white/10">
-                    {section.content || <span className="text-gray-600 italic">Non renseigné</span>}
-                  </div>
-                </div>
-              ))}
+        {isGroup && ordreInitial && (
+          <div className="w-full max-w-full bg-white/5 border border-white/10 rounded-2xl p-4 mb-4 animate-fade-in-down" style={{ animationDelay: '0.22s' }}>
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <span className="text-sm text-gray-300 font-semibold">Partage & Export</span>
+              {adresse && <span className="text-xs text-gray-500 bg-white/10 px-2 py-1 rounded-full">Adresse: {adresse}</span>}
+              {heure_ordre && <span className="text-xs text-gray-500 bg-white/10 px-2 py-1 rounded-full">Heure: {heure_ordre}</span>}
             </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => handleShareTextChannels('sms')}
+                className="px-3 py-2 bg-[#151515] hover:bg-[#1A1A1A] border border-white/10 rounded-xl text-gray-300 hover:text-white transition-all duration-200 text-xs"
+              >
+                SMS (texte)
+              </button>
+              <button
+                onClick={() => handleShareTextChannels('whatsapp')}
+                className="px-3 py-2 bg-[#151515] hover:bg-[#1A1A1A] border border-white/10 rounded-xl text-gray-300 hover:text-white transition-all duration-200 text-xs"
+              >
+                WhatsApp (texte)
+              </button>
+              <button
+                onClick={() => handleShareTextChannels('mail')}
+                className="px-3 py-2 bg-[#151515] hover:bg-[#1A1A1A] border border-white/10 rounded-xl text-gray-300 hover:text-white transition-all duration-200 text-xs"
+              >
+                Mail (texte)
+              </button>
+              <button
+                onClick={() => handleShareFileChannel('pdf', 'mail')}
+                className="px-3 py-2 bg-[#151515] hover:bg-[#1A1A1A] border border-white/10 rounded-xl text-gray-300 hover:text-white transition-all duration-200 text-xs"
+              >
+                PDF (pj si supporté)
+              </button>
+              <button
+                onClick={() => handleShareFileChannel('word', 'mail')}
+                className="px-3 py-2 bg-[#151515] hover:bg-[#1A1A1A] border border-white/10 rounded-xl text-gray-300 hover:text-white transition-all duration-200 text-xs"
+              >
+                Word (pj si supporté)
+              </button>
+              <button
+                onClick={handleWord}
+                className="px-3 py-2 bg-[#151515] hover:bg-[#1A1A1A] border border-white/10 rounded-xl text-gray-300 hover:text-white transition-all duration-200 text-xs"
+              >
+                Word (télécharger)
+              </button>
+            </div>
+            <p className="mt-2 text-[11px] text-gray-500">
+              Sur mobile iOS/Android récents, les pièces jointes utilisent le panneau de partage système. Sur desktop ou navigateurs limités, un téléchargement est proposé.
+            </p>
+          </div>
+        )}
+
+        <div className={`w-full ${isGroup ? 'max-w-full' : 'max-w-4xl'} flex-1 bg-[#151515] border border-white/10 rounded-3xl p-6 md:p-8 shadow-2xl overflow-y-auto animate-fade-in-down`} style={{ animationDelay: '0.3s' }}>
+          {showDictationSections ? (
+            sections.length > 0 ? (
+              <div className="space-y-8">
+                {sections.map((section: any, index: number) => (
+                  <div key={index} className="border-b border-white/5 last:border-0 pb-6 last:pb-0">
+                    <h3 className="text-lg font-bold text-blue-400 mb-3 flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                      {section.title}
+                    </h3>
+                    <div className="text-gray-300 leading-relaxed whitespace-pre-wrap pl-3.5 border-l border-white/10">
+                      {section.content || <span className="text-gray-600 italic">Non renseigné</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-gray-400">Aucune donnée à afficher.</div>
+            )
           ) : (
             <>
               {isGroup && ordreInitial && !showDebug ? (
                 <OrdreInitialView ordre={ordreInitial} />
               ) : (
                 <div className="prose prose-invert max-w-none prose-headings:text-blue-400 prose-a:text-blue-400 hover:prose-a:text-blue-300 prose-strong:text-white prose-code:text-blue-300 prose-code:bg-blue-900/20 prose-code:px-1 prose-code:rounded">
-                  <ReactMarkdown>{typeof analysis === 'string' ? analysis : JSON.stringify(analysis, null, 2)}</ReactMarkdown>
+                  <ReactMarkdown>{stringifyAnalysis()}</ReactMarkdown>
                 </div>
               )}
             </>
@@ -232,4 +365,3 @@ const Results = () => {
 };
 
 export default Results;
-

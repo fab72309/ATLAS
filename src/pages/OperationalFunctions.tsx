@@ -8,11 +8,6 @@ const topRoles: Array<{ key: 'group' | 'column' | 'site'; label: string }> = [
   { key: 'site', label: 'Chef de site' },
 ];
 
-const bottomRoles: Array<{ key: 'security' | 'supply'; label: string }> = [
-  { key: 'security', label: 'Officier sécurité' },
-  { key: 'supply', label: 'Officier alimentation' },
-];
-
 const OperationalFunctions: React.FC = () => {
   const navigate = useNavigate();
 
@@ -59,25 +54,14 @@ const OperationalFunctions: React.FC = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 place-items-center mt-6 max-w-3xl mx-auto">
-              {/* Bottom Row */}
-              {bottomRoles.map((r) => (
-                <button
-                  key={r.key}
-                  onClick={() => navigate(`/command-type/${r.key}`)}
-                  className="group relative w-full max-w-[280px] aspect-square flex flex-col items-center justify-center bg-[#151515] hover:bg-[#1A1A1A] border border-white/10 hover:border-red-500/50 rounded-2xl transition-all duration-300 hover:shadow-[0_0_30px_rgba(239,68,68,0.2)] hover:-translate-y-1 overflow-hidden"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-br from-red-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-
-                  <div className="relative z-10 flex flex-col items-center gap-6 p-6">
-                    <div className="w-24 h-24 md:w-28 md:h-28 flex items-center justify-center transition-transform duration-300 group-hover:scale-110">
-                      <RoleBadgeIcon role={r.key} className="w-full h-full" />
-                    </div>
-                    <span className="text-lg md:text-xl font-semibold text-gray-200 group-hover:text-white tracking-wide text-center">
-                      {r.label}
-                    </span>
-                  </div>
-                </button>
-              ))}
+              <div className="w-full max-w-[280px] aspect-square flex flex-col items-center justify-center bg-[#151515] border border-dashed border-white/15 rounded-2xl text-gray-500">
+                <span className="text-lg font-semibold mb-2">Officier sécurité</span>
+                <span className="text-sm text-gray-500">Bientôt disponible</span>
+              </div>
+              <div className="w-full max-w-[280px] aspect-square flex flex-col items-center justify-center bg-[#151515] border border-dashed border-white/15 rounded-2xl text-gray-500">
+                <span className="text-lg font-semibold mb-2">Officier alimentation</span>
+                <span className="text-sm text-gray-500">Bientôt disponible</span>
+              </div>
             </div>
           </div>
         </div>

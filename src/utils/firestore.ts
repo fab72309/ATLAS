@@ -1,5 +1,5 @@
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from './firebase';
+import { auth, authReady, db } from './firebase';
 
 export interface AIAnalysisData {
   input: string;
@@ -21,6 +21,8 @@ export interface DictationData {
   anticipation?: string;
   groupe_horaire: Date;
   dominante?: string;
+  adresse?: string;
+  heure_ordre?: string;
 }
 
 export interface CommunicationData {
@@ -50,6 +52,7 @@ export interface CommunicationIAData {
 
 export const saveDictationData = async (data: DictationData) => {
   try {
+    await authReady;
     let collectionName = 'Chef_de_groupe';
     if (data.type === 'column') collectionName = 'Chef_de_colonne';
     if (data.type === 'site') collectionName = 'Chef_de_site';
@@ -70,6 +73,7 @@ export const saveDictationData = async (data: DictationData) => {
 
 export const saveAIAnalysis = async (data: AIAnalysisData) => {
   try {
+    await authReady;
     const collectionRef = collection(db, 'Chef_de_groupe_IA');
     const docRef = await addDoc(collectionRef, {
       ...data,
@@ -86,6 +90,7 @@ export const saveAIAnalysis = async (data: AIAnalysisData) => {
 
 export const saveCommunicationData = async (data: CommunicationData) => {
   try {
+    await authReady;
     const docRef = await addDoc(collection(db, 'Communication_OPS'), {
       ...data,
       uid: auth.currentUser?.uid || 'anonymous',
@@ -101,6 +106,7 @@ export const saveCommunicationData = async (data: CommunicationData) => {
 
 export const saveCommunicationIAData = async (data: CommunicationIAData) => {
   try {
+    await authReady;
     const docRef = await addDoc(collection(db, 'Communication_OPS_IA'), {
       ...data,
       uid: auth.currentUser?.uid || 'anonymous',

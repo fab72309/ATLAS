@@ -93,7 +93,7 @@ const SideMenu: React.FC<SideMenuProps> = ({ open, onClose }) => {
             </button>
 
             <div className={`space-y-1 overflow-hidden transition-all duration-300 ${opsOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
-              {['group', 'column', 'site', 'security', 'supply'].map((k) => {
+              {['group', 'column', 'site'].map((k) => {
                 const item = NAV_ITEMS.find(n => n.key === k);
                 if (!item) return null;
                 const active = isActive(item.path);
@@ -121,7 +121,7 @@ const SideMenu: React.FC<SideMenuProps> = ({ open, onClose }) => {
           <div>
             <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 px-2">Navigation</div>
             <div className="space-y-1">
-              {filtered.filter(n => !['group', 'column', 'site', 'security', 'supply'].includes(n.key as any)).map((item) => {
+              {filtered.filter(n => !['group', 'column', 'site'].includes(n.key as any)).map((item) => {
                 const active = isActive(item.path);
                 return (
                   <div key={item.key} className={`group flex items-center gap-2 rounded-xl px-3 py-2 transition-all duration-200 ${active ? 'bg-blue-600/20 text-blue-400' : 'hover:bg-white/5 text-gray-300 hover:text-white'}`}>
@@ -155,5 +155,3 @@ const SideMenu: React.FC<SideMenuProps> = ({ open, onClose }) => {
 };
 
 export default SideMenu;
-
-

@@ -27,12 +27,18 @@ class AppErrorBoundary extends React.Component<React.PropsWithChildren<{}>, AppE
   render() {
     if (this.state.hasError) {
       // Lightweight fallback UI consistent with app style
+      const details = this.state.error?.message || String(this.state.error || '');
       return (
         <div className="min-h-screen bg-[#00051E] text-white flex flex-col items-center justify-center p-4">
           <h1 className="text-xl font-bold mb-2">Une erreur est survenue</h1>
           <p className="text-white/80 mb-4 text-center max-w-md">
             La page n'a pas pu s'afficher. Vous pouvez revenir à l'accueil et réessayer.
           </p>
+          {details && (
+            <div className="mb-4 max-w-xl text-xs text-red-200 bg-white/5 border border-white/10 rounded-lg p-3 whitespace-pre-wrap">
+              {details}
+            </div>
+          )}
           <a href="#/" className="bg-[#FF1801] hover:bg-[#D91601] transition-colors text-white px-4 py-2 rounded-3xl">Accueil</a>
           <button onClick={this.handleReset} className="mt-2 text-sm text-white/70 underline">Réessayer ici</button>
         </div>
