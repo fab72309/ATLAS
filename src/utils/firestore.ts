@@ -1,5 +1,5 @@
-import { collection, addDoc } from 'firebase/firestore';
-import { db } from './firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { auth, db } from './firebase';
 
 export interface AIAnalysisData {
   input: string;
@@ -12,7 +12,7 @@ export interface AIAnalysisData {
 }
 
 export interface DictationData {
-  type: 'group' | 'column';
+  type: 'group' | 'column' | 'site';
   situation: string;
   objectifs: string;
   idees: string;
@@ -20,6 +20,7 @@ export interface DictationData {
   commandement: string;
   anticipation?: string;
   groupe_horaire: Date;
+  dominante?: string;
 }
 
 export interface CommunicationData {
@@ -31,6 +32,7 @@ export interface CommunicationData {
   Moyens: string;
   Actions_secours: string;
   Conseils_population: string;
+  dominante?: string;
 }
 
 export interface CommunicationIAData {
@@ -43,12 +45,21 @@ export interface CommunicationIAData {
   Moyens: string;
   Actions_secours: string;
   Conseils_population: string;
+  dominante?: string;
 }
 
 export const saveDictationData = async (data: DictationData) => {
   try {
-    const collectionRef = collection(db, data.type === 'group' ? 'Chef_de_groupe' : 'Chef_de_colonne');
-    const docRef = await addDoc(collectionRef, data);
+    let collectionName = 'Chef_de_groupe';
+    if (data.type === 'column') collectionName = 'Chef_de_colonne';
+    if (data.type === 'site') collectionName = 'Chef_de_site';
+
+    const collectionRef = collection(db, collectionName);
+    const docRef = await addDoc(collectionRef, {
+      ...data,
+      uid: auth.currentUser?.uid || 'anonymous',
+      createdAt: serverTimestamp()
+    });
     console.log('Document written with ID: ', docRef.id);
     return docRef.id;
   } catch (error) {
@@ -60,7 +71,11 @@ export const saveDictationData = async (data: DictationData) => {
 export const saveAIAnalysis = async (data: AIAnalysisData) => {
   try {
     const collectionRef = collection(db, 'Chef_de_groupe_IA');
-    const docRef = await addDoc(collectionRef, data);
+    const docRef = await addDoc(collectionRef, {
+      ...data,
+      uid: auth.currentUser?.uid || 'anonymous',
+      createdAt: serverTimestamp()
+    });
     console.log('AI Analysis saved with ID:', docRef.id);
     return docRef.id;
   } catch (error) {
@@ -71,7 +86,11 @@ export const saveAIAnalysis = async (data: AIAnalysisData) => {
 
 export const saveCommunicationData = async (data: CommunicationData) => {
   try {
-    const docRef = await addDoc(collection(db, 'Communication_OPS'), data);
+    const docRef = await addDoc(collection(db, 'Communication_OPS'), {
+      ...data,
+      uid: auth.currentUser?.uid || 'anonymous',
+      createdAt: serverTimestamp()
+    });
     console.log('Document written with ID:', docRef.id);
     return docRef.id;
   } catch (error) {
@@ -82,7 +101,11 @@ export const saveCommunicationData = async (data: CommunicationData) => {
 
 export const saveCommunicationIAData = async (data: CommunicationIAData) => {
   try {
-    const docRef = await addDoc(collection(db, 'Communication_OPS_IA'), data);
+    const docRef = await addDoc(collection(db, 'Communication_OPS_IA'), {
+      ...data,
+      uid: auth.currentUser?.uid || 'anonymous',
+      createdAt: serverTimestamp()
+    });
     console.log('Communication IA analysis saved with ID:', docRef.id);
     return docRef.id;
   } catch (error) {

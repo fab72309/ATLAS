@@ -1,27 +1,36 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Home from './pages/Home';
 import CommandTypeChoice from './pages/CommandTypeChoice';
 import SituationInput from './pages/SituationInput';
 import DictationInput from './pages/DictationInput';
 import Results from './pages/Results';
 import OperationalZoning from './pages/OperationalZoning';
+import OperationalFunctions from './pages/OperationalFunctions';
+import SettingsPage from './pages/Settings';
 import Layout from './components/Layout';
+import AppErrorBoundary from './components/AppErrorBoundary';
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Home />} />
-          <Route path="command-type/:type" element={<CommandTypeChoice />} />
-          <Route path="situation/:type/ai" element={<SituationInput />} />
-          <Route path="situation/:type/dictate" element={<DictationInput />} />
-          <Route path="results" element={<Results />} />
-          <Route path="operational-zoning" element={<OperationalZoning />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <HashRouter>
+      <AppErrorBoundary>
+        <Routes>
+          <Route path="/" element={<Layout />}>
+            <Route index element={<Home />} />
+            <Route path="index.html" element={<Navigate to="/" replace />} />
+            <Route path="functions" element={<OperationalFunctions />} />
+            <Route path="command-type/:type" element={<CommandTypeChoice />} />
+            <Route path="situation/:type/ai" element={<SituationInput />} />
+            <Route path="situation/:type/dictate" element={<DictationInput />} />
+            <Route path="results" element={<Results />} />
+            <Route path="operational-zoning" element={<OperationalZoning />} />
+            <Route path="settings" element={<SettingsPage />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Route>
+        </Routes>
+      </AppErrorBoundary>
+    </HashRouter>
   );
 }
 

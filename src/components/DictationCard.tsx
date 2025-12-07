@@ -49,7 +49,7 @@ const DictationCard: React.FC<DictationCardProps> = ({
   };
 
   return (
-    <div className="bg-white h-[calc(100vh-22rem)] rounded-3xl p-4 flex flex-col mx-auto w-full max-w-4xl relative">
+    <div className="bg-white min-h-[50vh] md:h-[calc(100vh-22rem)] rounded-3xl p-4 flex flex-col mx-auto w-full max-w-4xl relative">
       <h2 className="text-lg font-bold text-gray-800 mb-2">{title}</h2>
       {error && (
         <div className="absolute top-4 right-4 left-4 bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded-lg">
@@ -60,7 +60,7 @@ const DictationCard: React.FC<DictationCardProps> = ({
         <textarea
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className={`w-full h-full resize-none rounded-2xl p-2 pr-14 text-gray-800 text-sm focus:outline-none border-2 ${
+          className={`w-full min-h-[40vh] md:h-full resize-none rounded-2xl p-2 pr-14 text-gray-800 text-sm focus:outline-none border-2 ${
             isActive ? 'border-gray-300' : 'border-gray-200'
           } overflow-y-auto`}
           placeholder={placeholder}

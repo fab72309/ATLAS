@@ -1,195 +1,235 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { History, Share2, Sparkles } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import HistoryDialog from '../components/HistoryDialog';
-import ShareDialog from '../components/ShareDialog';
-import { analyzeEmergency } from '../utils/openai';
-import { saveAIAnalysis, saveCommunicationIAData } from '../utils/firestore';
-
-interface Section {
-  title: string;
-  content: string;
-}
+import { Share2, Download, Check, Copy, Bug } from 'lucide-react';
+import { jsPDF } from 'jspdf';
+import CommandIcon from '../components/CommandIcon';
+import OrdreInitialView from '../components/OrdreInitialView';
+import { parseOrdreInitial } from '../utils/soiec';
+import { exportOrdreToClipboard, exportOrdreToPdf, exportOrdreToShare } from '../utils/export';
+import { OrdreInitial } from '../types/soiec';
 
 const Results = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { analysis, displaySections: initialSections, type, fromDictation, fromAI } = location.state || {};
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [isShareOpen, setIsShareOpen] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const { analysis, type, displaySections, fromDictation } = location.state || {};
+  const [copied, setCopied] = useState(false);
+  const [ordreInitial, setOrdreInitial] = useState<OrdreInitial | null>(null);
+  const [showDebug, setShowDebug] = useState(false);
 
-  const handleAIAnalysis = async () => {
-    if (!initialSections) return;
-    
-    setIsAnalyzing(true);
+  const isGroup = type === 'group';
+
+  useEffect(() => {
+    if (isGroup && typeof analysis === 'string' && !fromDictation) {
+      setOrdreInitial(parseOrdreInitial(analysis));
+    }
+  }, [analysis, isGroup, fromDictation]);
+
+  const handleCopy = async () => {
     try {
-      let situationText;
-      if (type === 'communication') {
-        situationText = initialSections.map(s => `${s.title}:\n${s.content}`).join('\n\n');
+      if (isGroup && ordreInitial && !showDebug) {
+        await exportOrdreToClipboard(ordreInitial);
       } else {
-        situationText = initialSections.find(s => s.title.toLowerCase() === 'situation')?.content;
+        let textToCopy = '';
+        if (fromDictation) {
+          textToCopy = displaySections
+            .map((s: any) => `${s.title}:\n${s.content}`)
+            .join('\n\n');
+        } else {
+          textToCopy = typeof analysis === 'string' ? analysis : JSON.stringify(analysis, null, 2);
+        }
+        await navigator.clipboard.writeText(textToCopy);
       }
 
-      if (!situationText) {
-        throw new Error('No situation text found');
-      }
-
-      const analysis = await analyzeEmergency(situationText, type as 'group' | 'column' | 'communication');
-      
-      // Parse sections from the analysis
-      let sections: Record<string, string> = {};
-
-      if (type === 'communication') {
-        // Save to Communication_OPS_IA collection
-        await saveCommunicationIAData({
-          input: situationText,
-          groupe_horaire: new Date(),
-          Engagement_secours: initialSections.find(s => s.title === 'Engagement des secours')?.content || '',
-          Situation_appel: initialSections.find(s => s.title === 'Situation à l\'appel')?.content || '',
-          Situation_arrivee: initialSections.find(s => s.title === 'Situation à l\'arrivée des secours')?.content || '',
-          Nombre_victimes: initialSections.find(s => s.title === 'Nombres de victimes')?.content || '',
-          Moyens: initialSections.find(s => s.title === 'Moyens mis en œuvre')?.content || '',
-          Actions_secours: initialSections.find(s => s.title === 'Actions des secours')?.content || '',
-          Conseils_population: initialSections.find(s => s.title === 'Conseils à la population')?.content || ''
-        });
-      } else {
-        const matches = analysis.match(/\*\*(.*?):\*\*\s*([\s\S]*?)(?=\*\*|$)/g) || [];
-        matches.forEach(match => {
-          const [, title, content] = match.match(/\*\*(.*?):\*\*\s*([\s\S]*?)$/) || [];
-          if (title && content) {
-            sections[title.toLowerCase().trim()] = content.trim();
-          }
-        });
-        
-        // Save to Chef_de_groupe_IA or Chef_de_colonne_IA collection
-        await saveAIAnalysis({
-          input: situationText,
-          output_situation: sections.situation || '',
-          output_objectifs: sections.objectifs || '',
-          output_idees_manoeuvre: sections['idées de manœuvre'] || '',
-          output_execution: sections.exécution || '',
-          output_commandement: sections.commandement || '',
-          groupe_horaire: new Date()
-        });
-      }
-
-      // Navigate to new results page with AI analysis
-      navigate('/results', { 
-        state: { 
-          analysis,
-          type,
-          fromAI: true
-        },
-        replace: true
-      });
-    } catch (error) {
-      console.error('Error:', error);
-      alert(error.message || 'Une erreur est survenue lors de l\'analyse. Veuillez réessayer.');
-    } finally {
-      setIsAnalyzing(false);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
     }
   };
 
-  // Parse sections from markdown output
-  const displaySections = React.useMemo(() => {
-    if (initialSections) return initialSections;
-    if (!analysis) return [];
-    
-    if (type === 'communication') {
-      return [{
-        title: 'Point de Situation',
-        content: analysis
-      }];
+  const handleShare = async () => {
+    try {
+      if (isGroup && ordreInitial && !showDebug) {
+        await exportOrdreToShare(ordreInitial);
+      } else {
+        const textToShare = fromDictation
+          ? displaySections.map((s: any) => `${s.title}:\n${s.content}`).join('\n\n')
+          : analysis;
+
+        if (navigator.share) {
+          await navigator.share({
+            title: 'Rapport A.T.L.A.S',
+            text: textToShare,
+          });
+        } else {
+          handleCopy();
+        }
+      }
+    } catch (err) {
+      console.error('Error sharing:', err);
+    }
+  };
+
+  const handleDownloadPDF = () => {
+    if (isGroup && ordreInitial && !showDebug) {
+      exportOrdreToPdf(ordreInitial);
+      return;
     }
 
-    // Split by section headers
-    const sections = analysis.split(/^-\s*\*\*/m).filter(Boolean);
-    return sections.map(section => {
-      const [title, ...contentParts] = section.split(':**');
-      if (!contentParts.length) return null;
-      
-      const content = contentParts.join(':**').trim();
-      return {
-        title: title.trim(),
-        content: content
-          .replace(/^\s*\[.*?\]\s*$/gm, '') // Remove placeholder text
-          .replace(/^-\s+/gm, '• ') // Convert dashes to bullets
-          .trim()
-      }
-    }).filter((section): section is Section => section !== null);
-  }, [analysis, initialSections]);
+    const doc = new jsPDF();
+    const date = new Date().toLocaleDateString('fr-FR');
+    const time = new Date().toLocaleTimeString('fr-FR');
 
-  return (
-    <div className="min-h-screen flex flex-col relative">
-      <div className="p-4 flex justify-between items-center">
-        <button 
-          onClick={() => navigate('/')}
-          className="bg-[#FF1801] hover:bg-[#D91601] transition-colors text-white px-4 py-2 rounded-3xl"
-        >
-          Accueil
-        </button>
-        <button
-          onClick={() => setIsShareOpen(true)}
-          className="p-2 hover:bg-[#1A1A1A] rounded-full transition-colors"
-        >
-          <Share2 className="w-6 h-6 text-white" />
-        </button>
-      </div>
+    doc.setFontSize(20);
+    doc.text('Rapport A.T.L.A.S', 20, 20);
 
-      <div className="flex-1 flex flex-col px-4 pb-24">
-        <h1 className="text-xl md:text-2xl font-bold text-white mb-4 text-center">
-          {type === 'communication' ? 'Point de Situation' : 'Analyse de la Situation'}
-        </h1>
+    doc.setFontSize(12);
+    doc.text(`Généré le ${date} à ${time}`, 20, 30);
+    doc.text(`Type: ${type}`, 20, 36);
 
-        <div className="grid grid-cols-1 gap-4 w-full max-w-4xl mx-auto">
-          {displaySections.map((section, index) => (
-            <div key={index} className="bg-white rounded-2xl p-3 shadow-lg">
-              <h2 className="text-base font-bold text-gray-800 mb-1 border-b pb-1">
-                {section.title.replace(/^- /, '')}
-              </h2>
-              <div className="prose max-w-none text-gray-700 text-xs">
-                <ReactMarkdown>{section.content}</ReactMarkdown>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-      
-      <div className="fixed bottom-0 left-0 right-0 bg-[#00051E] p-4">
-        <div className="w-full max-w-4xl mx-auto flex gap-2">
+    let yPos = 50;
+
+    if (fromDictation) {
+      displaySections.forEach((section: any) => {
+        if (yPos > 270) {
+          doc.addPage();
+          yPos = 20;
+        }
+
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text(section.title, 20, yPos);
+        yPos += 8;
+
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'normal');
+        const splitText = doc.splitTextToSize(section.content, 170);
+        doc.text(splitText, 20, yPos);
+        yPos += splitText.length * 7 + 10;
+      });
+    } else {
+      const splitText = doc.splitTextToSize(typeof analysis === 'string' ? analysis : JSON.stringify(analysis, null, 2), 170);
+      doc.text(splitText, 20, yPos);
+    }
+
+    doc.save(`atlas-rapport-${Date.now()}.pdf`);
+  };
+
+  if (!location.state) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0A0A0A] text-white">
+        <div className="text-center animate-fade-in-down">
+          <p className="text-xl text-gray-400 mb-4">Aucune donnée à afficher</p>
           <button
             onClick={() => navigate('/')}
-            className="bg-[#FF1801] hover:bg-[#D91601] transition-colors text-white py-2 px-4 rounded-3xl text-sm font-semibold"
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors"
           >
-            Nouvelle analyse
+            Retour à l'accueil
           </button>
-          {type === 'communication' && !fromAI && (
-            <button
-              onClick={handleAIAnalysis}
-              disabled={isAnalyzing}
-              className="bg-[#1A1A1A] hover:bg-[#2A2A2A] disabled:bg-gray-500 transition-colors text-white py-2 px-4 rounded-3xl text-sm font-semibold flex items-center justify-center gap-2"
-            >
-              {isAnalyzing ? 'Analyse en cours...' : (
-                <>
-                  Générer avec l'IA<Sparkles className="w-5 h-5 text-white" />
-                </>
-              )}
-            </button>
-          )}
         </div>
       </div>
-      
-      <HistoryDialog isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} />
-      <ShareDialog 
-        isOpen={isShareOpen}
-        onClose={() => setIsShareOpen(false)}
-        analysis={analysis || ''}
-        displaySections={displaySections}
-      />
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden bg-[#0A0A0A] text-white">
+      {/* Background Ambient Glow */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-900/10 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-900/10 rounded-full blur-[120px]" />
+      </div>
+
+      <div className={`relative z-10 w-full ${isGroup ? 'max-w-[98%]' : 'max-w-4xl'} mx-auto px-4 py-6 flex flex-col items-center h-full`}>
+        <div className="flex flex-col items-center mb-6 animate-fade-in-down">
+          <h1 className="text-2xl md:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400 mb-1">
+            A.T.L.A.S
+          </h1>
+          <p className="text-gray-400 text-center text-xs md:text-sm font-light tracking-wide">
+            Aide Tactique et Logique pour l'Action des Secours
+          </p>
+        </div>
+
+        <div className="w-full max-w-[120px] mb-6 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
+          <CommandIcon type={type} />
+        </div>
+
+        <div className={`w-full ${isGroup ? 'max-w-full' : 'max-w-4xl'} flex justify-end gap-3 mb-4 animate-fade-in-down`} style={{ animationDelay: '0.2s' }}>
+          {isGroup && (
+            <button
+              onClick={() => setShowDebug(!showDebug)}
+              className={`p-2.5 border rounded-xl transition-all duration-200 ${showDebug
+                ? 'bg-red-500/20 border-red-500 text-red-400'
+                : 'bg-[#151515] border-white/10 text-gray-400 hover:text-white'
+                }`}
+              title="Mode Debug (JSON brut)"
+            >
+              <Bug className="w-5 h-5" />
+            </button>
+          )}
+          <button
+            onClick={handleCopy}
+            className="p-2.5 bg-[#151515] hover:bg-[#1A1A1A] border border-white/10 rounded-xl text-gray-400 hover:text-white transition-all duration-200"
+            title="Copier"
+          >
+            {copied ? <Check className="w-5 h-5 text-green-500" /> : <Copy className="w-5 h-5" />}
+          </button>
+          <button
+            onClick={handleShare}
+            className="p-2.5 bg-[#151515] hover:bg-[#1A1A1A] border border-white/10 rounded-xl text-gray-400 hover:text-white transition-all duration-200"
+            title="Partager"
+          >
+            <Share2 className="w-5 h-5" />
+          </button>
+          <button
+            onClick={handleDownloadPDF}
+            className="p-2.5 bg-[#151515] hover:bg-[#1A1A1A] border border-white/10 rounded-xl text-gray-400 hover:text-white transition-all duration-200"
+            title="Télécharger PDF"
+          >
+            <Download className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className={`w-full ${isGroup ? 'max-w-full' : 'max-w-4xl'} flex-1 bg-[#151515] border border-white/10 rounded-3xl p-6 md:p-8 shadow-2xl overflow-y-auto animate-fade-in-down`} style={{ animationDelay: '0.3s' }}>
+          {fromDictation ? (
+            <div className="space-y-8">
+              {displaySections.map((section: any, index: number) => (
+                <div key={index} className="border-b border-white/5 last:border-0 pb-6 last:pb-0">
+                  <h3 className="text-lg font-bold text-blue-400 mb-3 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                    {section.title}
+                  </h3>
+                  <div className="text-gray-300 leading-relaxed whitespace-pre-wrap pl-3.5 border-l border-white/10">
+                    {section.content || <span className="text-gray-600 italic">Non renseigné</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <>
+              {isGroup && ordreInitial && !showDebug ? (
+                <OrdreInitialView ordre={ordreInitial} />
+              ) : (
+                <div className="prose prose-invert max-w-none prose-headings:text-blue-400 prose-a:text-blue-400 hover:prose-a:text-blue-300 prose-strong:text-white prose-code:text-blue-300 prose-code:bg-blue-900/20 prose-code:px-1 prose-code:rounded">
+                  <ReactMarkdown>{typeof analysis === 'string' ? analysis : JSON.stringify(analysis, null, 2)}</ReactMarkdown>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className={`w-full ${isGroup ? 'max-w-full' : 'max-w-4xl'} mt-6 mb-[calc(env(safe-area-inset-bottom,0)+12px)] animate-fade-in-down`} style={{ animationDelay: '0.4s' }}>
+          <button
+            onClick={() => navigate('/')}
+            className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-gray-300 hover:text-white py-4 rounded-2xl text-lg font-medium transition-all duration-200"
+          >
+            Retour à l'accueil
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
 
 export default Results;
+

@@ -9,7 +9,7 @@ interface HistoryDialogProps {
 }
 
 const HistoryDialog: React.FC<HistoryDialogProps> = ({ isOpen, onClose }) => {
-  const [history] = React.useState<HistoryEntry[]>(getHistory);
+  const [history] = React.useState<HistoryEntry[]>(() => getHistory());
   const navigate = useNavigate();
 
   if (!isOpen) return null;

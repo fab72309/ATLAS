@@ -7,7 +7,7 @@ interface LogoProps {
 const Logo: React.FC<LogoProps> = ({ className = '' }) => {
   return (
     <img 
-      src="/logo.png" 
+      src="/Logo_4.png" 
       alt="A.T.L.A.S Logo"
       className={`w-auto h-full max-w-[200px] ${className}`}
       width="200"

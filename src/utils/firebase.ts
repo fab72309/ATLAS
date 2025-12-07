@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
+import { getAuth, signInAnonymously } from 'firebase/auth';
 import { getAnalytics } from 'firebase/analytics';
 
 const firebaseConfig = {
@@ -14,8 +15,20 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-export const analytics = getAnalytics(app);
+let analyticsInstance: ReturnType<typeof getAnalytics> | null = null;
+try {
+  analyticsInstance = getAnalytics(app);
+} catch (e) {
+  console.warn('Analytics disabled or unsupported in this environment');
+}
+export const analytics = analyticsInstance as any;
 export const db = getFirestore(app);
+export const auth = getAuth(app);
+
+// Ensure an authenticated context for Firestore rules
+signInAnonymously(auth).catch((err) => {
+  console.warn('Anonymous auth failed:', err);
+});
 
 // Enable offline persistence
 import { enableIndexedDbPersistence } from 'firebase/firestore';

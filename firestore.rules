@@ -4,76 +4,78 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // Helper functions
     function isValidEmergencyData() {
-      let requiredFields = ['groupe_horaire'];
-      return request.resource.data.keys().hasAll(requiredFields);
+      return request.resource.data.groupe_horaire is timestamp
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.uid is string
+        && request.resource.data.uid == request.auth.uid;
     }
 
     function isValidCommunicationData() {
-      let requiredFields = [
-        'groupe_horaire',
-        'Engagement_secours',
-        'Situation_appel',
-        'Situation_arrivee',
-        'Nombre_victimes',
-        'Moyens',
-        'Actions_secours',
-        'Conseils_population'
-      ];
-      return request.resource.data.keys().hasAll(requiredFields);
+      return request.resource.data.groupe_horaire is timestamp
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.uid is string
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.Engagement_secours is string
+        && request.resource.data.Situation_appel is string
+        && request.resource.data.Situation_arrivee is string
+        && request.resource.data.Nombre_victimes is string
+        && request.resource.data.Moyens is string
+        && request.resource.data.Actions_secours is string
+        && request.resource.data.Conseils_population is string;
     }
 
     function isValidCommunicationIAData() {
-      let requiredFields = [
-        'input',
-        'groupe_horaire',
-        'Engagement_secours',
-        'Situation_appel',
-        'Situation_arrivee',
-        'Nombre_victimes',
-        'Moyens',
-        'Actions_secours',
-        'Conseils_population'
-      ];
-      return request.resource.data.keys().hasAll(requiredFields);
+      return request.resource.data.input is string
+        && request.resource.data.groupe_horaire is timestamp
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.uid is string
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.Engagement_secours is string
+        && request.resource.data.Situation_appel is string
+        && request.resource.data.Situation_arrivee is string
+        && request.resource.data.Nombre_victimes is string
+        && request.resource.data.Moyens is string
+        && request.resource.data.Actions_secours is string
+        && request.resource.data.Conseils_population is string;
     }
 
     // Chef de groupe collection
     match /Chef_de_groupe/{docId} {
-      allow read: if true;
-      allow create: if isValidEmergencyData();
+      allow create: if request.auth != null && isValidEmergencyData();
+      allow read: if request.auth != null && resource.data.uid == request.auth.uid;
       allow update, delete: if false;
     }
 
     // Chef de colonne collection
     match /Chef_de_colonne/{docId} {
-      allow read: if true;
-      allow create: if isValidEmergencyData();
+      allow create: if request.auth != null && isValidEmergencyData();
+      allow read: if request.auth != null && resource.data.uid == request.auth.uid;
       allow update, delete: if false;
     }
 
     // AI analysis collections
     match /Chef_de_groupe_IA/{docId} {
-      allow read: if true;
-      allow create: if isValidEmergencyData();
+      allow create: if request.auth != null && isValidEmergencyData();
+      allow read: if request.auth != null && resource.data.uid == request.auth.uid;
       allow update, delete: if false;
     }
 
     match /Chef_de_colonne_IA/{docId} {
-      allow read: if true;
-      allow create: if isValidEmergencyData();
+      allow create: if request.auth != null && isValidEmergencyData();
+      allow read: if request.auth != null && resource.data.uid == request.auth.uid;
       allow update, delete: if false;
     }
 
     // Communication OPS collections
     match /Communication_OPS/{docId} {
-      allow read: if true;
-      allow create: if isValidCommunicationData();
+      allow create: if request.auth != null && isValidCommunicationData();
+      allow read: if request.auth != null && resource.data.uid == request.auth.uid;
       allow update, delete: if false;
     }
 
     match /Communication_OPS_IA/{docId} {
-      allow read: if true;
-      allow create: if isValidCommunicationIAData();
+      allow create: if request.auth != null && isValidCommunicationIAData();
+      allow read: if request.auth != null && resource.data.uid == request.auth.uid;
       allow update, delete: if false;
     }
 

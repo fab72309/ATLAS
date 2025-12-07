@@ -4,8 +4,7 @@ import { MapPin, Search, Layers, Plus, Minus, Share2, Download, FileImage, X, Ma
 import { MapContainer, TileLayer, Marker, Circle, useMap, useMapEvents, ScaleControl } from 'react-leaflet';
 import axios from 'axios';
 import L from 'leaflet';
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
+// Heavy libs are loaded on demand
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import 'leaflet/dist/leaflet.css';
@@ -29,11 +28,12 @@ const redMarkerIcon = new L.Icon({
   className: 'incident-marker'
 });
 
-// Map layer URLs
+// Map layer URLs (use CORS-friendly providers)
 const MAP_LAYERS = {
   street: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-  satellite: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
-  hybrid: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}'
+  // Use Carto Voyager tiles (CORS-enabled). Replace with MapTiler/Mapbox if you have keys
+  satellite: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+  hybrid: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_labels_under/{z}/{x}/{y}.png'
 };
 
 // Component to handle map location updates
@@ -43,8 +43,8 @@ const MapUpdater: React.FC<{ center: [number, number] }> = ({ center }) => {
     map.setView(center, 16);
 
     const northArrow = L.control({ position: 'topright' });
-    
-    northArrow.onAdd = function() {
+
+    northArrow.onAdd = function () {
       const div = L.DomUtil.create('div', 'north-arrow-container');
       div.innerHTML = `
         <div class="north-arrow">
@@ -54,9 +54,9 @@ const MapUpdater: React.FC<{ center: [number, number] }> = ({ center }) => {
       `;
       return div;
     };
-    
+
     northArrow.addTo(map);
-    
+
     return () => {
       map.removeControl(northArrow);
     };
@@ -96,7 +96,7 @@ const ShareDialog: React.FC<{
   const handleShare = (method: 'email' | 'sms' | 'whatsapp') => {
     const subject = `Zonage opérationnel - ${format(new Date(), 'Pp', { locale: fr })}`;
     const body = `Zonage opérationnel\n\nDate: ${format(new Date(), 'Pp', { locale: fr })}\nAdresse: ${address}\n\nZones:\n- Zone d'exclusion: ${zones.exclusion}m\n- Zone contrôlée: ${zones.controlled}m\n- Zone de soutien: ${zones.support}m`;
-    
+
     switch (method) {
       case 'email':
         window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
@@ -122,6 +122,7 @@ const ShareDialog: React.FC<{
 
   const captureMap = async () => {
     if (!mapRef.current) return null;
+    const { default: html2canvas } = await import('html2canvas');
     const canvas = await html2canvas(mapRef.current, {
       useCORS: true,
       allowTaint: true,
@@ -134,12 +135,12 @@ const ShareDialog: React.FC<{
     try {
       const canvas = await captureMap();
       if (!canvas) return;
-      
+
       canvas.toBlob((blob) => {
         if (!blob) return;
         const fileName = `${generateFileName()}.png`;
         const file = new File([blob], fileName, { type: 'image/png' });
-        
+
         // Create download link
         const link = document.createElement('a');
         link.href = URL.createObjectURL(file);
@@ -161,6 +162,7 @@ const ShareDialog: React.FC<{
       if (!canvas) return;
 
       const imgData = canvas.toDataURL('image/png');
+      const { jsPDF } = await import('jspdf');
       const pdf = new jsPDF({
         orientation: 'landscape',
         unit: 'mm',
@@ -168,7 +170,7 @@ const ShareDialog: React.FC<{
 
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
-      
+
       // Add title and date
       pdf.setFontSize(16);
       pdf.text('Zonage opérationnel', 14, 15);
@@ -291,10 +293,11 @@ const OperationalZoning = () => {
   const fetchWeather = useCallback(async (lat: number, lon: number) => {
     try {
       const response = await axios.get(
-        `https://api.weatherapi.com/v1/current.json?key=${import.meta.env.VITE_WEATHER_API_KEY}&q=${lat},${lon}&aqi=no`
+        `https://api.weatherapi.com/v1/current.json`,
+        { params: { key: import.meta.env.VITE_WEATHER_API_KEY, q: `${lat},${lon}`, aqi: 'no', lang: 'fr' } }
       );
       console.log('Weather data:', response.data); // Pour le débogage
-      
+
       const current = response.data.current;
       setWeather({
         temperature: Math.round(current.temp_c),
@@ -321,7 +324,7 @@ const OperationalZoning = () => {
         (error) => {
           console.error('Error getting location:', error);
           let errorMessage = 'Une erreur est survenue lors de la géolocalisation.';
-          
+
           switch (error.code) {
             case error.PERMISSION_DENIED:
               errorMessage = 'Accès à la localisation refusé. Vous pouvez saisir une adresse manuellement.';
@@ -333,7 +336,7 @@ const OperationalZoning = () => {
               errorMessage = 'Délai d\'attente dépassé. Veuillez réessayer ou saisir une adresse.';
               break;
           }
-          
+
           setError(errorMessage);
           setIsLocationRequested(false);
           setIsGeolocating(false);
@@ -383,14 +386,14 @@ const OperationalZoning = () => {
   };
 
   const adjustRadius = (increment: boolean, type: 'exclusion' | 'controlled' | 'support') => {
-    const setRadius = type === 'exclusion' ? setExclusionRadius : 
-                     type === 'controlled' ? setControlledRadius : 
-                     setSupportRadius;
+    const setRadius = type === 'exclusion' ? setExclusionRadius :
+      type === 'controlled' ? setControlledRadius :
+        setSupportRadius;
 
     setRadius(prev => {
       const step = 10; // Fixed step of 10m
       const newRadius = increment ? prev + step : prev - step;
-      
+
       // Ensure exclusion zone is smaller than controlled zone
       if (type === 'exclusion') {
         return Math.max(50, Math.min(controlledRadius - 10, newRadius));
@@ -404,17 +407,25 @@ const OperationalZoning = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#00051E]">
-      <div className="p-4 flex justify-between items-center">
-        <style>
-          {`
+    <div className="min-h-screen flex flex-col bg-[#0A0A0A] relative overflow-hidden">
+      {/* Background Ambient Glow */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-900/10 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-orange-900/10 rounded-full blur-[120px]" />
+      </div>
+
+      <div className="relative z-10 flex flex-col h-full">
+        <div className="p-4 flex justify-between items-center">
+          <style>
+            {`
             .north-arrow-container {
-              background: white;
+              background: rgba(20, 20, 20, 0.8);
+              backdrop-filter: blur(8px);
               padding: 8px;
-              border-radius: 4px;
-              box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+              border-radius: 12px;
+              box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
               margin-right: 10px !important;
-              border: 2px solid #FF1801;
+              border: 1px solid rgba(255, 255, 255, 0.1);
             }
             
             .north-arrow {
@@ -425,333 +436,338 @@ const OperationalZoning = () => {
             }
             
             .north-arrow-icon {
-              color: #FF1801;
+              color: #FF4500;
               font-size: 24px;
               line-height: 1;
               margin-bottom: -4px;
             }
             
             .north-arrow-text {
-              color: #FF1801;
+              color: #FF4500;
               font-weight: bold;
               font-size: 16px;
             }
           `}
-        </style>
-        <button 
-          onClick={() => navigate('/')}
-          className="bg-[#FF1801] hover:bg-[#D91601] transition-colors text-white px-4 py-2 rounded-3xl"
-        >
-          Accueil
-        </button>
-      </div>
+          </style>
+        </div>
 
-      <div className="flex-1 flex flex-col px-4 pb-4">
-        <h1 className="text-2xl font-bold text-white mb-4 text-center">
-          Zonage opérationnel
-        </h1>
+        <div className="flex-1 flex flex-col px-4 pb-4">
+          <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400 mb-6 text-center animate-fade-in-down">
+            Zonage opérationnel
+          </h1>
 
-        <div className="w-full max-w-4xl mx-auto mb-4">
-          <div className="relative">
-            {isGeolocating && (
-              <div className="absolute -top-8 left-0 right-0 text-center text-white text-sm bg-[#1A1A1A] py-1 px-3 rounded-t-lg">
-                <div className="flex items-center justify-center gap-2">
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Recherche de votre position...
+          <div className="w-full max-w-4xl mx-auto mb-6 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
+            <div className="relative group">
+              {isGeolocating && (
+                <div className="absolute -top-10 left-0 right-0 text-center text-white text-sm bg-black/60 backdrop-blur-md py-2 px-4 rounded-xl border border-white/10 mx-auto w-fit">
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                    Recherche de votre position...
+                  </div>
+                </div>
+              )}
+              <input
+                type="text"
+                autoFocus={!isLocationRequested}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                placeholder="Rechercher une adresse..."
+                className={`w-full px-6 py-4 pr-14 rounded-2xl bg-[#151515] border border-white/10 text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500/50 focus:bg-[#1A1A1A] transition-all duration-300 shadow-lg ${error ? 'border-red-500/50 focus:border-red-500' : ''
+                  }`}
+              />
+              <button
+                onClick={handleSearch}
+                disabled={isLoading}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-all duration-200"
+              >
+                {isLoading ? (
+                  <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Search className="w-5 h-5" />
+                )}
+              </button>
+            </div>
+            {error && (
+              <div className="mt-2 px-4 py-3 bg-red-100 text-red-700 rounded-lg text-sm flex items-center gap-2 shadow-md border border-red-200">
+                <MapPin className="w-4 h-4 flex-shrink-0" />
+                <div>
+                  <p className="font-medium">{error}</p>
+                  <p className="text-red-600 text-xs mt-0.5">
+                    Utilisez la barre de recherche ci-dessus pour localiser votre position
+                  </p>
                 </div>
               </div>
             )}
-            <input
-              type="text"
-              autoFocus={!isLocationRequested}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-              placeholder="Rechercher une adresse..."
-              className={`w-full px-4 py-2 pr-12 rounded-xl bg-white text-gray-800 placeholder-gray-400 focus:outline-none ${
-                error ? 'border-2 border-[#FF1801] focus:border-[#FF1801]' : ''
-              }`}
-            />
+          </div>
+
+          <div className="w-full max-w-4xl mx-auto mb-4 flex justify-end gap-2 animate-fade-in-down" style={{ animationDelay: '0.2s' }}>
             <button
-              onClick={handleSearch}
-              disabled={isLoading}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-gray-600 hover:text-gray-800"
+              onClick={() => changeMapLayer('street')}
+              className={`px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition-all duration-200 ${currentLayer === 'street'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
+                : 'bg-[#151515] border border-white/10 text-gray-400 hover:bg-[#1A1A1A] hover:text-white'
+                }`}
             >
-              {isLoading ? (
-                <div className="w-5 h-5 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <Search className="w-5 h-5" />
-              )}
+              <Layers className="w-4 h-4" />
+              Plan
+            </button>
+            <button
+              onClick={() => changeMapLayer('satellite')}
+              className={`px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition-all duration-200 ${currentLayer === 'satellite'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
+                : 'bg-[#151515] border border-white/10 text-gray-400 hover:bg-[#1A1A1A] hover:text-white'
+                }`}
+            >
+              <Layers className="w-4 h-4" />
+              Satellite
+            </button>
+            <button
+              onClick={() => changeMapLayer('hybrid')}
+              className={`px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition-all duration-200 ${currentLayer === 'hybrid'
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
+                : 'bg-[#151515] border border-white/10 text-gray-400 hover:bg-[#1A1A1A] hover:text-white'
+                }`}
+            >
+              <Layers className="w-4 h-4" />
+              Hybride
             </button>
           </div>
-          {error && (
-            <div className="mt-2 px-4 py-3 bg-red-100 text-red-700 rounded-lg text-sm flex items-center gap-2 shadow-md border border-red-200">
-              <MapPin className="w-4 h-4 flex-shrink-0" />
-              <div>
-                <p className="font-medium">{error}</p>
-                <p className="text-red-600 text-xs mt-0.5">
-                  Utilisez la barre de recherche ci-dessus pour localiser votre position
-                </p>
-              </div>
+
+          <ShareDialog
+            isOpen={isShareOpen}
+            onClose={() => setIsShareOpen(false)}
+            mapRef={mapRef}
+            address={address}
+            zones={{
+              exclusion: exclusionRadius,
+              controlled: controlledRadius,
+              support: supportRadius
+            }}
+          />
+
+          <button
+            onClick={() => setIsShareOpen(true)}
+            className="absolute top-6 right-6 z-20 bg-[#151515]/90 backdrop-blur-md border border-white/10 p-3 rounded-xl shadow-lg hover:bg-[#1A1A1A] hover:scale-105 transition-all duration-200 group"
+          >
+            <Share2 className="w-5 h-5 text-gray-400 group-hover:text-white" />
+          </button>
+          <div className="flex-1 w-full max-w-4xl mx-auto rounded-2xl overflow-hidden border border-white/10 shadow-2xl animate-fade-in-down" style={{ animationDelay: '0.3s' }}>
+            <div className="relative">
+              <MapContainer
+                ref={mapRef}
+                center={position}
+                zoom={16}
+                style={{ height: 'calc(100vh - 400px)', width: '100%' }}
+                whenCreated={setMap}
+              >
+                <TileLayer
+                  attribution={
+                    currentLayer === 'street'
+                      ? '&copy; OpenStreetMap contributors'
+                      : '&copy; CARTO'
+                  }
+                  url={MAP_LAYERS[currentLayer]}
+                  crossOrigin="anonymous"
+                />
+                <ScaleControl position="bottomleft" imperial={false} />
+                <MapClickHandler onMapClick={handleMapClick} />
+                {incidentPosition && (
+                  <>
+                    {visibleZones.support && (
+                      <Circle
+                        center={incidentPosition}
+                        radius={supportRadius}
+                        pathOptions={{
+                          color: '#22C55E',
+                          fillColor: '#22C55E',
+                          fillOpacity: 0.15,
+                          weight: 2
+                        }}
+                      />
+                    )}
+                    {visibleZones.controlled && (
+                      <Circle
+                        center={incidentPosition}
+                        radius={controlledRadius}
+                        pathOptions={{
+                          color: '#FFA500',
+                          fillColor: '#FFA500',
+                          fillOpacity: 0.15,
+                          weight: 2
+                        }}
+                      />
+                    )}
+                    {visibleZones.exclusion && (
+                      <Circle
+                        center={incidentPosition}
+                        radius={exclusionRadius}
+                        pathOptions={{
+                          color: '#FF1801',
+                          fillColor: '#FF1801',
+                          fillOpacity: 0.15,
+                          weight: 2
+                        }}
+                      />
+                    )}
+                    <Marker
+                      position={incidentPosition}
+                      icon={redMarkerIcon}
+                      zIndexOffset={1000}
+                    />
+                  </>
+                )}
+                <MapUpdater center={position} />
+              </MapContainer>
             </div>
-          )}
-        </div>
 
-        <div className="w-full max-w-4xl mx-auto mb-4 flex justify-end gap-2">
-          <button
-            onClick={() => changeMapLayer('street')}
-            className={`px-3 py-1.5 rounded-lg text-sm flex items-center gap-1 ${
-              currentLayer === 'street'
-                ? 'bg-[#FF1801] text-white'
-                : 'bg-white text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            <Layers className="w-4 h-4" />
-            Plan
-          </button>
-          <button
-            onClick={() => changeMapLayer('satellite')}
-            className={`px-3 py-1.5 rounded-lg text-sm flex items-center gap-1 ${
-              currentLayer === 'satellite'
-                ? 'bg-[#FF1801] text-white'
-                : 'bg-white text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            <Layers className="w-4 h-4" />
-            Satellite
-          </button>
-          <button
-            onClick={() => changeMapLayer('hybrid')}
-            className={`px-3 py-1.5 rounded-lg text-sm flex items-center gap-1 ${
-              currentLayer === 'hybrid'
-                ? 'bg-[#FF1801] text-white'
-                : 'bg-white text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            <Layers className="w-4 h-4" />
-            Hybride
-          </button>
-        </div>
-
-        <ShareDialog
-          isOpen={isShareOpen}
-          onClose={() => setIsShareOpen(false)}
-          mapRef={mapRef}
-          address={address}
-          zones={{
-            exclusion: exclusionRadius,
-            controlled: controlledRadius,
-            support: supportRadius
-          }}
-        />
-
-        <button
-          onClick={() => setIsShareOpen(true)}
-          className="absolute top-4 right-4 z-10 bg-white p-2 rounded-lg shadow-md hover:bg-gray-100"
-        >
-          <Share2 className="w-5 h-5 text-gray-700" />
-        </button>
-        <div className="flex-1 w-full max-w-4xl mx-auto rounded-xl overflow-hidden">
-          <div className="relative">
-            <MapContainer
-              ref={mapRef}
-              center={position}
-              zoom={16}
-              style={{ height: 'calc(100vh - 400px)', width: '100%' }}
-              whenCreated={setMap}
-            >
-              <TileLayer
-                attribution={currentLayer === 'street' ? '&copy; OpenStreetMap contributors' : '&copy; Google Maps'}
-                url={MAP_LAYERS[currentLayer]}
-              />
-              <ScaleControl position="bottomleft" imperial={false} />
-              <MapClickHandler onMapClick={handleMapClick} />
-              {incidentPosition && (
-                <>
-                  {visibleZones.support && (
-                    <Circle
-                      center={incidentPosition}
-                      radius={supportRadius}
-                      pathOptions={{
-                        color: '#22C55E',
-                        fillColor: '#22C55E',
-                        fillOpacity: 0.15,
-                        weight: 2
-                      }}
-                    />
-                  )}
-                  {visibleZones.controlled && (
-                    <Circle
-                      center={incidentPosition}
-                      radius={controlledRadius}
-                      pathOptions={{
-                        color: '#FFA500',
-                        fillColor: '#FFA500',
-                        fillOpacity: 0.15,
-                        weight: 2
-                      }}
-                    />
-                  )}
-                  {visibleZones.exclusion && (
-                    <Circle
-                      center={incidentPosition}
-                      radius={exclusionRadius}
-                      pathOptions={{
-                        color: '#FF1801',
-                        fillColor: '#FF1801',
-                        fillOpacity: 0.15,
-                        weight: 2
-                      }}
-                    />
-                  )}
-                  <Marker 
-                    position={incidentPosition} 
-                    icon={redMarkerIcon}
-                    zIndexOffset={1000}
-                  />
-                </>
-              )}
-              <MapUpdater center={position} />
-            </MapContainer>
-          </div>
-          
-          <div className="mt-4 bg-white rounded-xl p-4">
-            <div className="grid grid-cols-[2fr,1fr] gap-8">
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-gray-800 font-semibold w-36">Zone d'exclusion</h3>
-                  <div className="flex items-center gap-2 flex-1">
-                    <button
-                      onClick={() => adjustRadius(false, 'exclusion')}
-                      className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg"
-                      title="Réduire le périmètre"
-                    >
-                      <Minus className="w-5 h-5 text-gray-700" />
-                    </button>
-                    <div className="w-24 text-center font-medium">
-                      {exclusionRadius} m
+            <div className="mt-4 bg-[#151515] border border-white/10 rounded-2xl p-6 shadow-xl animate-fade-in-down" style={{ animationDelay: '0.4s' }}>
+              <div className="grid grid-cols-1 md:grid-cols-[2fr,1fr] gap-8">
+                <div className="space-y-6">
+                  <div className="flex items-center gap-4">
+                    <h3 className="text-gray-300 font-medium w-36">Zone d'exclusion</h3>
+                    <div className="flex items-center gap-3 flex-1">
+                      <button
+                        onClick={() => adjustRadius(false, 'exclusion')}
+                        className="p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors border border-white/5"
+                        title="Réduire le périmètre"
+                      >
+                        <Minus className="w-5 h-5 text-gray-400 group-hover:text-white" />
+                      </button>
+                      <div className="w-24 text-center font-bold text-white text-lg">
+                        {exclusionRadius} m
+                      </div>
+                      <button
+                        onClick={() => adjustRadius(true, 'exclusion')}
+                        className="p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors border border-white/5"
+                        title="Augmenter le périmètre"
+                      >
+                        <Plus className="w-5 h-5 text-gray-400 group-hover:text-white" />
+                      </button>
+                      <button
+                        onClick={() => setVisibleZones(prev => ({ ...prev, exclusion: !prev.exclusion }))}
+                        className={`ml-auto px-4 py-1.5 rounded-lg transition-all duration-200 ${visibleZones.exclusion
+                          ? 'bg-red-500/20 border border-red-500/30'
+                          : 'bg-white/5 border border-white/5'
+                          }`}
+                      >
+                        <div className={`w-3 h-3 rounded-full ${visibleZones.exclusion ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]' : 'bg-gray-600'}`}></div>
+                      </button>
                     </div>
-                    <button
-                      onClick={() => adjustRadius(true, 'exclusion')}
-                      className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg"
-                      title="Augmenter le périmètre"
-                    >
-                      <Plus className="w-5 h-5 text-gray-700" />
-                    </button>
-                    <button
-                      onClick={() => setVisibleZones(prev => ({ ...prev, exclusion: !prev.exclusion }))}
-                      className={`ml-2 px-3 py-1 rounded-lg transition-colors ${
-                        visibleZones.exclusion ? 'bg-[#FF1801] bg-opacity-20' : 'bg-gray-200'
-                      }`}
-                    >
-                      <div className="w-4 h-4 bg-[#FF1801] rounded-full"></div>
-                    </button>
                   </div>
-                </div>
-              
-                <div className="flex items-center gap-2">
-                  <h3 className="text-gray-800 font-semibold w-36">Zone contrôlée</h3>
-                  <div className="flex items-center gap-2 flex-1">
-                    <button
-                      onClick={() => adjustRadius(false, 'controlled')}
-                      className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg"
-                      title="Réduire le périmètre"
-                    >
-                      <Minus className="w-5 h-5 text-gray-700" />
-                    </button>
-                    <div className="w-24 text-center font-medium">
-                      {controlledRadius} m
+
+                  <div className="flex items-center gap-4">
+                    <h3 className="text-gray-300 font-medium w-36">Zone contrôlée</h3>
+                    <div className="flex items-center gap-3 flex-1">
+                      <button
+                        onClick={() => adjustRadius(false, 'controlled')}
+                        className="p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors border border-white/5"
+                        title="Réduire le périmètre"
+                      >
+                        <Minus className="w-5 h-5 text-gray-400" />
+                      </button>
+                      <div className="w-24 text-center font-bold text-white text-lg">
+                        {controlledRadius} m
+                      </div>
+                      <button
+                        onClick={() => adjustRadius(true, 'controlled')}
+                        className="p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors border border-white/5"
+                        title="Augmenter le périmètre"
+                      >
+                        <Plus className="w-5 h-5 text-gray-400" />
+                      </button>
+                      <button
+                        onClick={() => setVisibleZones(prev => ({ ...prev, controlled: !prev.controlled }))}
+                        className={`ml-auto px-4 py-1.5 rounded-lg transition-all duration-200 ${visibleZones.controlled
+                          ? 'bg-orange-500/20 border border-orange-500/30'
+                          : 'bg-white/5 border border-white/5'
+                          }`}
+                      >
+                        <div className={`w-3 h-3 rounded-full ${visibleZones.controlled ? 'bg-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.5)]' : 'bg-gray-600'}`}></div>
+                      </button>
                     </div>
-                    <button
-                      onClick={() => adjustRadius(true, 'controlled')}
-                      className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg"
-                      title="Augmenter le périmètre"
-                    >
-                      <Plus className="w-5 h-5 text-gray-700" />
-                    </button>
-                    <button
-                      onClick={() => setVisibleZones(prev => ({ ...prev, controlled: !prev.controlled }))}
-                      className={`ml-2 px-3 py-1 rounded-lg transition-colors ${
-                        visibleZones.controlled ? 'bg-[#FFA500] bg-opacity-20' : 'bg-gray-200'
-                      }`}
-                    >
-                      <div className="w-4 h-4 bg-[#FFA500] rounded-full"></div>
-                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    <h3 className="text-gray-300 font-medium w-36">Zone de soutien</h3>
+                    <div className="flex items-center gap-3 flex-1">
+                      <button
+                        onClick={() => adjustRadius(false, 'support')}
+                        className="p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors border border-white/5"
+                        title="Réduire le périmètre"
+                      >
+                        <Minus className="w-5 h-5 text-gray-400" />
+                      </button>
+                      <div className="w-24 text-center font-bold text-white text-lg">
+                        {supportRadius} m
+                      </div>
+                      <button
+                        onClick={() => adjustRadius(true, 'support')}
+                        className="p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors border border-white/5"
+                        title="Augmenter le périmètre"
+                      >
+                        <Plus className="w-5 h-5 text-gray-400" />
+                      </button>
+                      <button
+                        onClick={() => setVisibleZones(prev => ({ ...prev, support: !prev.support }))}
+                        className={`ml-auto px-4 py-1.5 rounded-lg transition-all duration-200 ${visibleZones.support
+                          ? 'bg-green-500/20 border border-green-500/30'
+                          : 'bg-white/5 border border-white/5'
+                          }`}
+                      >
+                        <div className={`w-3 h-3 rounded-full ${visibleZones.support ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-gray-600'}`}></div>
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <h3 className="text-gray-800 font-semibold w-36">Zone de soutien</h3>
-                  <div className="flex items-center gap-2 flex-1">
-                    <button
-                      onClick={() => adjustRadius(false, 'support')}
-                      className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg"
-                      title="Réduire le périmètre"
-                    >
-                      <Minus className="w-5 h-5 text-gray-700" />
-                    </button>
-                    <div className="w-24 text-center font-medium">
-                      {supportRadius} m
+                {weather ? (
+                  <div className="border-l border-white/10 pl-8 space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-500/10 rounded-lg">
+                        <Thermometer className="w-5 h-5 text-blue-400" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-blue-400 font-medium">Température</p>
+                        <p className="text-xl font-bold text-gray-200">{weather.temperature}°C</p>
+                      </div>
                     </div>
-                    <button
-                      onClick={() => adjustRadius(true, 'support')}
-                      className="p-2 bg-gray-100 hover:bg-gray-200 rounded-lg"
-                      title="Augmenter le périmètre"
-                    >
-                      <Plus className="w-5 h-5 text-gray-700" />
-                    </button>
-                    <button
-                      onClick={() => setVisibleZones(prev => ({ ...prev, support: !prev.support }))}
-                      className={`ml-2 px-3 py-1 rounded-lg transition-colors ${
-                        visibleZones.support ? 'bg-[#22C55E] bg-opacity-20' : 'bg-gray-200'
-                      }`}
-                    >
-                      <div className="w-4 h-4 bg-[#22C55E] rounded-full"></div>
-                    </button>
+
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-orange-500/10 rounded-lg">
+                        <Wind
+                          className="w-5 h-5 text-orange-400"
+                          style={{ transform: `rotate(${weather.windDirection}deg)` }}
+                        />
+                      </div>
+                      <div>
+                        <p className="text-xs text-orange-400 font-medium">Vent</p>
+                        <p className="text-xl font-bold text-gray-200">{weather.windSpeed} km/h</p>
+                        <p className="text-xs text-orange-400/80">Direction: {getCardinalDirection(weather.windDirection)} ({weather.windDirection}°)</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-green-500/10 rounded-lg">
+                        <Droplets className="w-5 h-5 text-green-400" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-green-400 font-medium">Humidité</p>
+                        <p className="text-xl font-bold text-gray-200">{weather.humidity}%</p>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="border-l border-white/10 pl-8 flex items-center justify-center">
+                    <div className="text-center p-4 bg-white/5 rounded-xl border border-white/5">
+                      <MapPin className="w-8 h-8 mx-auto mb-2 text-gray-500" />
+                      <p className="text-gray-400 text-xs">
+                        Cliquez sur la carte pour afficher les données météorologiques
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
-              
-              {weather ? (
-                <div className="border-l pl-4 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Thermometer className="w-4 h-4 text-blue-600" />
-                    <div>
-                      <p className="text-xs text-blue-600">Température</p>
-                      <p className="text-base font-semibold text-blue-800">{weather.temperature}°C</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <Wind 
-                      className="w-4 h-4 text-orange-600"
-                      style={{ transform: `rotate(${weather.windDirection}deg)` }}
-                    />
-                    <div>
-                      <p className="text-xs text-orange-600">Vent</p>
-                      <p className="text-base font-semibold text-orange-800">{weather.windSpeed} km/h</p>
-                      <p className="text-xs text-orange-600">Direction: {getCardinalDirection(weather.windDirection)} ({weather.windDirection}°)</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <Droplets className="w-4 h-4 text-green-600" />
-                    <div>
-                      <p className="text-xs text-green-600">Humidité</p>
-                      <p className="text-base font-semibold text-green-800">{weather.humidity}%</p>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="border-l pl-4 flex items-center justify-center">
-                  <div className="text-center">
-                    <MapPin className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                    <p className="text-gray-500 text-xs">
-                      Cliquez sur la carte pour afficher les données météorologiques
-                    </p>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>
