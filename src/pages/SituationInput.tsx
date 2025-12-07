@@ -6,6 +6,7 @@ import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { saveCommunicationIAData } from '../utils/firestore';
 import CommandIcon from '../components/CommandIcon';
 import { analyzeEmergency } from '../utils/openai';
+import DominantSelector, { DominanteType } from '../components/DominantSelector';
 
 const SituationInput = () => {
   const [situation, setSituation] = useState('');
@@ -15,6 +16,10 @@ const SituationInput = () => {
   const [recognitionService] = useState(() => new SpeechRecognitionService());
   const navigate = useNavigate();
   const { type } = useParams();
+
+  // Variables d'état pour les données tactiques
+  const [selectedRisks, setSelectedRisks] = useState<DominanteType[]>([]);
+  const [extraContext, setExtraContext] = useState('');
 
   const startSpeechRecognition = () => {
     if (!recognitionService.isRecognitionSupported()) {
@@ -46,12 +51,20 @@ const SituationInput = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!situation.trim()) return;
-    try { await Haptics.impact({ style: ImpactStyle.Light }); } catch {}
+    try { await Haptics.impact({ style: ImpactStyle.Light }); } catch { }
     setIsLoading(true);
-    
+
     try {
-      const analysis = await analyzeEmergency(situation, type as 'group' | 'column' | 'site' | 'communication');
-      
+      // La première sélection est la dominante, les suivantes sont les risques secondaires
+      const dominante = selectedRisks.length > 0 ? selectedRisks[0] : 'Incendie'; // Fallback par défaut si vide
+      const secondaryRisks = selectedRisks.slice(1);
+
+      const analysis = await analyzeEmergency(situation, type as 'group' | 'column' | 'site' | 'communication', {
+        dominante,
+        secondaryRisks,
+        extraContext
+      });
+
       if (type === 'communication') {
         // Extraire les sections du texte d'analyse
         const sections = {
@@ -68,18 +81,19 @@ const SituationInput = () => {
         await saveCommunicationIAData({
           input: situation,
           groupe_horaire: new Date(),
+          dominante,
           ...sections
         });
       }
 
-      navigate('/results', { 
-        state: { 
+      navigate('/results', {
+        state: {
           analysis,
           type,
           fromAI: true
-        } 
+        }
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error:', error);
       alert(error.message || 'Une erreur est survenue lors de l\'analyse. Veuillez réessayer.');
     } finally {
@@ -88,43 +102,51 @@ const SituationInput = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <div className="p-3">
-        <button 
-          onClick={() => navigate('/')}
-          className="bg-[#FF1801] hover:bg-[#D91601] transition-colors text-white px-4 py-2 rounded"
-        >
-          Accueil
-        </button>
+    <div className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden bg-[#0A0A0A] text-white">
+      {/* Background Ambient Glow */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-900/10 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-900/10 rounded-full blur-[120px]" />
       </div>
 
-      <div className="flex-1 flex flex-col items-center px-4 pt-2">
-        <div className="flex flex-col items-center">
-          <h1 className="text-xl md:text-2xl font-bold text-white mb-0.5">
+      <div className="relative z-10 w-full max-w-4xl mx-auto px-4 py-6 flex flex-col items-center h-full">
+        <div className="flex flex-col items-center mb-6 animate-fade-in-down">
+          <h1 className="text-2xl md:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400 mb-1">
             A.T.L.A.S
           </h1>
-          <p className="text-white text-center text-sm mb-4">
-          Aide Tactique et Logique pour l'Action des Secours
+          <p className="text-gray-400 text-center text-xs md:text-sm font-light tracking-wide">
+            Aide Tactique et Logique pour l'Action des Secours
           </p>
         </div>
 
-        <div className="w-full max-w-[200px] mb-4">
+        <div className="w-full max-w-[120px] mb-6 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
           <CommandIcon type={type as 'group' | 'column' | 'site' | 'communication'} />
         </div>
 
-        <form onSubmit={handleSubmit} className="w-full max-w-4xl flex flex-col flex-1">
-          <div className="flex-1 mb-4">
+        <form onSubmit={handleSubmit} className="w-full max-w-4xl flex flex-col flex-1 animate-fade-in-down space-y-6" style={{ animationDelay: '0.2s' }}>
+
+          {/* Sélection des Risques (Unifié) */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-400 ml-2">
+              Sélection des Risques (1er = Dominante, suivants = Secondaires)
+            </label>
+            <DominantSelector selectedRisks={selectedRisks} onChange={setSelectedRisks} />
+          </div>
+
+          {/* Situation */}
+          <div className="flex-1 relative">
+            <label className="text-sm font-medium text-gray-400 ml-2 mb-2 block">Description de la situation</label>
             {error && (
-              <div className="mb-2 bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded-lg text-sm">
+              <div className="mb-4 bg-red-500/10 border border-red-500/30 text-red-400 px-4 py-3 rounded-xl text-sm backdrop-blur-md">
                 {error}
               </div>
             )}
-            <div className="relative bg-white rounded-3xl p-2">
+            <div className="relative bg-[#151515] border border-white/10 rounded-3xl p-2 shadow-xl focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/50 transition-all duration-300">
               <textarea
                 value={situation}
                 onChange={(e) => setSituation(e.target.value)}
-                className="w-full min-h-[60vh] md:h-[calc(100vh-18rem)] resize-none rounded-2xl p-3 pr-12 text-gray-800 text-sm focus:outline-none bg-white"
-                placeholder={type === 'communication' ? 
+                className="w-full min-h-[200px] resize-none rounded-2xl p-4 pr-14 text-gray-200 text-base focus:outline-none bg-transparent placeholder-gray-600"
+                placeholder={type === 'communication' ?
                   "Décrivez la situation actuelle, l'engagement des secours, les moyens mis en œuvre..." :
                   "Décrivez la situation..."}
                 disabled={isLoading}
@@ -133,24 +155,45 @@ const SituationInput = () => {
                 type="button"
                 onClick={isListening ? stopSpeechRecognition : startSpeechRecognition}
                 disabled={isLoading}
-                className={`absolute bottom-3 right-3 ${
-                  isListening ? 'bg-[#FF1801]' : 'bg-[#1A1A1A]'
-                } hover:bg-[#D91601] transition-colors rounded-full p-3`}
+                className={`absolute bottom-4 right-4 p-3 rounded-xl transition-all duration-300 ${isListening
+                  ? 'bg-red-500 text-white shadow-[0_0_15px_rgba(239,68,68,0.5)] animate-pulse'
+                  : 'bg-white/10 text-gray-400 hover:bg-white/20 hover:text-white'
+                  }`}
                 title={isListening ? 'Arrêter la dictée' : 'Démarrer la dictée'}
               >
-                <Mic className="w-5 h-5 text-white" />
+                <Mic className="w-6 h-6" />
               </button>
+            </div>
+          </div>
+
+          {/* Contexte Complémentaire */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-400 ml-2">Contexte Complémentaire (Optionnel)</label>
+            <div className="bg-[#151515] border border-white/10 rounded-3xl p-2 shadow-xl focus-within:border-blue-500/50 focus-within:ring-1 focus-within:ring-blue-500/50 transition-all duration-300">
+              <textarea
+                value={extraContext}
+                onChange={(e) => setExtraContext(e.target.value)}
+                className="w-full min-h-[100px] resize-none rounded-2xl p-4 text-gray-200 text-base focus:outline-none bg-transparent placeholder-gray-600"
+                placeholder="Météo, moyens déjà engagés, contraintes particulières..."
+                disabled={isLoading}
+              />
             </div>
           </div>
 
           <button
             type="submit"
             disabled={isLoading}
-            className="bg-[#FF1801] hover:bg-[#D91601] transition-colors text-white py-2 rounded-3xl text-sm font-semibold w-full disabled:bg-gray-500 mb-[calc(env(safe-area-inset-bottom,0)+12px)] flex items-center justify-center gap-2"
+            className="group w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 disabled:from-gray-700 disabled:to-gray-800 transition-all duration-300 text-white py-4 rounded-2xl text-lg font-bold shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40 hover:-translate-y-0.5 flex items-center justify-center gap-3 mb-[calc(env(safe-area-inset-bottom,0)+12px)]"
           >
-            {isLoading ? 'Analyse en cours...' : (
+            {isLoading ? (
               <>
-                Générer avec l'IA<Sparkles className="w-5 h-5 text-white" />
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Analyse en cours...
+              </>
+            ) : (
+              <>
+                Générer avec l'IA
+                <Sparkles className="w-5 h-5 text-blue-200 group-hover:text-white animate-pulse" />
               </>
             )}
           </button>

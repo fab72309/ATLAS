@@ -28,89 +28,129 @@ const SideMenu: React.FC<SideMenuProps> = ({ open, onClose }) => {
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <div className={`fixed inset-y-0 left-0 z-40 transition-transform duration-200 ${open ? 'translate-x-0' : '-translate-x-full'}`}>
-      <div className="h-full w-[280px] bg-[#0E1A2B] border-r border-white/10 flex flex-col">
-        <div className="p-3 flex items-center gap-2 border-b border-white/10">
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 text-white absolute left-2 top-1/2 -translate-y-1/2" />
-            <input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Rechercher" className="w-full bg-white/10 text-white placeholder-white/60 rounded pl-7 pr-2 py-1.5 text-sm focus:outline-none" />
+    <>
+      {/* Backdrop */}
+      <div
+        className={`fixed inset-0 z-40 bg-black/50 backdrop-blur-sm transition-opacity duration-300 ${open ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        onClick={onClose}
+      />
+
+      {/* Menu Panel */}
+      <div className={`fixed inset-y-0 left-0 z-50 w-[300px] bg-[#0E1A2B]/95 backdrop-blur-xl border-r border-white/10 flex flex-col transition-transform duration-300 ease-out shadow-2xl ${open ? 'translate-x-0' : '-translate-x-full'}`}>
+
+        {/* Header */}
+        <div className="p-4 flex items-center gap-3 border-b border-white/10">
+          <div className="relative flex-1 group">
+            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 group-focus-within:text-white transition-colors" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Rechercher..."
+              className="w-full bg-white/5 hover:bg-white/10 focus:bg-white/10 text-white placeholder-gray-500 rounded-xl pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-white/20 transition-all"
+            />
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded">
-            <X className="w-4 h-4 text-white" />
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-colors"
+          >
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="p-3 text-white text-sm">
-          <div className="mb-2 font-semibold">Favoris</div>
-          <div className="space-y-2 mb-4">
-            {favorites.length === 0 && (
-              <div className="text-white/60">Aucun favori</div>
-            )}
-            {favorites.map((key) => {
-              const item = NAV_ITEMS.find((n)=>n.key===key);
-              if (!item) return null;
-              return (
-                <button key={key} onClick={()=>navigate(item.path)} className={`w-full flex items-center justify-between bg-white/10 hover:bg-white/15 rounded-full px-2 py-1.5 ${isActive(item.path)?'ring-2 ring-white/50':''}`}>
-                  <span className="inline-flex items-center gap-2">
-                    <Star className="w-4 h-4 text-yellow-300 fill-yellow-300" />
-                    {item.label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-          <div className="mb-2 font-semibold">Fonctions opérationnelles</div>
-          <button onClick={()=>setOpsOpen(v=>!v)} className="w-full flex items-center gap-2 bg-white/10 hover:bg-white/15 rounded px-2 py-1.5 mb-2">
-            <ChevronRight className={`w-4 h-4 transition-transform ${opsOpen?'rotate-90':''}`} />
-            <span>Fonctions opérationnelles</span>
-          </button>
-          {opsOpen && (
-            <div className="space-y-1 mb-4">
-              {['group','column','site','security','supply'].map((k)=>{
-                const item = NAV_ITEMS.find(n=>n.key===k);
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+
+          {/* Favorites Section */}
+          <div>
+            <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 px-2">Favoris</div>
+            <div className="space-y-1">
+              {favorites.length === 0 && (
+                <div className="text-gray-500 text-sm px-2 italic">Aucun favori épinglé</div>
+              )}
+              {favorites.map((key) => {
+                const item = NAV_ITEMS.find((n) => n.key === key);
                 if (!item) return null;
                 return (
-                  <div key={k} className={`flex items-center gap-2 bg-white/10 hover:bg-white/15 rounded-full px-2 py-1.5 ${isActive(item.path)?'ring-2 ring-white/50':''}`}>
-                    <button onClick={()=>navigate(item.path)} className="flex items-center gap-2 flex-1 text-left">
-                      <div className="w-6 h-5 bg-black rounded flex items-center justify-center">
-                        {k==='group' && <RoleBadgeIcon role="group" className="w-5 h-5" />}
-                        {k==='column' && <RoleBadgeIcon role="column" className="w-5 h-5" />}
-                        {k==='site' && <RoleBadgeIcon role="site" className="w-5 h-5" />}
-                        {k==='security' && <img src="/icons/Officier_securite.png" alt="" className="w-5 h-5 object-contain" />}
-                        {k==='supply' && <img src="/icons/Officier_alimentation.png" alt="" className="w-5 h-5 object-contain" />}
-                      </div>
-                      <span>{item.label}</span>
-                    </button>
-                    <button onClick={()=>handleToggle(item.key as FavoriteKey)} className="p-1 hover:bg-white/10 rounded">
-                      <Star className={`w-4 h-4 ${favorites.includes(item.key as FavoriteKey)?'text-yellow-300 fill-yellow-300':'text-white'}`} />
+                  <div key={key} className={`group flex items-center gap-2 rounded-xl px-3 py-2 transition-all duration-200 ${isActive(item.path) ? 'bg-blue-600/20 text-blue-400' : 'hover:bg-white/5 text-gray-300 hover:text-white'}`}>
+                    <button onClick={() => { navigate(item.path); onClose(); }} className="flex-1 text-left flex items-center gap-3">
+                      <Star className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                      <span className="font-medium">{item.label}</span>
                     </button>
                   </div>
                 );
               })}
             </div>
-          )}
+          </div>
 
-          <div className="mb-2 font-semibold">Navigation</div>
-          <div className="space-y-1">
-            {filtered.filter(n=>!['group','column','site','security','supply'].includes(n.key as any)).map((item) => (
-              <div key={item.key} className={`flex items-center gap-2 bg-white/10 hover:bg-white/15 rounded-full px-2 py-1.5 ${isActive(item.path)?'ring-2 ring-white/50':''}`}>
-                <button onClick={()=>navigate(item.path)} className="flex-1 text-left">{item.label}</button>
-                <button onClick={()=>handleToggle(item.key)} className="p-1 hover:bg-white/10 rounded">
-                  <Star className={`w-4 h-4 ${favorites.includes(item.key)?'text-yellow-300 fill-yellow-300':'text-white'}`} />
-                </button>
-              </div>
-            ))}
+          {/* Operational Functions Section */}
+          <div>
+            <button
+              onClick={() => setOpsOpen(v => !v)}
+              className="w-full flex items-center justify-between text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 px-2 hover:text-white transition-colors"
+            >
+              <span>Fonctions opérationnelles</span>
+              <ChevronRight className={`w-4 h-4 transition-transform duration-200 ${opsOpen ? 'rotate-90' : ''}`} />
+            </button>
+
+            <div className={`space-y-1 overflow-hidden transition-all duration-300 ${opsOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
+              {['group', 'column', 'site', 'security', 'supply'].map((k) => {
+                const item = NAV_ITEMS.find(n => n.key === k);
+                if (!item) return null;
+                const active = isActive(item.path);
+                return (
+                  <div key={k} className={`group flex items-center gap-2 rounded-xl px-3 py-2 transition-all duration-200 ${active ? 'bg-blue-600/20 border border-blue-500/30' : 'hover:bg-white/5 border border-transparent'}`}>
+                    <button onClick={() => { navigate(item.path); onClose(); }} className="flex items-center gap-3 flex-1 text-left">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${active ? 'bg-blue-500/20' : 'bg-black/40 group-hover:bg-black/60'}`}>
+                        <RoleBadgeIcon role={k as any} className="w-6 h-6" />
+                      </div>
+                      <span className={`font-medium ${active ? 'text-blue-400' : 'text-gray-300 group-hover:text-white'}`}>{item.label}</span>
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleToggle(item.key as FavoriteKey); }}
+                      className={`p-1.5 rounded-lg transition-colors ${favorites.includes(item.key as FavoriteKey) ? 'text-yellow-400 hover:bg-yellow-400/10' : 'text-gray-600 hover:text-gray-400 hover:bg-white/5'}`}
+                    >
+                      <Star className={`w-4 h-4 ${favorites.includes(item.key as FavoriteKey) ? 'fill-yellow-400' : ''}`} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Other Navigation Section */}
+          <div>
+            <div className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 px-2">Navigation</div>
+            <div className="space-y-1">
+              {filtered.filter(n => !['group', 'column', 'site', 'security', 'supply'].includes(n.key as any)).map((item) => {
+                const active = isActive(item.path);
+                return (
+                  <div key={item.key} className={`group flex items-center gap-2 rounded-xl px-3 py-2 transition-all duration-200 ${active ? 'bg-blue-600/20 text-blue-400' : 'hover:bg-white/5 text-gray-300 hover:text-white'}`}>
+                    <button onClick={() => { navigate(item.path); onClose(); }} className="flex-1 text-left font-medium">{item.label}</button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleToggle(item.key); }}
+                      className={`p-1.5 rounded-lg transition-colors ${favorites.includes(item.key) ? 'text-yellow-400 hover:bg-yellow-400/10' : 'text-gray-600 hover:text-gray-400 hover:bg-white/5'}`}
+                    >
+                      <Star className={`w-4 h-4 ${favorites.includes(item.key) ? 'fill-yellow-400' : ''}`} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
 
-        <div className="mt-auto p-3 border-t border-white/10">
-          <button onClick={()=>navigate('/settings')} className="w-full flex items-center gap-2 bg-white/10 hover:bg-white/15 rounded px-2 py-1.5 text-white">
-            <Settings className="w-4 h-4" />
-            Paramètres
+        {/* Footer */}
+        <div className="p-4 border-t border-white/10 bg-black/20">
+          <button
+            onClick={() => { navigate('/settings'); onClose(); }}
+            className="w-full flex items-center gap-3 bg-white/5 hover:bg-white/10 active:bg-white/15 rounded-xl px-4 py-3 text-gray-300 hover:text-white transition-all duration-200 group"
+          >
+            <Settings className="w-5 h-5 group-hover:rotate-45 transition-transform duration-300" />
+            <span className="font-medium">Paramètres</span>
           </button>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 

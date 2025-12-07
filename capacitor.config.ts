@@ -1,15 +1,19 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
+const isLiveReload = process.env.CAP_LIVE_RELOAD === 'true';
+
 const config: CapacitorConfig = {
   appId: 'com.atlas.app',
   appName: 'A.T.L.A.S',
   webDir: 'dist',
-  server: {
-    androidScheme: 'https',
-    iosScheme: 'https',
-    url: 'http://localhost:5174',
-    cleartext: true
-  },
+  server: isLiveReload
+    ? {
+        androidScheme: 'https',
+        iosScheme: 'https',
+        url: 'http://localhost:5174',
+        cleartext: true
+      }
+    : undefined,
   ios: {
     contentInset: 'always',
     backgroundColor: '#00051E',

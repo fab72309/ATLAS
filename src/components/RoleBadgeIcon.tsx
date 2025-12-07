@@ -7,64 +7,54 @@ interface RoleBadgeIconProps {
   className?: string;
 }
 
-// Displays an SVG icon from /public/icons if available, otherwise falls back to PNG with @2x/@3x variants
-// Expected files (preferred):
-//   /public/icons/group.svg, column.svg, site.svg
-// Or fallback raster:
-//   /public/icons/group.png (+ @2x/@3x), column.png, site.png
 const RoleBadgeIcon: React.FC<RoleBadgeIconProps> = ({ role, className = '' }) => {
-  const ROLE_TO_BASENAME: Record<Role, string> = {
-    group: 'group',
-    column: 'column',
-    site: 'site',
-    security: 'Officier_securite',
-    supply: 'Officier_alimentation'
+  const [error, setError] = React.useState(false);
+
+  const getIconPath = (r: Role) => {
+    switch (r) {
+      case 'group': return '/icons/group.png';
+      case 'column': return '/icons/column.png';
+      case 'site': return '/icons/site.png';
+      case 'security': return '/icons/Officier_securite.png';
+      case 'supply': return '/icons/Officier_alimentation.png';
+      default: return '';
+    }
   };
-  const baseName = ROLE_TO_BASENAME[role] || role;
-  const nameVariants = [
-    baseName,
-    baseName.toLowerCase(),
-    role,
-    role.toLowerCase()
-  ];
 
-  const [variantIndex, setVariantIndex] = React.useState(0);
-  const [usePng, setUsePng] = React.useState(false);
-  const [broken, setBroken] = React.useState(false);
+  const renderFallback = () => {
+    if (role === 'supply') {
+      return (
+        <svg viewBox="0 0 24 24" className="w-full h-full text-white" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M8 4h8" />
+          <path d="M7 7a5 5 0 0 1 10 0v2H7V7Z" />
+          <rect x="7" y="9" width="10" height="8" rx="2" />
+          <circle cx="12" cy="13" r="2.5" />
+          <path d="M4 13h3M17 13h3" />
+          <path d="M6 19h12v2H6z" />
+        </svg>
+      );
+    }
+    // Generic fallback for others
+    return (
+      <div className="w-full h-full bg-gray-800 flex items-center justify-center rounded text-xs text-gray-400 font-medium">
+        {role.charAt(0).toUpperCase()}
+      </div>
+    );
+  };
 
-  const currentName = nameVariants[Math.min(variantIndex, nameVariants.length - 1)];
-  const bust = import.meta.env && (import.meta as any).env?.DEV ? `?v=${Date.now()}` : '';
-  const svg = `/icons/${currentName}.svg${bust}`;
-  const png = `/icons/${currentName}.png${bust}`;
-  const srcSet = `${png} 1x, ${png.replace('.png', '@2x.png')} 2x, ${png.replace('.png', '@3x.png')} 3x`;
+  if (error) {
+    return <div className={`${className} p-1`}>{renderFallback()}</div>;
+  }
 
   return (
     <div className={`flex items-center justify-center ${className}`}>
-      {!broken ? (
-        <img
-          src={usePng ? png : svg}
-          {...(usePng ? { srcSet } : {})}
-          alt={role}
-          className="max-w-full max-h-full object-contain"
-          onError={() => {
-            if (!usePng) {
-              setUsePng(true);
-              return;
-            }
-            if (variantIndex < nameVariants.length - 1) {
-              setVariantIndex(variantIndex + 1);
-              setUsePng(false);
-              return;
-            }
-            setBroken(true);
-          }}
-          draggable={false}
-        />
-      ) : (
-        <div className="w-full h-full bg-gray-700 text-white text-xs flex items-center justify-center rounded">
-          {role}
-        </div>
-      )}
+      <img
+        src={getIconPath(role)}
+        alt={role}
+        className="w-full h-full object-contain drop-shadow-lg"
+        onError={() => setError(true)}
+        draggable={false}
+      />
     </div>
   );
 };

@@ -6,6 +6,7 @@ import { Pagination } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/pagination';
 import DictationCard from '../components/DictationCard';
+import DominantSelector, { DominanteType } from '../components/DominantSelector';
 import { saveCommunicationData, saveCommunicationIAData } from '../utils/firestore';
 import { analyzeEmergency } from '../utils/openai';
 
@@ -61,6 +62,7 @@ const CommunicationOps = () => {
     Object.fromEntries(SECTIONS.map(s => [s.id, '']))
   );
   const [isLoading, setIsLoading] = useState(false);
+  const [dominante, setDominante] = useState<DominanteType>('Incendie');
   const [swiperInstance, setSwiperInstance] = useState<any>(null);
 
   const handleTextChange = (sectionId: string, text: string) => {
@@ -94,16 +96,18 @@ const CommunicationOps = () => {
         Nombre_victimes: sections.victimes || '',
         Moyens: sections.moyens || '',
         Actions_secours: sections.actions || '',
-        Conseils_population: sections.conseils || ''
+        Conseils_population: sections.conseils || '',
+        dominante
       });
 
       // Send to OpenAI for analysis
-      const analysis = await analyzeEmergency(fullSituation, 'communication');
+      const analysis = await analyzeEmergency(fullSituation, 'communication', { dominante });
 
       // Prepare data for Communication_OPS_IA
       const iaData = {
         input: fullSituation,
         groupe_horaire: new Date(),
+        dominante,
         Engagement_secours: sections.engagement_secours || '',
         Situation_appel: sections.situation_appel || '',
         Situation_arrivee: sections.situation_arrivee || '',
@@ -173,6 +177,11 @@ const CommunicationOps = () => {
               Communication OPS
             </h2>
           </div>
+        </div>
+
+        {/* Barre de sélection de la dominante */}
+        <div className="w-full max-w-4xl mb-3">
+          <DominantSelector value={dominante} onChange={setDominante} />
         </div>
 
         <div className="w-full max-w-4xl flex-1 flex flex-col relative">

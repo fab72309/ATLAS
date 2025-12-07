@@ -12,7 +12,7 @@ export interface AIAnalysisData {
 }
 
 export interface DictationData {
-  type: 'group' | 'column';
+  type: 'group' | 'column' | 'site';
   situation: string;
   objectifs: string;
   idees: string;
@@ -20,6 +20,7 @@ export interface DictationData {
   commandement: string;
   anticipation?: string;
   groupe_horaire: Date;
+  dominante?: string;
 }
 
 export interface CommunicationData {
@@ -31,6 +32,7 @@ export interface CommunicationData {
   Moyens: string;
   Actions_secours: string;
   Conseils_population: string;
+  dominante?: string;
 }
 
 export interface CommunicationIAData {
@@ -43,11 +45,16 @@ export interface CommunicationIAData {
   Moyens: string;
   Actions_secours: string;
   Conseils_population: string;
+  dominante?: string;
 }
 
 export const saveDictationData = async (data: DictationData) => {
   try {
-    const collectionRef = collection(db, data.type === 'group' ? 'Chef_de_groupe' : 'Chef_de_colonne');
+    let collectionName = 'Chef_de_groupe';
+    if (data.type === 'column') collectionName = 'Chef_de_colonne';
+    if (data.type === 'site') collectionName = 'Chef_de_site';
+
+    const collectionRef = collection(db, collectionName);
     const docRef = await addDoc(collectionRef, {
       ...data,
       uid: auth.currentUser?.uid || 'anonymous',
