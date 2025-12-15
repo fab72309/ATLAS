@@ -7,7 +7,9 @@ import DictationInput from './pages/DictationInput';
 import Results from './pages/Results';
 import OperationalZoning from './pages/OperationalZoning';
 import OperationalFunctions from './pages/OperationalFunctions';
+import SitacMap from './pages/SitacMap';
 import SettingsPage from './pages/Settings';
+import OctDiagram from './pages/OctDiagram';
 import Layout from './components/Layout';
 import AppErrorBoundary from './components/AppErrorBoundary';
 
@@ -25,6 +27,8 @@ function App() {
             <Route path="situation/:type/dictate" element={<DictationInput />} />
             <Route path="results" element={<Results />} />
             <Route path="operational-zoning" element={<OperationalZoning />} />
+            <Route path="sitac" element={<SitacMap />} />
+            <Route path="oct" element={<OctDiagram />} />
             <Route path="settings" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

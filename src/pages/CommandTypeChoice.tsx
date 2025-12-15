@@ -1,6 +1,5 @@
 import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Sparkles } from 'lucide-react';
 import CommandIcon from '../components/CommandIcon';
 
 const CommandTypeChoice = () => {
@@ -8,6 +7,14 @@ const CommandTypeChoice = () => {
   const { type } = useParams();
   const validTypes = ['group', 'column', 'site', 'communication'] as const;
   const currentType = validTypes.includes(type as any) ? (type as typeof validTypes[number]) : null;
+  const [showInterventionModal, setShowInterventionModal] = React.useState(false);
+  const [showMetadataModal, setShowMetadataModal] = React.useState(false);
+  const [interventionMeta, setInterventionMeta] = React.useState({
+    address: '',
+    city: '',
+    date: '',
+    time: ''
+  });
 
   // If the type is invalid (e.g., security/supply), redirect to home to avoid blank states
   React.useEffect(() => {
@@ -17,6 +24,58 @@ const CommandTypeChoice = () => {
       return () => clearTimeout(t);
     }
   }, [currentType, navigate]);
+
+  const handlePrimaryAction = () => {
+    if (!currentType) return;
+    if (type === 'communication') {
+      navigate(`/situation/${currentType}/dictate`);
+      return;
+    }
+    setShowInterventionModal(true);
+  };
+
+  const resetMeta = () => {
+    const now = new Date();
+    const defaultDate = now.toISOString().slice(0, 10);
+    const defaultTime = now.toISOString().slice(11, 16);
+    setInterventionMeta((prev) => ({
+      address: prev.address || '',
+      city: prev.city || '',
+      date: defaultDate,
+      time: defaultTime
+    }));
+  };
+
+  const handleCreateIntervention = () => {
+    if (!currentType) return;
+    resetMeta();
+    setShowInterventionModal(false);
+    setShowMetadataModal(true);
+  };
+
+  const handleMetadataChange = (field: keyof typeof interventionMeta, value: string) => {
+    setInterventionMeta((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleResumeIntervention = () => {
+    if (!currentType) return;
+    setShowInterventionModal(false);
+    navigate(`/situation/${currentType}/dictate`, { state: { mode: 'resume' } });
+  };
+
+  const handleConfirmMetadata = () => {
+    if (!currentType) return;
+    const now = new Date();
+    const date = interventionMeta.date || now.toISOString().slice(0, 10);
+    const time = interventionMeta.time || now.toISOString().slice(11, 16);
+    const payload = {
+      ...interventionMeta,
+      date,
+      time
+    };
+    setShowMetadataModal(false);
+    navigate(`/situation/${currentType}/dictate`, { state: { mode: 'create', meta: payload } });
+  };
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden bg-[#0A0A0A] text-white">
@@ -47,13 +106,14 @@ const CommandTypeChoice = () => {
         )}
 
         <div className="w-full max-w-xl space-y-6 animate-fade-in-down" style={{ animationDelay: '0.2s' }}>
-          <button
-            onClick={() => currentType && navigate(`/situation/${currentType}/dictate`)}
-            disabled={!currentType}
-            className="group w-full bg-[#151515] hover:bg-[#1A1A1A] transition-all duration-300 text-white p-6 rounded-3xl border border-white/10 hover:border-red-500/50 hover:shadow-[0_0_30px_rgba(239,68,68,0.2)] hover:-translate-y-1"
-          >
+            <button
+              type="button"
+              onClick={handlePrimaryAction}
+              disabled={!currentType}
+              className="group w-full bg-[#151515] hover:bg-[#1A1A1A] transition-all duration-300 text-white p-6 rounded-3xl border border-white/10 hover:border-red-500/50 hover:shadow-[0_0_30px_rgba(239,68,68,0.2)] hover:-translate-y-1"
+            >
             <h2 className="text-2xl font-bold mb-2 group-hover:text-red-400 transition-colors">
-              {type === 'communication' ? 'Dicter un Point de Situation' : 'Dicter un Ordre Initial'}
+              {type === 'communication' ? 'Dicter un Point de Situation' : 'Gérer une intervention'}
             </h2>
             <p className="text-gray-400 group-hover:text-gray-300 transition-colors">
               {type === 'communication'
@@ -62,23 +122,138 @@ const CommandTypeChoice = () => {
             </p>
           </button>
 
-          <button
-            onClick={() => currentType && navigate(`/situation/${currentType}/ai`)}
-            disabled={!currentType}
-            className="group w-full bg-[#151515] hover:bg-[#1A1A1A] transition-all duration-300 text-white p-8 rounded-3xl border border-white/10 hover:border-red-500/50 hover:shadow-[0_0_30px_rgba(239,68,68,0.2)] hover:-translate-y-1"
-          >
-            <h2 className="text-2xl font-bold mb-2 flex items-center justify-center gap-3 group-hover:text-red-400 transition-colors">
-              {type === 'communication' ? 'Point de Situation' : 'Ordre Initial'} par Assistant IA
-              <Sparkles className="w-6 h-6 text-red-400 group-hover:text-red-300 animate-pulse" />
-            </h2>
-            <p className="text-gray-400 group-hover:text-gray-300 transition-colors">
-              {type === 'communication'
-                ? 'Laissez l\'IA vous aider à structurer votre point de situation'
-                : 'Laissez l\'IA vous aider à structurer votre ordre initial'}
-            </p>
-          </button>
         </div>
       </div>
+
+      {showInterventionModal && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
+          <div className="w-full max-w-lg bg-[#121212] border border-white/10 rounded-3xl shadow-2xl p-6 space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs uppercase text-gray-400 tracking-[0.3em]">Gestion d&apos;intervention</p>
+                <h3 className="text-2xl font-bold">Que souhaitez-vous faire ?</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowInterventionModal(false)}
+                className="text-gray-400 hover:text-white transition"
+                aria-label="Fermer la fenêtre"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                <h4 className="text-lg font-semibold mb-1">Créer une nouvelle intervention</h4>
+                <p className="text-sm text-gray-400 mb-4">
+                  Démarrer un nouveau raisonnement SOIEC et configurer vos moyens.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleCreateIntervention}
+                  className="w-full py-3 rounded-xl bg-red-600 hover:bg-red-500 transition font-semibold"
+                >
+                  Créer une intervention
+                </button>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                <h4 className="text-lg font-semibold mb-1">Reprendre une intervention existante</h4>
+                <p className="text-sm text-gray-400 mb-4">
+                  Charger une intervention enregistrée et poursuivre la mise à jour.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleResumeIntervention}
+                  className="w-full py-3 rounded-xl bg-white/10 hover:bg-white/20 transition font-semibold text-white"
+                >
+                  Reprendre une intervention
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showMetadataModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4">
+          <div className="w-full max-w-2xl bg-[#101010] border border-white/10 rounded-3xl shadow-2xl p-6 space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs uppercase text-gray-400 tracking-[0.3em]">Nouvelle intervention</p>
+                <h3 className="text-2xl font-bold">Renseignements initiaux</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMetadataModal(false);
+                  setShowInterventionModal(true);
+                }}
+                className="text-gray-400 hover:text-white transition"
+                aria-label="Fermer la fenêtre"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-xs uppercase tracking-wide text-gray-400">Adresse</label>
+                <input
+                  value={interventionMeta.address}
+                  onChange={(e) => handleMetadataChange('address', e.target.value)}
+                  className="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/10 focus:outline-none focus:ring-2 focus:ring-red-500/40"
+                  placeholder="12 rue des Secours"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs uppercase tracking-wide text-gray-400">Ville</label>
+                <input
+                  value={interventionMeta.city}
+                  onChange={(e) => handleMetadataChange('city', e.target.value)}
+                  className="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/10 focus:outline-none focus:ring-2 focus:ring-red-500/40"
+                  placeholder="Paris"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs uppercase tracking-wide text-gray-400">Date</label>
+                <input
+                  type="date"
+                  value={interventionMeta.date}
+                  onChange={(e) => handleMetadataChange('date', e.target.value)}
+                  className="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/10 focus:outline-none focus:ring-2 focus:ring-red-500/40"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs uppercase tracking-wide text-gray-400">Heure</label>
+                <input
+                  type="time"
+                  value={interventionMeta.time}
+                  onChange={(e) => handleMetadataChange('time', e.target.value)}
+                  className="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/10 focus:outline-none focus:ring-2 focus:ring-red-500/40"
+                />
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-3 justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowMetadataModal(false);
+                    setShowInterventionModal(true);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-white/5 text-gray-300 hover:bg-white/10 transition"
+                >
+                  Retour
+                </button>
+              <button
+                type="button"
+                onClick={handleConfirmMetadata}
+                className="px-6 py-3 rounded-xl bg-red-600 hover:bg-red-500 font-semibold transition"
+              >
+                Valider
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

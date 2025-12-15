@@ -3,6 +3,9 @@ import { OrdreInitial } from '../types/soiec';
 import { SpeechRecognitionService } from '../utils/speechRecognition';
 import { DominanteType } from './DominantSelector';
 import { DOCTRINE_CONTEXT } from '../constants/doctrine';
+import { Sparkles } from 'lucide-react';
+import { analyzeEmergency } from '../utils/openai';
+import { parseOrdreInitial } from '../utils/soiec';
 
 interface OrdreInitialViewProps {
   ordre: OrdreInitial | null;
@@ -10,6 +13,8 @@ interface OrdreInitialViewProps {
   hideToolbar?: boolean;
   dominante?: DominanteType;
   means?: { name: string; status: 'sur_place' | 'demande' }[];
+  type?: 'group' | 'column' | 'site' | 'communication';
+  boardRef?: React.RefObject<HTMLDivElement>;
 }
 
 // Types pour la gestion d'état locale
@@ -53,7 +58,44 @@ const DOCTRINE_DOMINANTE_MAP: Partial<Record<DominanteType, keyof typeof DOCTRIN
   'Risque Radiologique': 'secours_personne_complexe',
 };
 
-const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hideToolbar = false, dominante, means = [] }) => {
+const buildColumnsFromOrdre = (ordre: OrdreInitial | null) => {
+  const processItems = (content: any, isManeuver = false): CardItem[] => {
+    if (!content) return [];
+    if (Array.isArray(content)) {
+      return content.map(item => ({
+        id: generateId(),
+        content: isManeuver ? '' : safeRender(item),
+        mission: isManeuver ? item.mission : undefined,
+        moyen: isManeuver ? item.moyen : undefined,
+        moyen_supp: isManeuver ? item.moyen_supp : undefined,
+        details: isManeuver ? item.details : undefined
+      }));
+    }
+    return typeof content === 'string'
+      ? content.split('\n').filter(l => l.trim()).map(l => ({ id: generateId(), content: l }))
+      : [{ id: generateId(), content: safeRender(content) }];
+  };
+
+  if (!ordre) {
+    return {
+      S: { id: 'S', title: 'Situation', letter: 'S', color: 'blue', items: [] },
+      O: { id: 'O', title: 'Objectif', letter: 'O', color: 'green', items: [] },
+      I: { id: 'I', title: 'Idée de manœuvre', letter: 'I', color: 'yellow', items: [] },
+      E: { id: 'E', title: 'Exécution', letter: 'E', color: 'red', items: [] },
+      C: { id: 'C', title: 'Commandement', letter: 'C', color: 'purple', items: [] }
+    };
+  }
+
+  return {
+    S: { id: 'S', title: 'Situation', letter: 'S', color: 'blue', items: processItems(ordre.S) },
+    O: { id: 'O', title: 'Objectif', letter: 'O', color: 'green', items: processItems(ordre.O) },
+    I: { id: 'I', title: 'Idée de manœuvre', letter: 'I', color: 'yellow', items: processItems(ordre.I) },
+    E: { id: 'E', title: 'Exécution', letter: 'E', color: 'red', items: processItems(ordre.E, true) },
+    C: { id: 'C', title: 'Commandement', letter: 'C', color: 'purple', items: processItems(ordre.C) }
+  };
+};
+
+const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hideToolbar = false, dominante, means = [], type = 'group', boardRef }) => {
   const [columns, setColumns] = useState<Record<string, ColumnData>>({});
   const [draggedItem, setDraggedItem] = useState<{ id: string, sourceCol: string } | null>(null);
   const [editingItem, setEditingItem] = useState<{ id: string, colId: string, content: string, mission?: string, moyen?: string, moyen_supp?: string, details?: string } | null>(null);
@@ -61,6 +103,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
   const [isListening, setIsListening] = useState(false);
   const [speechError, setSpeechError] = useState<string | null>(null);
   const speechServiceRef = useRef<SpeechRecognitionService | null>(null);
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const doctrineKey = useMemo(
     () => (dominante ? DOCTRINE_DOMINANTE_MAP[dominante] : undefined),
     [dominante]
@@ -75,43 +118,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
       return;
     }
 
-    if (!ordre) {
-      // Initialize with empty structure
-      setColumns({
-        S: { id: 'S', title: 'Situation', letter: 'S', color: 'blue', items: [] },
-        O: { id: 'O', title: 'Objectif', letter: 'O', color: 'green', items: [] },
-        I: { id: 'I', title: 'Idée de manœuvre', letter: 'I', color: 'yellow', items: [] },
-        E: { id: 'E', title: 'Exécution', letter: 'E', color: 'red', items: [] },
-        C: { id: 'C', title: 'Commandement', letter: 'C', color: 'purple', items: [] }
-      });
-      return;
-    }
-
-    const processItems = (content: any, isManeuver = false): CardItem[] => {
-      if (!content) return [];
-      if (Array.isArray(content)) {
-        return content.map(item => ({
-          id: generateId(),
-          content: isManeuver ? '' : safeRender(item),
-          mission: isManeuver ? item.mission : undefined,
-          moyen: isManeuver ? item.moyen : undefined,
-          moyen_supp: isManeuver ? item.moyen_supp : undefined,
-          details: isManeuver ? item.details : undefined
-        }));
-      }
-      // String unique splitée par ligne
-      return typeof content === 'string'
-        ? content.split('\n').filter(l => l.trim()).map(l => ({ id: generateId(), content: l }))
-        : [{ id: generateId(), content: safeRender(content) }];
-    };
-
-    setColumns({
-      S: { id: 'S', title: 'Situation', letter: 'S', color: 'blue', items: processItems(ordre.S) },
-      O: { id: 'O', title: 'Objectif', letter: 'O', color: 'green', items: processItems(ordre.O) },
-      I: { id: 'I', title: 'Idée de manœuvre', letter: 'I', color: 'yellow', items: processItems(ordre.I) },
-      E: { id: 'E', title: 'Exécution', letter: 'E', color: 'red', items: processItems(ordre.E, true) },
-      C: { id: 'C', title: 'Commandement', letter: 'C', color: 'purple', items: processItems(ordre.C) }
-    });
+    setColumns(buildColumnsFromOrdre(ordre));
   }, [ordre]);
 
   // Notify parent of changes
@@ -319,6 +326,35 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
     }));
   };
 
+  const handleGenerateAI = async () => {
+    const situationText = (columns.S?.items || []).map(i => i.content).join('\n').trim();
+    if (!situationText) {
+      alert('Ajoutez une situation avant de générer avec l’IA.');
+      return;
+    }
+    setIsGeneratingAI(true);
+    try {
+      const meansText = means.length ? `Moyens disponibles: ${means.map(m => `${m.name} (${m.status})`).join(', ')}` : '';
+      const response = await analyzeEmergency(
+        situationText,
+        type || 'group',
+        {
+          dominante: dominante || 'Incendie',
+          extraContext: meansText
+        }
+      );
+
+      const parsed = parseOrdreInitial(typeof response === 'string' ? response : JSON.stringify(response));
+      setColumns(buildColumnsFromOrdre(parsed));
+      skipPropSyncRef.current = true;
+    } catch (error: any) {
+      console.error('Erreur génération IA:', error);
+      alert(error.message || 'Impossible de générer l’ordre via l’IA pour le moment.');
+    } finally {
+      setIsGeneratingAI(false);
+    }
+  };
+
   const getSuggestions = (colId: string, query: string) => {
     if (!doctrineData) return [];
     const base: string[] =
@@ -423,7 +459,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
       )}
 
       {/* Kanban Board */}
-      <div className="flex-1 grid grid-cols-5 gap-4 min-h-[600px]">
+      <div className="flex-1 grid grid-cols-5 gap-4 min-h-[600px]" ref={boardRef}>
         {Object.values(columns).map(col => {
           const headerColor = {
             blue: 'text-blue-400 border-blue-500/30 bg-blue-900/20',
@@ -447,10 +483,10 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
                 </div>
                 <span className="text-xs opacity-50">{col.items.length}</span>
               </div>
-              <div className="p-3 flex-1 overflow-y-auto custom-scrollbar">
+              <div className="p-3 flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-2 min-h-0">
                 {col.items.map(item => renderCard(item, col))}
 
-                {/* Bouton Ajouter */}
+                {/* Bouton Ajouter (toutes colonnes) */}
                 <button
                   onClick={() => handleAddItem(col.id)}
                   className="w-full py-3 border-2 border-dashed border-white/10 rounded-lg flex items-center justify-center text-white/30 hover:text-white/60 hover:border-white/20 hover:bg-white/5 transition-all group"
@@ -459,6 +495,24 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
                 </button>
+
+                {/* Bouton IA en bas de la colonne Situation */}
+                {col.id === 'S' && (
+                  <button
+                    type="button"
+                    onClick={handleGenerateAI}
+                    disabled={isGeneratingAI}
+                    data-export-hide="true"
+                    className="w-full p-3 mt-auto rounded-lg border backdrop-blur-sm transition-all duration-200 bg-blue-900/25 border-blue-500/40 hover:bg-blue-800/40 hover:border-blue-300/60 text-blue-50 shadow-inner flex items-center justify-center gap-2 font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {isGeneratingAI ? (
+                      <div className="w-5 h-5 border-2 border-blue-200/50 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Sparkles className="w-5 h-5 text-blue-200" />
+                    )}
+                    <span>Générer ordre initial avec l'IA</span>
+                  </button>
+                )}
               </div>
             </div>
           );

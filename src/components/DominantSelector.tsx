@@ -36,8 +36,12 @@ const DominantSelector: React.FC<DominantSelectorProps> = ({ selectedRisks, onCh
     }
   };
 
+  const containerClass = className
+    ? `w-full flex ${className}`
+    : 'w-full flex justify-center';
+
   return (
-    <div className={`w-full flex justify-center ${className ?? ''}`}>
+    <div className={containerClass}>
       <div className="inline-flex flex-wrap justify-center items-stretch gap-2 border-2 border-red-500 rounded-3xl px-3 py-2 bg-black/20 max-w-full">
         {order.map((opt) => {
           const index = selectedRisks.indexOf(opt);

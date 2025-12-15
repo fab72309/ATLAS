@@ -9,6 +9,38 @@ const buildMeta = (opts?: { adresse?: string; heure?: string }) => ({
     heure: opts?.heure
 });
 
+const slugify = (input: string) =>
+    input
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .toLowerCase();
+
+const formatDatePart = (heure?: string) => {
+    const d = heure ? new Date(heure) : new Date();
+    if (isNaN(d.getTime())) {
+        const safe = (heure || '').replace(/[^0-9]/g, '');
+        return safe || Date.now().toString();
+    }
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
+};
+
+const buildFilename = (ext: string, opts?: { adresse?: string; heure?: string }) => {
+    const base = opts?.adresse ? slugify(opts.adresse) || 'ordre-initial' : 'ordre-initial';
+    const datePart = formatDatePart(opts?.heure);
+    return `${base}-${datePart}.${ext}`;
+};
+
+const escapeHtml = (input: string) =>
+    input
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+
 export const exportOrdreToClipboard = async (ordre: OrdreInitial, opts?: { adresse?: string; heure?: string }): Promise<void> => {
     const text = generateOrdreInitialText(ordre, buildMeta(opts));
     await Clipboard.write({
@@ -36,6 +68,7 @@ export const exportOrdreToPdf = (ordre: OrdreInitial, opts?: { adresse?: string;
     const doc = new jsPDF();
     const date = new Date().toLocaleDateString('fr-FR');
     const time = new Date().toLocaleTimeString('fr-FR');
+    const filename = buildFilename('pdf', opts);
 
     // Configuration de la police
     doc.setFont("helvetica");
@@ -118,13 +151,13 @@ export const exportOrdreToPdf = (ordre: OrdreInitial, opts?: { adresse?: string;
     addText('C – COMMANDEMENT', 14, 'bold');
     addText(ordre.C);
 
-    doc.save(`atlas-ordre-initial-${Date.now()}.pdf`);
+    doc.save(filename);
 };
 
 export const exportOrdreToWord = async (ordre: OrdreInitial, opts?: { adresse?: string; heure?: string }) => {
     const text = generateOrdreInitialText(ordre, buildMeta(opts));
     const blob = new Blob([text], { type: 'application/msword' });
-    const fileName = `atlas-ordre-initial-${Date.now()}.doc`;
+    const fileName = buildFilename('doc', opts);
     const file = new File([blob], fileName, { type: blob.type });
 
     // Try Web Share with file first
@@ -176,7 +209,7 @@ export const shareOrdreAsFile = async (
         const text = generateOrdreInitialText(ordre, buildMeta(opts));
         doc.text(text, 10, 10, { maxWidth: 190 });
         const blob = doc.output('blob');
-        const file = new File([blob], `atlas-ordre-initial-${Date.now()}.pdf`, { type: 'application/pdf' });
+        const file = new File([blob], buildFilename('pdf', opts), { type: 'application/pdf' });
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
             await navigator.share({ files: [file], title: 'Ordre Initial - A.T.L.A.S', text: 'PDF' });
             return;
@@ -189,4 +222,167 @@ export const shareOrdreAsFile = async (
 
     // word
     await exportOrdreToWord(ordre, opts);
+};
+
+export const exportOrdreToImage = async (ordre: OrdreInitial, opts?: { adresse?: string; heure?: string }) => {
+    const text = generateOrdreInitialText(ordre, buildMeta(opts));
+    const lines = text.split('\n');
+
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    if (!context) return;
+
+    const width = 1400;
+    const lineHeight = 28;
+    const padding = 40;
+    canvas.width = width;
+    canvas.height = padding * 2 + lines.length * lineHeight;
+
+    // Background
+    context.fillStyle = '#0b0c10';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Text
+    context.font = '16px "Helvetica Neue", Arial, sans-serif';
+    context.fillStyle = '#E5E7EB';
+    let y = padding;
+    lines.forEach(line => {
+        const chunks = line.match(/.{1,90}/g) || [''];
+        chunks.forEach(chunk => {
+            context.fillText(chunk, padding, y);
+            y += lineHeight;
+        });
+    });
+
+    const dataUrl = canvas.toDataURL('image/png');
+    const link = document.createElement('a');
+    link.href = dataUrl;
+    link.download = buildFilename('png', opts);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+};
+
+const captureBoardCanvas = async (el: HTMLElement) => {
+    const { default: html2canvas } = await import('html2canvas');
+    return html2canvas(el, {
+        backgroundColor: '#0b0c10',
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        ignoreElements: (element) => {
+            const attr = (element as HTMLElement).dataset?.exportHide;
+            return attr === 'true';
+        }
+    });
+};
+
+export const exportBoardDesignImage = async (el: HTMLElement, opts?: { adresse?: string; heure?: string }) => {
+    const canvas = await captureBoardCanvas(el);
+    const dataUrl = canvas.toDataURL('image/png');
+    const link = document.createElement('a');
+    link.href = dataUrl;
+    link.download = buildFilename('png', opts);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+};
+
+export const exportBoardDesignPdf = async (el: HTMLElement, opts?: { adresse?: string; heure?: string }) => {
+    const canvas = await captureBoardCanvas(el);
+    const imgData = canvas.toDataURL('image/jpeg', 0.75);
+    const orientation = canvas.width > canvas.height ? 'landscape' : 'portrait';
+    const pdf = new jsPDF({
+        orientation,
+        unit: 'px',
+        format: [canvas.width, canvas.height]
+    });
+    pdf.addImage(imgData, 'JPEG', 0, 0, canvas.width, canvas.height);
+    pdf.save(buildFilename('pdf', opts));
+};
+
+export const exportBoardDesignWord = async (el: HTMLElement, opts?: { adresse?: string; heure?: string }) => {
+    const canvas = await captureBoardCanvas(el);
+    const dataUrl = canvas.toDataURL('image/png');
+    const html = `
+      <html>
+        <head><meta charset="utf-8" /></head>
+        <body style="margin:0; padding:20px; background:#111;">
+          <img src="${dataUrl}" style="max-width:100%; height:auto;" />
+        </body>
+      </html>
+    `;
+    const blob = new Blob([html], { type: 'application/msword' });
+    const fileName = buildFilename('doc', opts);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+};
+
+const buildBoardHtmlTemplate = (ordre: OrdreInitial, opts?: { adresse?: string; heure?: string }) => {
+    const metaLines = [];
+    if (opts?.adresse) metaLines.push(`<div class="meta">Adresse : ${escapeHtml(opts.adresse)}</div>`);
+    if (opts?.heure) metaLines.push(`<div class="meta">Heure : ${escapeHtml(opts.heure)}</div>`);
+
+    const columns = [
+        { title: 'Situation', color: '#1e3a8a', data: typeof ordre.S === 'string' ? ordre.S.split('\n').filter(Boolean) : [] },
+        { title: 'Objectif', color: '#065f46', data: ordre.O || [] },
+        { title: 'Idée de manœuvre', color: '#92400e', data: (ordre.I || []).map(i => i.mission || '') },
+        { title: 'Exécution', color: '#7f1d1d', data: Array.isArray(ordre.E) ? ordre.E.map((e: any) => `${e.mission || ''} – ${e.moyen || ''}`) : [ordre.E as any] },
+        { title: 'Commandement', color: '#6b21a8', data: typeof ordre.C === 'string' ? ordre.C.split('\n').filter(Boolean) : [] },
+    ];
+
+    const cardsHtml = columns.map(col => `
+      <div class="column">
+        <div class="column-header" style="background:${col.color};">${escapeHtml(col.title)}</div>
+        <div class="column-body">
+          ${col.data && col.data.length
+            ? col.data.map(item => `<div class="card">${escapeHtml(item)}</div>`).join('')
+            : `<div class="card empty">Aucun élément</div>`}
+        </div>
+      </div>
+    `).join('');
+
+    return `
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <style>
+            body { margin:0; padding:20px; background:#0b0c10; color:#e5e7eb; font-family: 'Segoe UI', Arial, sans-serif; }
+            .meta { color:#9ca3af; font-size:14px; margin-bottom:4px; }
+            .board { display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:16px; }
+            .column { background:#0f172a; border:1px solid #1f2937; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.35); overflow:hidden; }
+            .column-header { padding:10px 12px; font-weight:700; color:#f9fafb; }
+            .column-body { padding:12px; display:flex; flex-direction:column; gap:8px; }
+            .card { padding:10px 12px; border-radius:10px; border:1px solid #1f2937; background:#111827; color:#e5e7eb; }
+            .card.empty { color:#6b7280; font-style:italic; }
+          </style>
+        </head>
+        <body>
+          ${metaLines.join('')}
+          <div class="board">
+            ${cardsHtml}
+          </div>
+        </body>
+      </html>
+    `;
+};
+
+export const exportBoardDesignWordEditable = async (ordre: OrdreInitial, opts?: { adresse?: string; heure?: string }) => {
+    const html = buildBoardHtmlTemplate(ordre, opts);
+    const blob = new Blob([html], { type: 'application/msword' });
+    const fileName = buildFilename('doc', opts);
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
 };

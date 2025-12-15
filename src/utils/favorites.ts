@@ -4,7 +4,9 @@ export type FavoriteKey =
   | 'zoning'
   | 'group'
   | 'column'
-  | 'site';
+  | 'site'
+  | 'sitac'
+  | 'oct';
 
 const STORAGE_KEY = 'atlas-favorites';
 
@@ -46,4 +48,6 @@ export const NAV_ITEMS: NavItem[] = [
   { key: 'group', label: 'Chef de groupe', path: '/command-type/group' },
   { key: 'column', label: 'Chef de colonne', path: '/command-type/column' },
   { key: 'site', label: 'Chef de site', path: '/command-type/site' },
+  { key: 'sitac', label: 'SITAC MapLibre', path: '/sitac' },
+  { key: 'oct', label: 'OCT – Organigramme transmissions', path: '/oct' },
 ];

@@ -110,3 +110,8 @@ textarea {
 .animate-fade-in-down {
   animation: fadeInDown 0.8s ease-out;
 }
+
+.mapboxgl-ctrl.mapboxgl-ctrl-group.mapboxgl-ctrl-draw,
+.mapboxgl-ctrl-top-left .mapboxgl-ctrl-draw {
+  display: none !important;
+}
