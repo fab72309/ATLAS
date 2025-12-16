@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
+import { initAnalytics } from './utils/firebase';
 
 // Ensure HashRouter has a starting hash on iOS WebView (Capacitor) to prevent blank screen
 if (!window.location.hash) {
@@ -24,6 +25,11 @@ try {
   // eslint-disable-next-line no-console
   console.error('[BOOT ERROR]', e);
 }
+
+initAnalytics().catch((err) => {
+  // eslint-disable-next-line no-console
+  console.warn('[Analytics] init skipped', err);
+});
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
