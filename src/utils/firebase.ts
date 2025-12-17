@@ -25,7 +25,6 @@ const requiredEnv: Array<keyof FirebaseOptions> = [
 ];
 const missingEnv = requiredEnv.filter((key) => !(firebaseConfig as Record<string, string | undefined>)[key]);
 if (missingEnv.length) {
-  // eslint-disable-next-line no-console
   console.warn('[Firebase] Variables manquantes:', missingEnv.join(', '));
 }
 

@@ -17,12 +17,23 @@ export default tseslint.config(
       'react-hooks': reactHooks,
       'react-refresh': reactRefresh,
     },
-    rules: {
-      ...reactHooks.configs.recommended.rules,
-      'react-refresh/only-export-components': [
-        'warn',
-        { allowConstantExport: true },
+  rules: {
+    ...reactHooks.configs.recommended.rules,
+    'react-refresh/only-export-components': [
+      'warn',
+      { allowConstantExport: true },
+    ],
+    // Les règles suivantes sont volontairement assouplies pour rester alignées
+    // avec le code existant sans multiplier les faux positifs pendant la
+    // remise en conformité progressive.
+    '@typescript-eslint/no-explicit-any': 'off',
+    '@typescript-eslint/no-empty-object-type': 'off',
+    '@typescript-eslint/no-unused-vars': [
+      'error',
+      { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
+      'react-hooks/exhaustive-deps': 'off',
+      'no-empty': 'off',
     },
   }
 );

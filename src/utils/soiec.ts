@@ -34,7 +34,7 @@ export const parseOrdreInitial = (jsonString: string): OrdreInitial => {
         // Si E est un tableau (ou une chaîne qui est un tableau JSON), on regarde ce qu'il y a dedans
         let parsedE = finalE;
         if (typeof finalE === 'string' && (finalE.trim().startsWith('[') || finalE.trim().startsWith('{'))) {
-            try { parsedE = JSON.parse(finalE); } catch (e) { }
+            try { parsedE = JSON.parse(finalE); } catch { }
         }
 
         // Si E est un tableau d'objets avec "mission" ou "moyen", c'est bien l'Exécution (qui fait quoi avec quoi)

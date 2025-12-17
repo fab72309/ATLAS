@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import * as fabric from 'fabric';
 import type maplibregl from 'maplibre-gl';
 import { useSitacStore } from '../../stores/useSitacStore';
@@ -63,7 +63,6 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
     // Store
     const mode = useSitacStore((s) => s.mode);
     const drawingColor = useSitacStore((s) => s.drawingColor);
-    const lineStyle = useSitacStore((s) => s.lineStyle); // 'solid' | 'dashed' | 'dot-dash'
     const setMode = useSitacStore((s) => s.setMode);
     const locked = useSitacStore((s) => s.locked);
 
@@ -364,8 +363,8 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
             canvas.defaultCursor = 'crosshair';
             canvas.forEachObject(o => o.selectable = false);
 
-            let points: { x: number; y: number }[] = [];
-            let lines: fabric.Line[] = [];
+            const points: { x: number; y: number }[] = [];
+            const lines: fabric.Line[] = [];
             let activeLine: fabric.Line | null = null;
 
             canvas.on('mouse:down', (options) => {
@@ -849,7 +848,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                 if (!fabricObj.geoPosition) return;
 
                 let geometry: any;
-                let properties: any = {
+                const properties: any = {
                     id: fabricObj.names?.[0] || Date.now().toString(), // Simple ID
                     // color: (obj.fill as string) !== 'transparent' ? obj.fill : obj.stroke, // Don't default indiscriminately
                     rotation: obj.angle || 0,

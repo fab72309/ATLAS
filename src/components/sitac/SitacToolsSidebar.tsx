@@ -1,8 +1,8 @@
 import React from 'react';
 import { useSitacStore } from '../../stores/useSitacStore';
 import {
-    Pencil, Minus, Square, Circle, Type, Eraser, Hexagon, ArrowRight,
-    Undo2, Redo2, Wand2, Save, Image as ImageIcon, FileText, Trash2, Hand, PenLine, Palette
+    Minus, Square, Circle, Type, Eraser, Hexagon, ArrowRight,
+    Wand2, Save, Image as ImageIcon, FileText, Trash2, Hand, PenLine, Palette
 } from 'lucide-react';
 import type { BaseLayerKey, SymbolAsset } from '../../types/sitac';
 

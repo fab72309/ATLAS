@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { MapPin, Search, Layers, Plus, Minus, Share2, Download, FileImage, X, Mail, MessageSquare, Wind, Thermometer, Droplets } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Circle, useMap, useMapEvents, ScaleControl } from 'react-leaflet';
 import axios from 'axios';
@@ -267,14 +266,13 @@ const ShareDialog: React.FC<{
 };
 
 const OperationalZoning = () => {
-  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [position, setPosition] = useState<[number, number]>([48.8566, 2.3522]);
   const [incidentPosition, setIncidentPosition] = useState<[number, number] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentLayer, setCurrentLayer] = useState<'street' | 'satellite' | 'hybrid'>('street');
-  const [map, setMap] = useState<L.Map | null>(null);
+  const [, setMap] = useState<L.Map | null>(null);
   const [isLocationRequested, setIsLocationRequested] = useState(false);
   const [isGeolocating, setIsGeolocating] = useState(false);
   const [exclusionRadius, setExclusionRadius] = useState(50); // Initial radius in meters

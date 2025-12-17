@@ -14,7 +14,7 @@ import {
   ensureLayers,
   setSelectionFilter
 } from '../utils/sitacLayers';
-import type { BaseLayerKey, SymbolAsset, Snapshot } from '../types/sitac';
+import type { BaseLayerKey, SymbolAsset } from '../types/sitac';
 
 // Components
 import SitacToolbar from '../components/sitac/SitacToolbar';
@@ -279,19 +279,6 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false }) => {
     }
   };
 
-  const handleExport = () => {
-    const data = JSON.stringify(geoJSON, null, 2);
-    const blob = new Blob([data], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = 'easy-draw.geojson';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  };
-
   const handleSnapshot = () => {
     const map = mapRef.current;
     if (!map) return;
@@ -301,10 +288,6 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false }) => {
       center: [center.lng, center.lat],
       zoom: map.getZoom(),
     });
-  };
-
-  const restoreSnapshot = (snap: Snapshot) => {
-    mapRef.current?.flyTo({ center: snap.center, zoom: snap.zoom, speed: 0.7 });
   };
 
   const containerHeightClass = embedded ? 'h-[70vh]' : 'h-screen';

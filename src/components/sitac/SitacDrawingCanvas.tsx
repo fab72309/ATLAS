@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect } from 'react';
 import type maplibregl from 'maplibre-gl';
 import { useSitacStore } from '../../stores/useSitacStore';
 import { createId, simplifyLine } from '../../utils/sitacUtils';
@@ -205,7 +205,7 @@ const SitacDrawingCanvas: React.FC<SitacDrawingCanvasProps> = ({ width, height, 
         requestAnimationFrame(render);
     };
 
-    const handleMouseUp = (e: React.MouseEvent | React.TouchEvent) => {
+    const handleMouseUp = (_e: React.MouseEvent | React.TouchEvent) => {
         if (!isCanvasMode || !isDrawing.current) return;
         finalizeShape();
     };
