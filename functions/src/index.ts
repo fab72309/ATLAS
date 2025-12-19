@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import cors from 'cors';
 import { onRequest } from 'firebase-functions/v2/https';
+import { defineSecret } from 'firebase-functions/params';
 import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import type { CommandType, PromptMode } from './prompts';
@@ -10,6 +11,9 @@ import { DeveloperPrompts, OutputSchemas, buildUserPrompt } from './prompts';
 try { initializeApp(); } catch {}
 
 const corsMw = cors({ origin: true });
+
+// Secret (Firebase Functions / Secret Manager)
+const OPENAI_API_KEY = defineSecret('OPENAI_API_KEY');
 
 // Utilitaire: vérifier (facultatif) le token Firebase du client
 async function verifyIdTokenMaybe(authHeader?: string) {
@@ -35,17 +39,31 @@ async function verifyIdTokenMaybe(authHeader?: string) {
 // Normalise l’entrée en deux modes de prompt, tout en restant rétrocompatible
 function normaliseInput(body: any): { type: CommandType; mode: PromptMode; data: { texte?: string; sections?: Record<string, string>; dominante?: string } } {
   const type = (body?.type ?? 'group') as CommandType;
-  // Compat: l’app front envoie “situation” (texte libre) aujourd’hui
-  const texte = typeof body?.situation === 'string' ? body.situation : undefined;
-  const sections = typeof body?.sections === 'object' && body?.sections ? body.sections : undefined;
-  const dominante = typeof body?.dominante === 'string' ? body.dominante : undefined;
+
+  // Front payload actuel: { situation, type, extra }
+  const texte = typeof body?.situation === 'string'
+    ? body.situation
+    : (typeof body?.texte === 'string' ? body.texte : undefined);
+
+  const extra = (typeof body?.extra === 'object' && body?.extra) ? body.extra : {};
+
+  // Compat: accepter aussi sections/dominante au niveau racine
+  const sections = (typeof (extra as any)?.sections === 'object' && (extra as any)?.sections)
+    ? (extra as any).sections
+    : ((typeof body?.sections === 'object' && body?.sections) ? body.sections : undefined);
+
+  const dominante = (typeof (extra as any)?.dominante === 'string')
+    ? (extra as any).dominante
+    : (typeof body?.dominante === 'string' ? body.dominante : undefined);
+
   let mode: PromptMode = 'texte_libre';
   if (sections && Object.keys(sections).length > 0) mode = 'elements_dictes';
+
   return { type, mode, data: { texte, sections, dominante } };
 }
 
 // Function HTTPS principale: /analyze
-export const analyze = onRequest({ cors: true, region: 'europe-west1', timeoutSeconds: 120 }, async (req, res) => {
+export const analyze = onRequest({ cors: true, region: 'europe-west1', timeoutSeconds: 120, secrets: [OPENAI_API_KEY] }, async (req, res) => {
   // CORS
   await new Promise<void>((resolve) => corsMw(req, res, () => resolve()));
 
@@ -59,9 +77,9 @@ export const analyze = onRequest({ cors: true, region: 'europe-west1', timeoutSe
 
     const { type, mode, data } = normaliseInput(req.body || {});
 
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiKey = OPENAI_API_KEY.value();
     if (!apiKey) {
-      res.status(500).json({ error: 'OPENAI_API_KEY non configurée côté serveur' });
+      res.status(500).json({ error: 'OPENAI_API_KEY non configurée côté serveur (Secret Manager)' });
       return;
     }
 
@@ -87,10 +105,11 @@ export const analyze = onRequest({ cors: true, region: 'europe-west1', timeoutSe
 
     // Récupère le texte JSON retourné
     const text = response.output_text || '';
-    res.json({ result: text, model: response.model });
-  } catch (err: any) {
+    // Compat: exposer `content` (nouveau) et `result` (ancien)
+    res.json({ content: text, result: text, model: response.model });
+  } catch (err: unknown) {
     console.error('[analyze] error', err);
-    const msg = err?.message || 'Erreur serveur';
+    const msg = err instanceof Error ? err.message : 'Erreur serveur';
     res.status(400).json({ error: msg });
   }
 });

@@ -1,7 +1,11 @@
-{
-  "files": [],
-  "references": [
-    { "path": "./tsconfig.app.json" },
-    { "path": "./tsconfig.node.json" }
-  ]
-}
+import type { CommandType, PromptMode } from './prompts.js';
+import { DeveloperPrompts, OutputSchemas, buildUserPrompt } from './prompts.js';
+
+const response = await openai.chat.completions.create({
+  model: "gpt-4o-mini",
+  messages: [
+    { type: 'input_text', text: 'Hello' },
+    { role: 'user', content: 'Can you help me?' },
+    { type: "input_text", text: 'Sure!' }
+  ],
+});

@@ -35,22 +35,29 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
-// Resolve once the initial auth state is known (user signed in or not)
+// Wait until Firebase Auth has emitted the initial auth state (user or null).
+// This is useful to avoid Firestore reads before auth is initialized.
 export const authReady = new Promise<void>((resolve) => {
-  const unsub = onAuthStateChanged(auth, () => {
+  const unsubscribe = onAuthStateChanged(auth, () => {
+    unsubscribe();
     resolve();
-    unsub();
   });
 });
 
 // Enable offline persistence
 try {
   enableIndexedDbPersistence(db);
-} catch (err: any) {
-  if (err?.code === 'failed-precondition') {
-    console.warn('Multiple tabs open, persistence can only be enabled in one tab at a a time.');
-  } else if (err?.code === 'unimplemented') {
-    console.warn('The current browser doesn\'t support persistence.');
+} catch (err: unknown) {
+  const code = (typeof err === 'object' && err !== null && 'code' in err)
+    ? String((err as { code?: unknown }).code)
+    : '';
+
+  if (code === 'failed-precondition') {
+    console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.');
+  } else if (code === 'unimplemented') {
+    console.warn("The current browser doesn't support persistence.");
+  } else {
+    console.warn('Failed to enable persistence:', err);
   }
 }
 

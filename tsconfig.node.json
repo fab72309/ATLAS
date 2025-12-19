@@ -1,22 +1,27 @@
-{
-  "compilerOptions": {
-    "target": "ES2022",
-    "lib": ["ES2023"],
-    "module": "ESNext",
-    "skipLibCheck": true,
+import type { CommandType, PromptMode } from './prompts.js';
+import { DeveloperPrompts, OutputSchemas, buildUserPrompt } from './prompts.js';
 
-    /* Bundler mode */
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "isolatedModules": true,
-    "moduleDetection": "force",
-    "noEmit": true,
+...
 
-    /* Linting */
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+const response = await openai.responses.create({
+  ...
+  input: {
+    messages: [
+      {
+        role: "system",
+        content: [
+          { type: "input_text", text: "some system text" },
+          // other content items
+        ],
+      },
+      {
+        role: "user",
+        content: [
+          { type: "input_text", text: "some user text" },
+          // other content items
+        ],
+      },
+    ],
   },
-  "include": ["vite.config.ts"]
-}
+  ...
+});

@@ -158,6 +158,10 @@ export interface PromptInput {
   sections?: Record<string, string | undefined>;
   // Dominante de l'intervention (ex: Incendie, Risque gaz, ...)
   dominante?: string;
+  // Risques secondaires éventuels
+  secondaryRisks?: string[];
+  // Informations additionnelles libres
+  extraContext?: string;
 }
 
 export const buildUserPrompt = (
@@ -165,14 +169,21 @@ export const buildUserPrompt = (
   mode: PromptMode,
   input: PromptInput
 ): string => {
-  const header = `Niveau: ${type}\nMode: ${mode}${input.dominante ? `\nDominante: ${input.dominante}` : ''}`;
+  const headerLines = [`Niveau: ${type}`, `Mode: ${mode}`];
+  if (input.dominante) headerLines.push(`Dominante: ${input.dominante}`);
+  if (input.secondaryRisks?.length) headerLines.push(`Risques secondaires: ${input.secondaryRisks.join(', ')}`);
+  const extraContextBlock = (input.extraContext ?? '').trim();
+  const header = headerLines.join('\n');
+
   if (mode === 'elements_dictes' && input.sections) {
     const serial = Object.entries(input.sections)
       .filter(([, v]) => (v ?? '').trim().length > 0)
       .map(([k, v]) => `- ${k}:\n${(v ?? '').trim()}`)
       .join('\n\n');
-    return `${header}\n\nDonnées:\n${serial}\n\nConsigne: Produis la structure demandée.`;
+    const context = extraContextBlock ? `\n\nContexte complémentaire:\n${extraContextBlock}` : '';
+    return `${header}\n\nDonnées:\n${serial}${context}\n\nConsigne: Produis la structure demandée.`;
   }
   const texte = (input.texte ?? '').trim();
-  return `${header}\n\nTexte dicté:\n${texte}\n\nConsigne: Analyse et structure selon le schéma cible.`;
+  const context = extraContextBlock ? `\n\nContexte complémentaire:\n${extraContextBlock}` : '';
+  return `${header}\n\nTexte dicté:\n${texte}${context}\n\nConsigne: Analyse et structure selon le schéma cible.`;
 };
