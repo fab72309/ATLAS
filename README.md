@@ -60,6 +60,17 @@ Aide Tactique et Logique pour l'Action des Secours
 npm run build
 ```
 
+## 🧪 Tests et qualité
+
+- Lancer l’analyse statique ESLint :
+  ```bash
+  npm run lint -- --max-warnings=0
+  ```
+- Vérifier la cible de test CI (déléguée à ESLint) :
+  ```bash
+  npm test
+  ```
+
 ## 📱 Build pour mobile (Android/iOS)
 
 ```bash
