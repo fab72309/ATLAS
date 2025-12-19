@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 import { initAnalytics } from './utils/firebase';
+import { AuthProvider } from './auth/AuthProvider';
 
 // Ensure HashRouter has a starting hash on iOS WebView (Capacitor) to prevent blank screen
 if (!window.location.hash) {
@@ -27,8 +28,10 @@ if (!window.location.hash) {
     console.warn('[Analytics] init skipped', err);
   });
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>
-);
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    </StrictMode>
+  );

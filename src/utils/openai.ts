@@ -54,7 +54,11 @@ export const analyzeEmergency = async (
     }
 
     await authReady;
-    const token = auth.currentUser ? await auth.currentUser.getIdToken() : null;
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error('Utilisateur non authentifié pour appeler le proxy IA.');
+    }
+    const token = await currentUser.getIdToken();
 
     const sections = sanitizeSections(opts?.sections);
     if (!situation?.trim() && !sections) {

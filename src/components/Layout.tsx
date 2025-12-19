@@ -2,11 +2,13 @@ import React from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import SideMenu from './SideMenu';
 import { Menu, Home } from 'lucide-react';
+import { useAuth } from '../auth/AuthProvider';
 
 const Layout = () => {
   const [open, setOpen] = React.useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+  const { signOut } = useAuth();
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white">
@@ -30,6 +32,14 @@ const Layout = () => {
               <Home className="w-6 h-6" />
             </button>
           )}
+
+          <button
+            onClick={() => signOut()}
+            className="p-2.5 bg-red-500/80 hover:bg-red-500 backdrop-blur-md border border-red-300/20 rounded-xl text-white transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg"
+            aria-label="Déconnexion"
+          >
+            Déconnexion
+          </button>
         </div>
         <Outlet />
       </main>

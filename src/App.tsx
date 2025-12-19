@@ -1,6 +1,8 @@
 import React, { Suspense } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import AppErrorBoundary from './components/AppErrorBoundary';
+import ProtectedRoute from './auth/ProtectedRoute';
+import Login from './pages/Login';
 
 const Layout = React.lazy(() => import('./components/Layout'));
 const Home = React.lazy(() => import('./pages/Home'));
@@ -20,7 +22,15 @@ function App() {
       <AppErrorBoundary>
         <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-white bg-black">Chargement...</div>}>
           <Routes>
-            <Route path="/" element={<Layout />}>
+            <Route path="/login" element={<Login />} />
+            <Route
+              path="/"
+              element={(
+                <ProtectedRoute>
+                  <Layout />
+                </ProtectedRoute>
+              )}
+            >
               <Route index element={<Home />} />
               <Route path="index.html" element={<Navigate to="/" replace />} />
               <Route path="functions" element={<OperationalFunctions />} />

@@ -68,9 +68,18 @@ const toTimestamp = (value: DateLike, label = 'Date fournie') => {
   return Timestamp.fromDate(dateValue);
 };
 
-const withAuditFields = (data: Record<string, unknown>) => ({
+const requireUser = async () => {
+  await authReady;
+  const currentUser = auth.currentUser;
+  if (!currentUser) {
+    throw new Error('Utilisateur non authentifié.');
+  }
+  return currentUser;
+};
+
+const withAuditFields = (data: Record<string, unknown>, uid: string) => ({
   ...data,
-  uid: auth.currentUser?.uid || 'anonymous',
+  uid,
   createdAt: serverTimestamp()
 });
 
@@ -118,13 +127,13 @@ const normalizeCommunication = (data: CommunicationData | CommunicationIAData) =
 
 export const saveDictationData = async (data: DictationData) => {
   try {
-    await authReady;
+    const user = await requireUser();
     let collectionName = 'Chef_de_groupe';
     if (data.type === 'column') collectionName = 'Chef_de_colonne';
     if (data.type === 'site') collectionName = 'Chef_de_site';
 
     const collectionRef = collection(db, collectionName);
-    const docRef = await addDoc(collectionRef, withAuditFields(normalizeDictationData(data)));
+    const docRef = await addDoc(collectionRef, withAuditFields(normalizeDictationData(data), user.uid));
     console.log('Document written with ID: ', docRef.id);
     return docRef.id;
   } catch (error) {
@@ -135,9 +144,9 @@ export const saveDictationData = async (data: DictationData) => {
 
 export const saveAIAnalysis = async (data: AIAnalysisData) => {
   try {
-    await authReady;
+    const user = await requireUser();
     const collectionRef = collection(db, 'Chef_de_groupe_IA');
-    const docRef = await addDoc(collectionRef, withAuditFields(normalizeAIAnalysis(data)));
+    const docRef = await addDoc(collectionRef, withAuditFields(normalizeAIAnalysis(data), user.uid));
     console.log('AI Analysis saved with ID:', docRef.id);
     return docRef.id;
   } catch (error) {
@@ -148,8 +157,8 @@ export const saveAIAnalysis = async (data: AIAnalysisData) => {
 
 export const saveCommunicationData = async (data: CommunicationData) => {
   try {
-    await authReady;
-    const docRef = await addDoc(collection(db, 'Communication_OPS'), withAuditFields(normalizeCommunication(data)));
+    const user = await requireUser();
+    const docRef = await addDoc(collection(db, 'Communication_OPS'), withAuditFields(normalizeCommunication(data), user.uid));
     console.log('Document written with ID:', docRef.id);
     return docRef.id;
   } catch (error) {
@@ -160,11 +169,11 @@ export const saveCommunicationData = async (data: CommunicationData) => {
 
 export const saveCommunicationIAData = async (data: CommunicationIAData) => {
   try {
-    await authReady;
+    const user = await requireUser();
     const docRef = await addDoc(collection(db, 'Communication_OPS_IA'), withAuditFields({
       input: assertString('Texte d\'entrée', data.input),
       ...normalizeCommunication(data)
-    }));
+    }, user.uid));
     console.log('Communication IA analysis saved with ID:', docRef.id);
     return docRef.id;
   } catch (error) {
