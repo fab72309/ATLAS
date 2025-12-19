@@ -1,6 +1,6 @@
 import { initializeApp, type FirebaseOptions } from 'firebase/app';
 import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
-import { getAuth, signInAnonymously } from 'firebase/auth';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 import { getAnalytics, isSupported, type Analytics } from 'firebase/analytics';
 
@@ -35,18 +35,12 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
-// Ensure an authenticated context for Firestore rules
+// Resolve once the initial auth state is known (user signed in or not)
 export const authReady = new Promise<void>((resolve) => {
-  if (auth.currentUser) {
+  const unsub = onAuthStateChanged(auth, () => {
     resolve();
-    return;
-  }
-  signInAnonymously(auth)
-    .then(() => resolve())
-    .catch((err) => {
-      console.warn('Anonymous auth failed:', err);
-      resolve();
-    });
+    unsub();
+  });
 });
 
 // Enable offline persistence

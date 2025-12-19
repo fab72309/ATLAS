@@ -12,13 +12,23 @@ import SettingsPage from './pages/Settings';
 import OctDiagram from './pages/OctDiagram';
 import Layout from './components/Layout';
 import AppErrorBoundary from './components/AppErrorBoundary';
+import LoginPage from './pages/Login';
+import RequireAuth from './components/RequireAuth';
 
 function App() {
   return (
     <HashRouter>
       <AppErrorBoundary>
         <Routes>
-          <Route path="/" element={<Layout />}>
+          <Route path="/login" element={<LoginPage />} />
+          <Route
+            path="/"
+            element={
+              <RequireAuth>
+                <Layout />
+              </RequireAuth>
+            }
+          >
             <Route index element={<Home />} />
             <Route path="index.html" element={<Navigate to="/" replace />} />
             <Route path="functions" element={<OperationalFunctions />} />

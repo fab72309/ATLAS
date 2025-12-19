@@ -2,6 +2,8 @@
 
 Aide Tactique et Logique pour l'Action des Secours
 
+**Version courante : Alpha 0.2.0**
+
 ## 📱 Fonctionnalités
 
 - Génération de messages opérationnels (Chef de groupe, Chef de colonne, Communication OPS)
@@ -50,7 +52,7 @@ Aide Tactique et Logique pour l'Action des Secours
 ## 🔒 Sécurité
 
 - OpenAI est appelé via un proxy serveur (Firebase Functions) avec vérification du token Firebase côté serveur.
-- Les règles Firestore exigent un utilisateur authentifié (auth anonyme activée) et l’accès est limité par `uid`.
+- Les règles Firestore exigent un utilisateur authentifié (email/mot de passe) et l’accès est limité par `uid`.
 - Les écritures ajoutent automatiquement `uid` et `createdAt`.
 - Les tuiles cartographiques utilisent des sources CORS-friendly (plus de tuiles Google non conformes).
 

@@ -53,6 +53,8 @@ export interface CommunicationIAData {
 export const saveDictationData = async (data: DictationData) => {
   try {
     await authReady;
+    const user = auth.currentUser;
+    if (!user) throw new Error('Utilisateur non authentifié. Merci de vous connecter.');
     let collectionName = 'Chef_de_groupe';
     if (data.type === 'column') collectionName = 'Chef_de_colonne';
     if (data.type === 'site') collectionName = 'Chef_de_site';
@@ -60,7 +62,7 @@ export const saveDictationData = async (data: DictationData) => {
     const collectionRef = collection(db, collectionName);
     const docRef = await addDoc(collectionRef, {
       ...data,
-      uid: auth.currentUser?.uid || 'anonymous',
+      uid: user.uid,
       createdAt: serverTimestamp()
     });
     console.log('Document written with ID: ', docRef.id);
@@ -74,10 +76,12 @@ export const saveDictationData = async (data: DictationData) => {
 export const saveAIAnalysis = async (data: AIAnalysisData) => {
   try {
     await authReady;
+    const user = auth.currentUser;
+    if (!user) throw new Error('Utilisateur non authentifié. Merci de vous connecter.');
     const collectionRef = collection(db, 'Chef_de_groupe_IA');
     const docRef = await addDoc(collectionRef, {
       ...data,
-      uid: auth.currentUser?.uid || 'anonymous',
+      uid: user.uid,
       createdAt: serverTimestamp()
     });
     console.log('AI Analysis saved with ID:', docRef.id);
@@ -91,9 +95,11 @@ export const saveAIAnalysis = async (data: AIAnalysisData) => {
 export const saveCommunicationData = async (data: CommunicationData) => {
   try {
     await authReady;
+    const user = auth.currentUser;
+    if (!user) throw new Error('Utilisateur non authentifié. Merci de vous connecter.');
     const docRef = await addDoc(collection(db, 'Communication_OPS'), {
       ...data,
-      uid: auth.currentUser?.uid || 'anonymous',
+      uid: user.uid,
       createdAt: serverTimestamp()
     });
     console.log('Document written with ID:', docRef.id);
@@ -107,9 +113,11 @@ export const saveCommunicationData = async (data: CommunicationData) => {
 export const saveCommunicationIAData = async (data: CommunicationIAData) => {
   try {
     await authReady;
+    const user = auth.currentUser;
+    if (!user) throw new Error('Utilisateur non authentifié. Merci de vous connecter.');
     const docRef = await addDoc(collection(db, 'Communication_OPS_IA'), {
       ...data,
-      uid: auth.currentUser?.uid || 'anonymous',
+      uid: user.uid,
       createdAt: serverTimestamp()
     });
     console.log('Communication IA analysis saved with ID:', docRef.id);
