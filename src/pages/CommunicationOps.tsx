@@ -102,7 +102,10 @@ const CommunicationOps = () => {
       });
 
       // Send to OpenAI for analysis
-      const analysis = await analyzeEmergency(fullSituation, 'communication', { dominante });
+      const analysis = await analyzeEmergency(fullSituation, 'communication', {
+        dominante,
+        sections
+      });
 
       // Prepare data for Communication_OPS_IA
       const iaData = {
