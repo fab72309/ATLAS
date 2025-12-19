@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronDown, ChevronUp, Info, Bell, Shield, LogOut } from 'lucide-react';
 import { RELEASE_NOTES } from '../constants/releaseNotes';
-import { auth } from '../utils/firebase';
-import { signOut } from 'firebase/auth';
+import { useAuth } from '../contexts/AuthContext';
+import { APP_NAME, APP_VERSION } from '../constants/appInfo';
 
 const Settings = () => {
   const navigate = useNavigate();
   const [openSection, setOpenSection] = useState<string | null>(null);
+  const { logout } = useAuth();
 
   const toggleSection = (section: string) => {
     setOpenSection(openSection === section ? null : section);
@@ -15,8 +16,8 @@ const Settings = () => {
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
-      navigate('/');
+      await logout();
+      navigate('/login');
     } catch (error) {
       console.error('Error signing out:', error);
     }
@@ -122,7 +123,7 @@ const Settings = () => {
         </div>
 
         <div className="mt-8 text-center text-gray-600 text-xs animate-fade-in-down" style={{ animationDelay: '0.3s' }}>
-          <p>A.T.L.A.S v{RELEASE_NOTES[0]?.version || '1.0.0'}</p>
+          <p>{APP_NAME} v{APP_VERSION}</p>
           <p className="mt-1">© 2024 Brigade de Sapeurs-Pompiers de Paris</p>
         </div>
       </div>
