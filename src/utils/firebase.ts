@@ -5,28 +5,14 @@ import { getStorage } from 'firebase/storage';
 import { getAnalytics, isSupported, type Analytics } from 'firebase/analytics';
 
 const firebaseConfig: FirebaseOptions = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+  apiKey: 'AIzaSyDaXSVEknQ1SwG4I9jxp7czdtPh_94yAWA',
+  authDomain: 'atlas-23eb8.firebaseapp.com',
+  projectId: 'atlas-23eb8',
+  storageBucket: 'atlas-23eb8.firebasestorage.app',
+  messagingSenderId: '550508514553',
+  appId: '1:550508514553:web:623d0ce8621c30002ce628',
+  measurementId: 'G-14Q67F4BTF'
 };
-
-// Warn early if some env variables are missing to simplify setup (measurementId is optional).
-const requiredEnv: Array<keyof FirebaseOptions> = [
-  'apiKey',
-  'authDomain',
-  'projectId',
-  'storageBucket',
-  'messagingSenderId',
-  'appId'
-];
-const missingEnv = requiredEnv.filter((key) => !(firebaseConfig as Record<string, string | undefined>)[key]);
-if (missingEnv.length) {
-  console.warn('[Firebase] Variables manquantes:', missingEnv.join(', '));
-}
 
 const app = initializeApp(firebaseConfig);
 
