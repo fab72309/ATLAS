@@ -1,13 +1,21 @@
 import OpenAI from 'openai';
 import cors from 'cors';
 import { onRequest } from 'firebase-functions/v2/https';
-import { initializeApp } from 'firebase-admin/app';
+import { getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import type { CommandType, PromptMode } from './prompts';
 import { DeveloperPrompts, OutputSchemas, buildUserPrompt } from './prompts';
 
+class HttpError extends Error {
+  constructor(message: string, public status = 400) {
+    super(message);
+  }
+}
+
 // Initialisation Admin (Firebase Functions)
-try { initializeApp(); } catch {}
+if (!getApps().length) {
+  initializeApp();
+}
 
 const corsMw = cors({ origin: true });
 
@@ -16,29 +24,49 @@ async function verifyIdTokenMaybe(authHeader?: string) {
   const allowUnauth = process.env.ALLOW_UNAUTHENTICATED === 'true';
   if (!authHeader) {
     if (allowUnauth) return null;
-    throw new Error('Missing Authorization header');
+    throw new HttpError('Missing Authorization header', 401);
   }
   const [scheme, token] = authHeader.split(' ');
   if (scheme?.toLowerCase() !== 'bearer' || !token) {
     if (allowUnauth) return null;
-    throw new Error('Invalid Authorization header');
+    throw new HttpError('Invalid Authorization header', 401);
   }
   try {
     const decoded = await getAuth().verifyIdToken(token);
     return decoded;
-  } catch (e) {
+  } catch {
     if (allowUnauth) return null;
-    throw new Error('Invalid Firebase ID token');
+    throw new HttpError('Invalid Firebase ID token', 401);
   }
 }
 
 // Normalise l’entrée en deux modes de prompt, tout en restant rétrocompatible
-function normaliseInput(body: any): { type: CommandType; mode: PromptMode; data: { texte?: string; sections?: Record<string, string>; dominante?: string } } {
-  const type = (body?.type ?? 'group') as CommandType;
+function normaliseInput(body: unknown): { type: CommandType; mode: PromptMode; data: { texte?: string; sections?: Record<string, string>; dominante?: string } } {
+  const payload = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
+
+  const rawType = payload.type;
+  const allowedTypes: CommandType[] = ['group', 'column', 'site', 'communication'];
+  const type = allowedTypes.includes(rawType as CommandType) ? (rawType as CommandType) : 'group';
+
   // Compat: l’app front envoie “situation” (texte libre) aujourd’hui
-  const texte = typeof body?.situation === 'string' ? body.situation : undefined;
-  const sections = typeof body?.sections === 'object' && body?.sections ? body.sections : undefined;
-  const dominante = typeof body?.dominante === 'string' ? body.dominante : undefined;
+  const texte = typeof payload.situation === 'string' ? payload.situation : undefined;
+
+  const sections =
+    payload.sections && typeof payload.sections === 'object'
+      ? Object.entries(payload.sections as Record<string, unknown>)
+          .filter(([, value]) => typeof value === 'string' && value.trim().length > 0)
+          .reduce<Record<string, string>>((acc, [key, value]) => {
+            acc[key] = (value as string).trim();
+            return acc;
+          }, {})
+      : undefined;
+
+  const dominante = typeof payload.dominante === 'string' ? payload.dominante.trim() : undefined;
+
+  if (!texte && (!sections || Object.keys(sections).length === 0)) {
+    throw new HttpError('Le contenu de la situation ou des sections est requis.');
+  }
+
   let mode: PromptMode = 'texte_libre';
   if (sections && Object.keys(sections).length > 0) mode = 'elements_dictes';
   return { type, mode, data: { texte, sections, dominante } };
@@ -48,6 +76,11 @@ function normaliseInput(body: any): { type: CommandType; mode: PromptMode; data:
 export const analyze = onRequest({ cors: true, region: 'europe-west1', timeoutSeconds: 120 }, async (req, res) => {
   // CORS
   await new Promise<void>((resolve) => corsMw(req, res, () => resolve()));
+
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return;
+  }
 
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method Not Allowed' });
@@ -61,8 +94,7 @@ export const analyze = onRequest({ cors: true, region: 'europe-west1', timeoutSe
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      res.status(500).json({ error: 'OPENAI_API_KEY non configurée côté serveur' });
-      return;
+      throw new HttpError('OPENAI_API_KEY non configurée côté serveur', 500);
     }
 
     const openai = new OpenAI({ apiKey });
@@ -70,7 +102,7 @@ export const analyze = onRequest({ cors: true, region: 'europe-west1', timeoutSe
     // Prépare les prompts
     const system = DeveloperPrompts[type];
     const user = buildUserPrompt(type, mode, data);
-    const { name, schema } = (OutputSchemas as any)[type];
+    const { name, schema } = OutputSchemas[type];
 
     // Appelle Responses API en forçant JSON conforme au schéma
     const response = await openai.responses.create({
@@ -88,9 +120,10 @@ export const analyze = onRequest({ cors: true, region: 'europe-west1', timeoutSe
     // Récupère le texte JSON retourné
     const text = response.output_text || '';
     res.json({ result: text, model: response.model });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[analyze] error', err);
-    const msg = err?.message || 'Erreur serveur';
-    res.status(400).json({ error: msg });
+    const status = err instanceof HttpError ? err.status : 400;
+    const msg = err instanceof Error ? err.message : 'Erreur serveur';
+    res.status(status).json({ error: msg });
   }
 });

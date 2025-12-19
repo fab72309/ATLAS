@@ -61,20 +61,6 @@ export const useSitacDraw = ({ map, activeSymbol }: DrawParams) => {
     useEffect(() => {
         if (!map) return;
 
-        // --- Helpers ---
-        const enableInteractions = () => {
-            const { locked } = stateRef.current;
-            if (locked) return; // Keep locked if global lock is on
-            map.dragPan.enable();
-            map.scrollZoom.enable();
-            map.boxZoom.enable();
-            map.touchZoomRotate.enable();
-        };
-
-        // --- Helpers ---
-        // (No helpers needed currently for simple selection logic)
-
-
         // --- Interaction Management ---
         // React to mode/lock changes immediately
         const shouldDisableInteractions =

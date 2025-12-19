@@ -186,7 +186,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
     if (!itemToMove) return;
 
     // Retirer de la source
-    let newSourceItems = sourceCol.items.filter(i => i.id !== draggedItem.id);
+    const newSourceItems = sourceCol.items.filter(i => i.id !== draggedItem.id);
 
     // Ajouter à la cible
     let newTargetItems = [...targetCol.items];
