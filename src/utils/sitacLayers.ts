@@ -270,7 +270,9 @@ export const ensureLayers = (map: maplibregl.Map) => {
 };
 
 export const setSelectionFilter = (map: maplibregl.Map, featureId: string | null) => {
-    const idFilter = featureId ? (['==', ['get', 'id'], featureId] as any) : (['==', ['get', 'id'], ''] as any);
+    const idFilter = featureId
+        ? (['==', ['get', 'id'], featureId] as maplibregl.Expression)
+        : (['==', ['get', 'id'], ''] as maplibregl.Expression);
 
     if (map.getLayer(SELECT_LINE_LAYER_ID)) map.setFilter(SELECT_LINE_LAYER_ID, idFilter);
 
@@ -282,8 +284,8 @@ export const setSelectionFilter = (map: maplibregl.Map, featureId: string | null
                     'all',
                     ['==', ['get', 'id'], featureId],
                     ['==', ['geometry-type'], 'Point'],
-                ] as any)
-                : (['==', ['get', 'id'], ''] as any),
+                ] as maplibregl.Expression)
+                : (['==', ['get', 'id'], ''] as maplibregl.Expression),
         );
     }
 
@@ -295,8 +297,8 @@ export const setSelectionFilter = (map: maplibregl.Map, featureId: string | null
                     'all',
                     ['==', ['get', 'id'], featureId],
                     ['==', ['geometry-type'], 'Polygon'],
-                ] as any)
-                : (['==', ['get', 'id'], ''] as any),
+                ] as maplibregl.Expression)
+                : (['==', ['get', 'id'], ''] as maplibregl.Expression),
         );
     }
 };

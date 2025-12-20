@@ -3,11 +3,16 @@ import cors from 'cors';
 import { onRequest } from 'firebase-functions/v2/https';
 import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
+import type { Request, Response } from 'express';
 import type { CommandType, PromptMode } from './prompts.js';
 import { DeveloperPrompts, OutputSchemas, buildUserPrompt } from './prompts.js';
 
 // Initialisation Admin (Firebase Functions)
-try { initializeApp(); } catch {}
+try {
+  initializeApp();
+} catch (err) {
+  void err;
+}
 
 const corsMw = cors({ origin: true });
 
@@ -26,14 +31,14 @@ async function verifyIdTokenMaybe(authHeader?: string) {
   try {
     const decoded = await getAuth().verifyIdToken(token);
     return decoded;
-  } catch (e) {
+  } catch {
     if (allowUnauth) return null;
     throw new Error('Invalid Firebase ID token');
   }
 }
 
 // Normalise l’entrée en deux modes de prompt, tout en restant rétrocompatible
-function normaliseInput(body: any): {
+function normaliseInput(body: Record<string, unknown> | null | undefined): {
   type: CommandType;
   mode: PromptMode;
   data: {
@@ -51,7 +56,7 @@ function normaliseInput(body: any): {
   const sections = typeof body?.sections === 'object' && body?.sections ? body.sections : undefined;
   const dominante = typeof body?.dominante === 'string' ? body.dominante : undefined;
   const secondaryRisks = Array.isArray(body?.secondaryRisks)
-    ? body.secondaryRisks.filter((r: any) => typeof r === 'string')
+    ? body.secondaryRisks.filter((r: unknown): r is string => typeof r === 'string')
     : undefined;
   const extraContext = typeof body?.extraContext === 'string' ? body.extraContext : undefined;
   let doctrineContext = body?.doctrine_context ?? body?.doctrineContext;
@@ -68,7 +73,7 @@ function normaliseInput(body: any): {
 }
 
 // Function HTTPS principale: /analyze
-export const analyze = onRequest({ cors: true, region: 'europe-west1', timeoutSeconds: 120 }, async (req: any, res: any) => {
+export const analyze = onRequest({ cors: true, region: 'europe-west1', timeoutSeconds: 120 }, async (req: Request, res: Response) => {
   // CORS
   await new Promise<void>((resolve) => corsMw(req, res, () => resolve()));
 
@@ -93,7 +98,8 @@ export const analyze = onRequest({ cors: true, region: 'europe-west1', timeoutSe
     // Prépare les prompts
     const system = DeveloperPrompts[type];
     const user = buildUserPrompt(type, mode, data);
-    const { name, schema } = (OutputSchemas as any)[type];
+    const outputSchemas = OutputSchemas as Record<CommandType, { name: string; schema: unknown }>;
+    const { name, schema } = outputSchemas[type];
 
     // Appelle Chat Completions API en forçant JSON conforme au schéma
     const response = await openai.chat.completions.create({
@@ -111,9 +117,9 @@ export const analyze = onRequest({ cors: true, region: 'europe-west1', timeoutSe
     // Récupère le texte JSON retourné
     const text = response.choices?.[0]?.message?.content || '';
     res.json({ result: text, model: response.model });
-  } catch (err: any) {
+  } catch (err) {
     console.error('[analyze] error', err);
-    const msg = err?.message || 'Erreur serveur';
+    const msg = err instanceof Error ? err.message : 'Erreur serveur';
     res.status(400).json({ error: msg });
   }
 });

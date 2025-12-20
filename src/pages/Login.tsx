@@ -51,8 +51,9 @@ const LoginPage = () => {
         await register(email, password);
       }
       navigate(from, { replace: true });
-    } catch (err: any) {
-      setError(errorMessageFromCode(err?.code));
+    } catch (err) {
+      const code = (err as { code?: string }).code;
+      setError(errorMessageFromCode(code));
     } finally {
       setLoading(false);
     }

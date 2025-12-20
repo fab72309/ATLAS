@@ -2,20 +2,20 @@ import React from 'react';
 
 interface AppErrorBoundaryState {
   hasError: boolean;
-  error?: any;
+  error?: unknown;
 }
 
-class AppErrorBoundary extends React.Component<React.PropsWithChildren<{}>, AppErrorBoundaryState> {
-  constructor(props: React.PropsWithChildren<{}>) {
+class AppErrorBoundary extends React.Component<React.PropsWithChildren<Record<string, never>>, AppErrorBoundaryState> {
+  constructor(props: React.PropsWithChildren<Record<string, never>>) {
     super(props);
     this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError(error: any): AppErrorBoundaryState {
+  static getDerivedStateFromError(error: unknown): AppErrorBoundaryState {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: any, info: any) {
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
     // Log to console for now; could be extended to remote logging
     console.error('AppErrorBoundary caught an error:', error, info);
   }
@@ -27,7 +27,9 @@ class AppErrorBoundary extends React.Component<React.PropsWithChildren<{}>, AppE
   render() {
     if (this.state.hasError) {
       // Lightweight fallback UI consistent with app style
-      const details = this.state.error?.message || String(this.state.error || '');
+      const details = this.state.error instanceof Error
+        ? this.state.error.message
+        : String(this.state.error || '');
       return (
         <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-[#00051E] dark:text-white flex flex-col items-center justify-center p-4">
           <h1 className="text-xl font-bold mb-2">Une erreur est survenue</h1>

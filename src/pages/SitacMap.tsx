@@ -23,7 +23,8 @@ import SitacToolsSidebar from '../components/sitac/SitacToolsSidebar';
 import SitacEditControls from '../components/sitac/SitacEditControls';
 import SitacFabricCanvas from '../components/sitac/SitacFabricCanvas';
 
-(maplibregl as any).workerClass = MapLibreWorker;
+const maplibreWithWorker = maplibregl as typeof maplibregl & { workerClass?: typeof MapLibreWorker };
+maplibreWithWorker.workerClass = MapLibreWorker;
 
 const DEFAULT_VIEW = { center: [2.3522, 48.8566] as [number, number], zoom: 13 };
 
@@ -111,8 +112,8 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
               const needsUpdate = state.geoJSON.features.some(
                 (f) =>
                   f.properties?.type === 'symbol' &&
-                  (f.properties as any).iconName === asset.id &&
-                  (f.properties as any).colorizable !== true
+                  f.properties?.iconName === asset.id &&
+                  f.properties?.colorizable !== true
               );
               if (needsUpdate) {
                 const patched = {
@@ -120,8 +121,8 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
                   features: state.geoJSON.features.map((f) => {
                     if (
                       f.properties?.type === 'symbol' &&
-                      (f.properties as any).iconName === asset.id &&
-                      (f.properties as any).colorizable !== true
+                      f.properties?.iconName === asset.id &&
+                      f.properties?.colorizable !== true
                     ) {
                       return {
                         ...f,
@@ -142,19 +143,19 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
         if (shouldUseSdf) {
           const sdf = await buildSdfImageData(asset.url);
           if (!map.hasImage(imageId)) {
-            map.addImage(imageId, sdf as any, { sdf: true });
+            map.addImage(imageId, sdf as ImageData, { sdf: true });
           }
         } else {
           const imgEl = await loadImageElement(asset.url);
           if (!map.hasImage(imageId)) {
-            map.addImage(imageId, imgEl as any, { sdf: false });
+            map.addImage(imageId, imgEl, { sdf: false });
           }
         }
       } catch (err) {
         console.error('Icon load failure', err);
       }
     }
-  }, []);
+  }, [isMonochromeImage]);
 
   const syncGeoJSONToMap = useCallback(() => {
     const map = mapRef.current;
@@ -215,7 +216,7 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
 
   // Map Initialization
   useEffect(() => {
-    if (!containerRef.current) return;
+    if (!containerRef.current || mapRef.current) return;
     const map = new maplibregl.Map({
       container: containerRef.current,
       style: BASE_STYLES[baseLayer],
@@ -238,7 +239,7 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
       map.remove();
       mapRef.current = null;
     };
-  }, []);
+  }, [baseLayer, ensureIcons, syncGeoJSONToMap]);
 
   // Base Layer Switching
   useEffect(() => {
@@ -269,18 +270,20 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
     }
   }, [locked]);
 
-  const getFullscreenElement = () =>
-    document.fullscreenElement || (document as any).webkitFullscreenElement;
+  const getFullscreenElement = () => {
+    const doc = document as Document & { webkitFullscreenElement?: Element };
+    return doc.fullscreenElement || doc.webkitFullscreenElement;
+  };
 
   const requestFullscreen = async () => {
     const el = fullscreenRef.current;
     if (!el) return;
-    const anyEl = el as any;
+    const webkitEl = el as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> | void };
     try {
       if (el.requestFullscreen) {
         await el.requestFullscreen();
-      } else if (anyEl.webkitRequestFullscreen) {
-        anyEl.webkitRequestFullscreen();
+      } else if (webkitEl.webkitRequestFullscreen) {
+        webkitEl.webkitRequestFullscreen();
       }
     } catch (err) {
       console.warn('Fullscreen request failed', err);
@@ -288,7 +291,7 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
   };
 
   const exitFullscreen = async () => {
-    const doc: any = document;
+    const doc = document as Document & { webkitExitFullscreen?: () => Promise<void> | void };
     try {
       if (document.exitFullscreen) {
         await document.exitFullscreen();
@@ -324,10 +327,10 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
       }
     };
     document.addEventListener('fullscreenchange', handleChange);
-    document.addEventListener('webkitfullscreenchange' as any, handleChange);
+    document.addEventListener('webkitfullscreenchange', handleChange);
     return () => {
       document.removeEventListener('fullscreenchange', handleChange);
-      document.removeEventListener('webkitfullscreenchange' as any, handleChange);
+      document.removeEventListener('webkitfullscreenchange', handleChange);
     };
   }, [isFullscreen]);
 

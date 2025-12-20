@@ -17,7 +17,7 @@ const DOCTRINE_DOMINANTE_MAP: Record<string, keyof typeof DOCTRINE_CONTEXT> = {
 const getDoctrineContext = (dominante?: string) => {
   if (!dominante) return null;
   const key = DOCTRINE_DOMINANTE_MAP[dominante];
-  return key ? (DOCTRINE_CONTEXT as any)[key] : null;
+  return key ? DOCTRINE_CONTEXT[key] : null;
 };
 
 const normalizeTitle = (title: string) => (
@@ -41,7 +41,7 @@ const mapSectionTitleToKey = (title: string) => {
   return null;
 };
 
-const parseJsonSafely = (value: string) => {
+const parseJsonSafely = (value: string): unknown | null => {
   try {
     const cleaned = value.replace(/```json/g, '').replace(/```/g, '').trim();
     return JSON.parse(cleaned);
@@ -50,24 +50,25 @@ const parseJsonSafely = (value: string) => {
   }
 };
 
-const normalizeProxyPayload = (payload: any) => {
-  if (!payload || !Array.isArray(payload.sections)) {
-    return payload;
-  }
+const normalizeProxyPayload = (payload: unknown) => {
+  if (!payload || typeof payload !== 'object') return payload;
+  const record = payload as { sections?: unknown };
+  if (!Array.isArray(record.sections)) return payload;
 
   const mapped: Record<string, string> = {};
-  payload.sections.forEach((section: any) => {
-    if (!section || typeof section.content !== 'string') return;
-    const key = mapSectionTitleToKey(section.title || '');
+  record.sections.forEach((section) => {
+    const sectionRecord = section as { title?: unknown; content?: unknown };
+    if (!sectionRecord || typeof sectionRecord.content !== 'string') return;
+    const key = mapSectionTitleToKey(typeof sectionRecord.title === 'string' ? sectionRecord.title : '');
     if (key) {
-      mapped[key] = section.content;
+      mapped[key] = sectionRecord.content;
     }
   });
 
   return Object.keys(mapped).length > 0 ? mapped : payload;
 };
 
-const normalizeProxyResult = (payload: any, type: 'group' | 'column' | 'site' | 'communication') => {
+const normalizeProxyResult = (payload: unknown, type: 'group' | 'column' | 'site' | 'communication') => {
   if (type !== 'group') {
     return typeof payload === 'string' ? payload : JSON.stringify(payload);
   }
@@ -157,8 +158,9 @@ export const analyzeEmergency = async (
     const resultPayload = data?.result ?? data?.output ?? data?.content ?? data ?? rawText;
     return normalizeProxyResult(resultPayload, type);
 
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error analyzing emergency:', error);
-    throw new Error(error.message || 'Erreur lors de l\'analyse de la situation d\'urgence.');
+    const message = error instanceof Error ? error.message : 'Erreur lors de l\'analyse de la situation d\'urgence.';
+    throw new Error(message);
   }
 };

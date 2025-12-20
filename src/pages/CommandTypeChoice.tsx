@@ -6,7 +6,9 @@ const CommandTypeChoice = () => {
   const navigate = useNavigate();
   const { type } = useParams();
   const validTypes = ['group', 'column', 'site', 'communication'] as const;
-  const currentType = validTypes.includes(type as any) ? (type as typeof validTypes[number]) : null;
+  const isValidType = (value: string | undefined): value is (typeof validTypes)[number] =>
+    !!value && validTypes.includes(value as (typeof validTypes)[number]);
+  const currentType = isValidType(type) ? type : null;
   const [showInterventionModal, setShowInterventionModal] = React.useState(false);
   const [showMetadataModal, setShowMetadataModal] = React.useState(false);
   const [interventionMeta, setInterventionMeta] = React.useState({

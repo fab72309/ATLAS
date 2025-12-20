@@ -2,7 +2,7 @@ export interface AnalyseTactique {
     source_flux_cibles?: string;
     priorite_retenue?: string;
     moyens_supposes?: string;
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface IdeeManoeuvre {
@@ -18,7 +18,7 @@ export interface OrdreInitial {
     A?: string[]; // Anticipation
     O: string[];
     I: IdeeManoeuvre[];
-    E: string | string[] | any[]; // Peut contenir des données structurées (Mission/Moyen)
+    E: string | string[] | unknown[]; // Peut contenir des données structurées (Mission/Moyen)
     L?: string[]; // Logistique
     C: string;
 }

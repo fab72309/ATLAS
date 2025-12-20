@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Radio } from 'lucide-react';
 import { Swiper, SwiperSlide } from 'swiper/react';
+import type { Swiper as SwiperInstance } from 'swiper';
 import { Pagination } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/pagination';
@@ -64,7 +65,7 @@ const CommunicationOps = () => {
   );
   const [isLoading, setIsLoading] = useState(false);
   const [dominante, setDominante] = useState<DominanteType>('Incendie');
-  const [swiperInstance, setSwiperInstance] = useState<any>(null);
+  const [swiperInstance, setSwiperInstance] = useState<SwiperInstance | null>(null);
 
   const handleTextChange = (sectionId: string, text: string) => {
     setSections(prev => ({

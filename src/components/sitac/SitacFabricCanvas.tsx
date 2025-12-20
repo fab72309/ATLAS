@@ -1,9 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import * as fabric from 'fabric';
+import type { Geometry } from 'geojson';
 import type maplibregl from 'maplibre-gl';
 import { useSitacStore } from '../../stores/useSitacStore';
 import { refreshGeoTransform, syncObjectPosition, type FabricGeoObject, toLngLat } from '../../utils/fabricUtils';
-import type { SymbolAsset } from '../../types/sitac';
+import type { SITACCollection, SITACFeatureProperties, SymbolAsset } from '../../types/sitac';
 
 interface SitacFabricCanvasProps {
     map: maplibregl.Map | null;
@@ -11,6 +12,21 @@ interface SitacFabricCanvasProps {
     height: number;
     activeSymbol: SymbolAsset | null;
 }
+
+type LooseFeatureProperties = Partial<SITACFeatureProperties> & {
+    points?: Array<{ x: number; y: number }>;
+    path?: string;
+    scaleX?: number;
+    scaleY?: number;
+};
+
+type FabricMetaObject = fabric.Object & { [key: string]: unknown };
+type FabricMetaImage = fabric.FabricImage & {
+    [key: string]: unknown;
+    getElement?: () => HTMLImageElement | undefined;
+    _element?: HTMLImageElement;
+};
+type FabricMetaGroup = fabric.Group & { [key: string]: unknown };
 
 const isMonochromeElement = (imgEl: HTMLImageElement) => {
     const maxSize = 64;
@@ -37,14 +53,15 @@ const isMonochromeElement = (imgEl: HTMLImageElement) => {
 };
 
 const flagIfMonochrome = (img: fabric.FabricImage) => {
-    const element = (img as any).getElement ? (img as any).getElement() : (img as any)._element;
-    if (!element) return (img as any).colorizable === true;
-    if ((img as any).colorizable === true) return true;
+    const image = img as FabricMetaImage;
+    const element = image.getElement ? image.getElement() : image._element;
+    if (!element) return image.colorizable === true;
+    if (image.colorizable === true) return true;
     const isMono = isMonochromeElement(element);
     if (isMono) {
-        (img as any).colorizable = true;
+        image.colorizable = true;
     }
-    return (img as any).colorizable === true;
+    return image.colorizable === true;
 };
 
 const getDashArrayForStyle = (style?: string | null) => {
@@ -67,9 +84,10 @@ const getLineStyleFromDash = (dash?: number[] | null) => {
 
 const setBaseTransform = (obj: fabric.Object, map: maplibregl.Map | null) => {
     if (!map) return;
-    (obj as any).baseZoom = (obj as any).baseZoom ?? map.getZoom();
-    (obj as any).baseScaleX = (obj as any).baseScaleX ?? obj.scaleX ?? 1;
-    (obj as any).baseScaleY = (obj as any).baseScaleY ?? obj.scaleY ?? 1;
+    const meta = obj as FabricMetaObject;
+    meta.baseZoom = typeof meta.baseZoom === 'number' ? meta.baseZoom : map.getZoom();
+    meta.baseScaleX = typeof meta.baseScaleX === 'number' ? meta.baseScaleX : (obj.scaleX ?? 1);
+    meta.baseScaleY = typeof meta.baseScaleY === 'number' ? meta.baseScaleY : (obj.scaleY ?? 1);
 };
 
 const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, height, activeSymbol }) => {
@@ -88,7 +106,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
     const isLoaded = useRef(false);
     const geoJSON = useSitacStore((s) => s.geoJSON);
 
-    const rebuildFromGeoJSON = React.useCallback((data) => {
+    const rebuildFromGeoJSON = React.useCallback((data: SITACCollection) => {
         const canvas = fabricCanvas.current;
         if (!canvas || !map) return;
 
@@ -97,14 +115,15 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
 
         const pending: Promise<void>[] = [];
 
-        data.features.forEach((feat: any) => {
-            const { geometry, properties } = feat;
+        data.features.forEach((feat) => {
+            const { geometry } = feat;
+            const properties = feat.properties as LooseFeatureProperties;
             if (geometry.type !== 'Point') return; // Only Points for now
 
-            const [lng, lat] = (geometry as any).coordinates;
+            const [lng, lat] = geometry.coordinates as [number, number];
             const point = map.project([lng, lat]);
 
-            let obj: any;
+            let obj: fabric.Object | null = null;
 
             if (properties.type === 'text') {
                 obj = new fabric.IText(properties.textContent || 'Texte', {
@@ -112,7 +131,8 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                     fill: properties.color,
                     fontSize: 20, fontFamily: 'Arial'
                 });
-                (obj as any).baseZoom = properties.baseZoom ?? map.getZoom();
+                const objMeta = obj as FabricMetaObject;
+                objMeta.baseZoom = typeof properties.baseZoom === 'number' ? properties.baseZoom : map.getZoom();
             } else if (properties.type === 'symbol' && properties.url) {
                 const imgUrl = properties.url;
                 const p = (async () => {
@@ -130,11 +150,12 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                         img.scaleToWidth(50);
                         const geoPos = { lng, lat };
                         (img as FabricGeoObject).geoPosition = geoPos;
-                        (img as any).baseZoom = properties.baseZoom ?? map.getZoom();
+                        const imgMeta = img as FabricMetaImage;
+                        imgMeta.baseZoom = typeof properties.baseZoom === 'number' ? properties.baseZoom : map.getZoom();
                         setBaseTransform(img, map);
 
-                        (img as any).colorizable = properties.colorizable;
-                        (img as any).iconName = properties.iconName;
+                        imgMeta.colorizable = properties.colorizable;
+                        imgMeta.iconName = properties.iconName;
 
                         flagIfMonochrome(img);
 
@@ -146,7 +167,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                         });
                         img.filters = [filter];
                         img.applyFilters();
-                        (img as any).colorizable = true;
+                        imgMeta.colorizable = true;
 
                         canvas.add(img);
                         canvas.renderAll();
@@ -166,7 +187,8 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                     strokeWidth: properties.strokeWidth || 2,
                     strokeDashArray: getDashArrayForStyle(properties.lineStyle)
                 });
-                (obj as any).baseZoom = properties.baseZoom ?? map.getZoom();
+                const objMeta = obj as FabricMetaObject;
+                objMeta.baseZoom = typeof properties.baseZoom === 'number' ? properties.baseZoom : map.getZoom();
                 setBaseTransform(obj, map);
             } else if (properties.type === 'polygon' || properties.type === 'rect') {
                 if (properties.points && Array.isArray(properties.points)) {
@@ -182,7 +204,8 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                         objectCaching: false,
                         angle: properties.rotation || 0,
                     });
-                    (obj as any).baseZoom = properties.baseZoom ?? map.getZoom();
+                    const objMeta = obj as FabricMetaObject;
+                    objMeta.baseZoom = typeof properties.baseZoom === 'number' ? properties.baseZoom : map.getZoom();
                 } else {
                     obj = new fabric.Rect({
                         left: point.x, top: point.y,
@@ -194,7 +217,8 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                         strokeDashArray: getDashArrayForStyle(properties.lineStyle),
                         angle: properties.rotation || 0,
                     });
-                    (obj as any).baseZoom = properties.baseZoom ?? map.getZoom();
+                    const objMeta = obj as FabricMetaObject;
+                    objMeta.baseZoom = typeof properties.baseZoom === 'number' ? properties.baseZoom : map.getZoom();
                 }
                 setBaseTransform(obj, map);
             } else if (properties.type === 'line') {
@@ -210,7 +234,8 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                     strokeDashArray: getDashArrayForStyle(properties.lineStyle),
                     angle: properties.rotation || 0,
                 });
-                (obj as any).baseZoom = properties.baseZoom ?? map.getZoom();
+                const objMeta = obj as FabricMetaObject;
+                objMeta.baseZoom = typeof properties.baseZoom === 'number' ? properties.baseZoom : map.getZoom();
                 setBaseTransform(obj, map);
             } else if (properties.type === 'arrow') {
                 const length = properties.length || properties.width || 80;
@@ -238,10 +263,11 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                     angle: properties.rotation || 0,
                     objectCaching: false,
                 });
-                (obj as any).isArrow = true;
-                (obj as any).strokeColor = properties.color || '#3b82f6';
-                (obj as any).arrowLength = length;
-                (obj as any).baseZoom = properties.baseZoom ?? map.getZoom();
+                const objMeta = obj as FabricMetaGroup;
+                objMeta.isArrow = true;
+                objMeta.strokeColor = properties.color || '#3b82f6';
+                objMeta.arrowLength = length;
+                objMeta.baseZoom = typeof properties.baseZoom === 'number' ? properties.baseZoom : map.getZoom();
                 setBaseTransform(obj, map);
             } else if (properties.type === 'freehand' && properties.path) {
                 obj = new fabric.Path(properties.path, {
@@ -259,7 +285,8 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                 });
                 if (properties.scaleX) obj.set({ scaleX: properties.scaleX });
                 if (properties.scaleY) obj.set({ scaleY: properties.scaleY });
-                (obj as any).baseZoom = properties.baseZoom ?? map.getZoom();
+                const objMeta = obj as FabricMetaObject;
+                objMeta.baseZoom = typeof properties.baseZoom === 'number' ? properties.baseZoom : map.getZoom();
                 setBaseTransform(obj, map);
             }
 
@@ -316,12 +343,12 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
         isLoaded.current = true;
 
         // Handle Path Creation (Triggered by freehand)
-        canvas.on('path:created', (e: any) => {
+        canvas.on('path:created', (e: { path: fabric.Path }) => {
             const path = e.path as FabricGeoObject;
             if (!map) return;
             const center = path.getCenterPoint();
-                    const lngLat = toLngLat(center.x, center.y, map);
-                    path.geoPosition = { lng: lngLat.lng, lat: lngLat.lat };
+            const lngLat = toLngLat(center.x, center.y, map);
+            path.geoPosition = { lng: lngLat.lng, lat: lngLat.lat };
 
             setBaseTransform(path, map);
             const currentLineStyle = useSitacStore.getState().lineStyle;
@@ -337,7 +364,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
             fabricCanvas.current = null;
             isLoaded.current = false;
         };
-    }, [map, rebuildFromGeoJSON]); // Depend on map to ensure projection works (re-init on map load)
+    }, [map, rebuildFromGeoJSON, width, height]); // Depend on map to ensure projection works (re-init on map load)
 
     // Handle Resize
     useEffect(() => {
@@ -389,8 +416,8 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
             canvas.defaultCursor = 'crosshair';
             canvas.forEachObject(o => o.selectable = false);
 
-            let points: { x: number; y: number }[] = [];
-            let lines: fabric.Line[] = [];
+            const points: { x: number; y: number }[] = [];
+            const lines: fabric.Line[] = [];
             let activeLine: fabric.Line | null = null;
 
             canvas.on('mouse:down', (options) => {
@@ -638,9 +665,10 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                         angle: angleDeg,
                         objectCaching: false,
                     });
-                    (group as any).isArrow = true;
-                    (group as any).strokeColor = drawingColor;
-                    (group as any).arrowLength = length;
+                    const groupMeta = group as FabricMetaGroup;
+                    groupMeta.isArrow = true;
+                    groupMeta.strokeColor = drawingColor;
+                    groupMeta.arrowLength = length;
                     if (map) {
                         refreshGeoTransform(group as FabricGeoObject, map);
                         setBaseTransform(group, map);
@@ -717,8 +745,9 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                     }
                     // Attach metadata
                     flagIfMonochrome(img);
-                    (img as any).colorizable = true;
-                    (img as any).iconName = activeSymbol.id;
+                    const imgMeta = img as FabricMetaImage;
+                    imgMeta.colorizable = true;
+                    imgMeta.iconName = activeSymbol.id;
 
                     const symbolColor = drawingColor || '#ef4444';
                     const filter = new fabric.filters.BlendColor({
@@ -738,7 +767,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                 }
             });
         }
-    }, [mode, drawingColor, lineStyle, map, activeSymbol]);
+    }, [mode, drawingColor, lineStyle, map, activeSymbol, setMode]);
 
     // Handle Drop
     const handleDrop = async (e: React.DragEvent) => {
@@ -773,8 +802,9 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
 
             // Attach metadata
             flagIfMonochrome(img);
-            (img as any).colorizable = true;
-            (img as any).iconName = asset.id;
+            const imgMeta = img as FabricMetaImage;
+            imgMeta.colorizable = true;
+            imgMeta.iconName = asset.id;
 
             if (map) {
                 const lngLat = toLngLat(x, y, map);
@@ -810,11 +840,11 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
             const active = canvas.getActiveObject();
             if (active) {
                 // Determine type
-                let type: any = 'forme';
+                let type: SITACFeatureProperties['type'] | 'forme' = 'forme';
                 if (active instanceof fabric.IText) type = 'text';
                 else if (active instanceof fabric.Path) type = 'freehand';
                 else if (active instanceof fabric.Line) type = 'line';
-                else if (active instanceof fabric.Group && (active as any).isArrow) type = 'arrow';
+                else if (active instanceof fabric.Group && (active as FabricMetaGroup).isArrow) type = 'arrow';
                 else if (active instanceof fabric.Rect) type = 'rect'; // Updated from polygon
                 else if (active instanceof fabric.Circle) type = 'circle';
                 else if (active instanceof fabric.Image) type = 'symbol';
@@ -826,22 +856,28 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                 if (active instanceof fabric.Image && active.filters) {
                     // We assume we use BlendColor for coloring symbols
                     // TypeScript might not know about specific filter structure freely, so we cast or find
-                    const blendFilter: any = active.filters.find((f: any) => f.type === 'BlendColor');
+                    const blendFilter = active.filters.find(
+                        (f) => (f as { type?: string }).type === 'BlendColor'
+                    ) as fabric.filters.BlendColor | undefined;
                     if (blendFilter) {
                         color = blendFilter.color;
                     } else {
                         // No filter -> No color override
                         color = 'transparent'; // Or indicative
                     }
-                } else if (active instanceof fabric.Group && (active as any).isArrow) {
-                    const strokeColor = (active as any).strokeColor;
-                    color = strokeColor || ((active._objects[0] as any)?.stroke ?? color);
+                } else if (active instanceof fabric.Group && (active as FabricMetaGroup).isArrow) {
+                    const groupMeta = active as FabricMetaGroup & { _objects?: fabric.Object[] };
+                    const strokeColor = groupMeta.strokeColor;
+                    const firstChild = groupMeta._objects?.[0] as fabric.Object | undefined;
+                    const firstStroke = firstChild && 'stroke' in firstChild ? (firstChild as fabric.Object).stroke : undefined;
+                    color = strokeColor || (firstStroke ?? color);
                 }
 
                 // Read Dash Array for style
                 let dash = active.strokeDashArray;
-                if (active instanceof fabric.Group && (active as any).isArrow) {
-                    const lineChild = (active as any)._objects?.find((c: any) => c instanceof fabric.Line) as fabric.Line | undefined;
+                if (active instanceof fabric.Group && (active as FabricMetaGroup).isArrow) {
+                    const groupMeta = active as FabricMetaGroup & { _objects?: fabric.Object[] };
+                    const lineChild = groupMeta._objects?.find((c) => c instanceof fabric.Line) as fabric.Line | undefined;
                     dash = lineChild?.strokeDashArray;
                 }
                 const style = getLineStyleFromDash(dash);
@@ -871,7 +907,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
             if (map && evt?.target) {
                 refreshGeoTransform(evt.target as FabricGeoObject, map);
             }
-            const features: any[] = [];
+            const features: Array<{ type: 'Feature'; geometry: Geometry; properties: LooseFeatureProperties }> = [];
             canvas.getObjects().forEach((obj) => {
                 const fabricObj = obj as FabricGeoObject;
                 if (!fabricObj.geoPosition && map) {
@@ -879,12 +915,13 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                 }
                 if (!fabricObj.geoPosition) return;
 
-                let geometry: any;
-                let properties: any = {
+                let geometry: Geometry | null = null;
+                const objMeta = obj as FabricMetaObject;
+                const properties: LooseFeatureProperties = {
                     id: fabricObj.names?.[0] || Date.now().toString(), // Simple ID
                     // color: (obj.fill as string) !== 'transparent' ? obj.fill : obj.stroke, // Don't default indiscriminately
                     rotation: obj.angle || 0,
-                    baseZoom: (obj as any).baseZoom,
+                    baseZoom: typeof objMeta.baseZoom === 'number' ? objMeta.baseZoom : undefined,
                 };
 
                 // Helper to get color
@@ -892,7 +929,9 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                     if (obj instanceof fabric.Image) {
                         // Only from filter
                         if (obj.filters) {
-                            const blendFilter: any = obj.filters.find((f: any) => f.type === 'BlendColor');
+                            const blendFilter = obj.filters.find(
+                                (f) => (f as { type?: string }).type === 'BlendColor'
+                            ) as fabric.filters.BlendColor | undefined;
                             return blendFilter ? blendFilter.color : undefined;
                         }
                         return undefined;
@@ -913,10 +952,11 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                     // Retrieve URL? activeSymbol logic.
                     // We need to store original URL on the object to save it. 
                     // or use obj.getSrc() if available
-                    properties.url = (obj as any)._element?.src;
+                    const imgMeta = obj as FabricMetaImage;
+                    properties.url = imgMeta._element?.src;
                     // Note: src might be dataURI if using some loaders, but here we used fromURL.
-                    properties.colorizable = (obj as any).colorizable;
-                    properties.iconName = (obj as any).iconName;
+                    properties.colorizable = imgMeta.colorizable === true;
+                    properties.iconName = typeof imgMeta.iconName === 'string' ? imgMeta.iconName : undefined;
                 } else if (obj instanceof fabric.Circle) {
                     // Circle as Point with radius property or Polygon? 
                     // Point + Radius is better for "Circle" semantics.
@@ -942,15 +982,16 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                     properties.color = obj.stroke;
                     properties.lineStyle = getLineStyleFromDash(obj.strokeDashArray);
                     geometry = { type: 'Point', coordinates: [fabricObj.geoPosition.lng, fabricObj.geoPosition.lat] };
-                } else if (obj instanceof fabric.Group && (obj as any).isArrow) {
-                    const lineChild = (obj as any)._objects?.find((c: any) => c instanceof fabric.Line) as fabric.Line | undefined;
+                } else if (obj instanceof fabric.Group && (obj as FabricMetaGroup).isArrow) {
+                    const groupMeta = obj as FabricMetaGroup & { _objects?: fabric.Object[] };
+                    const lineChild = groupMeta._objects?.find((c) => c instanceof fabric.Line) as fabric.Line | undefined;
                     properties.type = 'arrow';
                     properties.strokeWidth = lineChild?.strokeWidth || 4;
                     const derivedLength = lineChild
                         ? Math.sqrt(Math.pow((lineChild.x2 || 0) - (lineChild.x1 || 0), 2) + Math.pow((lineChild.y2 || 0) - (lineChild.y1 || 0), 2))
                         : obj.width || 80;
-                    properties.length = (obj as any).arrowLength ?? derivedLength;
-                    properties.color = (obj as any).strokeColor || lineChild?.stroke;
+                    properties.length = typeof groupMeta.arrowLength === 'number' ? groupMeta.arrowLength : derivedLength;
+                    properties.color = (groupMeta.strokeColor as string | undefined) || lineChild?.stroke;
                     properties.lineStyle = getLineStyleFromDash(lineChild?.strokeDashArray);
                     geometry = { type: 'Point', coordinates: [fabricObj.geoPosition.lng, fabricObj.geoPosition.lat] };
                 } else if (obj instanceof fabric.Polygon) {
@@ -972,7 +1013,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                 }
 
                 // If we have minimal data, push.
-                if (obj instanceof fabric.Object) { // Ensure generic object push
+                if (obj instanceof fabric.Object && geometry) { // Ensure generic object push
                     features.push({
                         type: 'Feature',
                         properties: properties,
@@ -982,11 +1023,11 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
             });
 
             // Update Store + history (for undo/redo)
-            const next = { type: 'FeatureCollection', features: features };
+            const next: SITACCollection = { type: 'FeatureCollection', features: features as SITACCollection['features'] };
             const prev = useSitacStore.getState().geoJSON;
             if (JSON.stringify(prev) === JSON.stringify(next)) return;
             syncingFromFabric.current = true;
-            useSitacStore.getState().setGeoJSON(next as any, true);
+            useSitacStore.getState().setGeoJSON(next, true);
             setTimeout(() => {
                 syncingFromFabric.current = false;
             }, 0);
@@ -1033,8 +1074,9 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                         active.set({ fill: selectedFabricProperties.color });
                     }
 
-                    if (active instanceof fabric.Group && (active as any).isArrow) {
-                        active._objects.forEach((child) => {
+                    if (active instanceof fabric.Group && (active as FabricMetaGroup).isArrow) {
+                        const groupMeta = active as FabricMetaGroup & { _objects: fabric.Object[] };
+                        groupMeta._objects.forEach((child) => {
                             if (child instanceof fabric.Line) {
                                 child.set({ stroke: selectedFabricProperties.color });
                             }
@@ -1042,9 +1084,10 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                                 child.set({ fill: selectedFabricProperties.color });
                             }
                         });
-                        (active as any).strokeColor = selectedFabricProperties.color;
+                        groupMeta.strokeColor = selectedFabricProperties.color;
                     } else if (active instanceof fabric.Image) {
-                        const canColorize = (active as any).colorizable === true || flagIfMonochrome(active);
+                        const imageMeta = active as FabricMetaImage;
+                        const canColorize = imageMeta.colorizable === true || flagIfMonochrome(active);
                         if (canColorize) {
                             const filter = new fabric.filters.BlendColor({
                                 color: selectedFabricProperties.color,
@@ -1053,7 +1096,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                             });
                             active.filters = [filter];
                             active.applyFilters();
-                            (active as any).colorizable = true;
+                            imageMeta.colorizable = true;
                         } else {
                             active.filters = [];
                             active.applyFilters();
@@ -1065,8 +1108,9 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
             // Apply Line Style
             if (selectedFabricProperties.lineStyle) {
                 const dashArray = getDashArrayForStyle(selectedFabricProperties.lineStyle);
-                if (active instanceof fabric.Group && (active as any).isArrow) {
-                    active._objects.forEach((child) => {
+                if (active instanceof fabric.Group && (active as FabricMetaGroup).isArrow) {
+                    const groupMeta = active as FabricMetaGroup & { _objects: fabric.Object[] };
+                    groupMeta._objects.forEach((child) => {
                         if (child instanceof fabric.Line) {
                             child.set({ strokeDashArray: dashArray });
                         }
@@ -1094,7 +1138,8 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
         if (!active) return;
         if (!(active instanceof fabric.Image)) return;
 
-        const canColorize = (active as any).colorizable === true || flagIfMonochrome(active);
+        const imageMeta = active as FabricMetaImage;
+        const canColorize = imageMeta.colorizable === true || flagIfMonochrome(active);
         if (!canColorize) return;
 
         const filter = new fabric.filters.BlendColor({
@@ -1104,7 +1149,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
         });
         active.filters = [filter];
         active.applyFilters();
-        (active as any).colorizable = true;
+        imageMeta.colorizable = true;
         canvas.requestRenderAll();
         canvas.fire('object:modified', { target: active }); // Persist new color to store/GeoJSON
     }, [drawingColor]);
@@ -1157,7 +1202,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
         window.addEventListener('keydown', handleKeyDown);
 
         // Eraser Mode Click
-        if ((mode as any) === 'erase') {
+        if (mode === 'erase') {
             canvas.selection = false;
             canvas.defaultCursor = 'not-allowed'; // displayed as eraser hint
             canvas.on('mouse:down', (o) => {
@@ -1170,7 +1215,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
 
         return () => {
             window.removeEventListener('keydown', handleKeyDown);
-            if ((mode as any) === 'erase') {
+            if (mode === 'erase') {
                 canvas.off('mouse:down');
             }
         };

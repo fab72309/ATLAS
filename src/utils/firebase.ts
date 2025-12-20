@@ -25,7 +25,6 @@ const requiredEnv: Array<keyof FirebaseOptions> = [
 ];
 const missingEnv = requiredEnv.filter((key) => !(firebaseConfig as Record<string, string | undefined>)[key]);
 if (missingEnv.length) {
-  // eslint-disable-next-line no-console
   console.warn('[Firebase] Variables manquantes:', missingEnv.join(', '));
 }
 
@@ -46,10 +45,11 @@ export const authReady = new Promise<void>((resolve) => {
 // Enable offline persistence
 try {
   enableIndexedDbPersistence(db);
-} catch (err: any) {
-  if (err?.code === 'failed-precondition') {
+} catch (err) {
+  const code = (err as { code?: string }).code;
+  if (code === 'failed-precondition') {
     console.warn('Multiple tabs open, persistence can only be enabled in one tab at a a time.');
-  } else if (err?.code === 'unimplemented') {
+  } else if (code === 'unimplemented') {
     console.warn('The current browser doesn\'t support persistence.');
   }
 }

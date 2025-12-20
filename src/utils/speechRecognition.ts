@@ -3,19 +3,51 @@ interface SpeechRecognitionConfig {
   onResult: (text: string) => void;
   onStart: () => void;
   onEnd: () => void;
-  onError: (error: any) => void;
+  onError: (error: Error) => void;
 }
 
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+
+type SpeechRecognitionResultLike = {
+  0?: { transcript?: string };
+};
+
+type SpeechRecognitionEventLike = {
+  results: ArrayLike<SpeechRecognitionResultLike>;
+};
+
+type SpeechRecognitionErrorEventLike = {
+  error?: string;
+};
+
+type SpeechRecognitionLike = {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onstart: (() => void) | null;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
 export class SpeechRecognitionService {
-  private recognition: any;
+  private recognition: SpeechRecognitionLike | null = null;
   private isSupported: boolean;
 
   constructor() {
     // Vérifier le support de la reconnaissance vocale
-    const SpeechRecognition = (window as any).SpeechRecognition || 
-                             (window as any).webkitSpeechRecognition ||
-                             (window as any).mozSpeechRecognition ||
-                             (window as any).msSpeechRecognition;
+    const speechWindow = window as Window & {
+      SpeechRecognition?: SpeechRecognitionConstructor;
+      webkitSpeechRecognition?: SpeechRecognitionConstructor;
+      mozSpeechRecognition?: SpeechRecognitionConstructor;
+      msSpeechRecognition?: SpeechRecognitionConstructor;
+    };
+    const SpeechRecognition = speechWindow.SpeechRecognition ||
+                             speechWindow.webkitSpeechRecognition ||
+                             speechWindow.mozSpeechRecognition ||
+                             speechWindow.msSpeechRecognition;
 
     this.isSupported = !!SpeechRecognition;
     
@@ -39,16 +71,16 @@ export class SpeechRecognitionService {
         config.onStart();
       };
 
-      this.recognition.onresult = (event: any) => {
+      this.recognition.onresult = (event: SpeechRecognitionEventLike) => {
         const transcript = Array.from(event.results)
-          .map((result: any) => result[0])
-          .map(result => result.transcript)
+          .map((result) => result[0])
+          .map((result) => result?.transcript || '')
           .join('');
         
         config.onResult(transcript);
       };
 
-      this.recognition.onerror = (event: any) => {
+      this.recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
         let errorMessage = 'Une erreur est survenue avec la reconnaissance vocale.';
         
         switch (event.error) {
@@ -77,7 +109,8 @@ export class SpeechRecognitionService {
       // Démarrer la reconnaissance
       this.recognition.start();
     } catch (error) {
-      config.onError(error);
+      const fallbackError = error instanceof Error ? error : new Error('Erreur de reconnaissance vocale.');
+      config.onError(fallbackError);
     }
   }
 

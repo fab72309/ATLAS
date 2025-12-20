@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React from 'react';
 
 export type ThemePreference = 'light' | 'dark' | 'system';
@@ -19,7 +20,7 @@ const getStoredTheme = (): ThemePreference => {
       return stored;
     }
   } catch (err) {
-    // Ignore storage access errors
+    void err;
   }
   return 'system';
 };
@@ -58,7 +59,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       window.localStorage.setItem(THEME_STORAGE_KEY, theme);
     } catch (err) {
-      // Ignore storage access errors
+      void err;
     }
   }, [theme]);
 

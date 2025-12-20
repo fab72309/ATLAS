@@ -110,7 +110,7 @@ const SitacEditControls: React.FC<SitacEditControlsProps> = ({
                         <select
                             value={activeProps.lineStyle || 'solid'}
                             onChange={(e) => {
-                                const nextStyle = e.target.value as any;
+                                const nextStyle = e.target.value as 'solid' | 'dashed' | 'dot-dash';
                                 if (isFabric) {
                                     updateFabricObject({ lineStyle: nextStyle });
                                 } else if (selectedFeature) {

@@ -52,7 +52,11 @@ const SituationInput = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!situation.trim()) return;
-    try { await Haptics.impact({ style: ImpactStyle.Light }); } catch { }
+    try {
+      await Haptics.impact({ style: ImpactStyle.Light });
+    } catch (err) {
+      void err;
+    }
     setIsLoading(true);
 
     try {
@@ -90,7 +94,7 @@ const SituationInput = () => {
       // Historiser uniquement les types supportés
       if (type === 'group' || type === 'column' || type === 'site' || type === 'communication') {
         addToHistory({
-          type: type as any,
+          type,
           situation,
           analysis: typeof analysis === 'string' ? analysis : JSON.stringify(analysis)
         });
@@ -103,9 +107,10 @@ const SituationInput = () => {
           fromAI: true
         }
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error:', error);
-      alert(error.message || 'Une erreur est survenue lors de l\'analyse. Veuillez réessayer.');
+      const message = error instanceof Error ? error.message : 'Une erreur est survenue lors de l\'analyse. Veuillez réessayer.';
+      alert(message);
     } finally {
       setIsLoading(false);
     }

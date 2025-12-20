@@ -159,7 +159,7 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
   const meansList = React.useMemo(() => {
     const data: { name: string; category: string }[] = [];
     Object.entries(CATEGORIES).forEach(([catKey, meta]) => {
-      const ctx = (DOCTRINE_CONTEXT as any)[meta.key];
+      const ctx = DOCTRINE_CONTEXT[meta.key as keyof typeof DOCTRINE_CONTEXT];
       const moyens = ctx?.moyens_standards_td || [];
       moyens.forEach((m: string) => {
         const title = m.split(':')[0].trim();
@@ -504,7 +504,7 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
           <span className="text-[11px] text-slate-500 dark:text-gray-400">{meansList.length} disponibles</span>
         </div>
         {Object.entries(CATEGORIES).map(([catKey, meta]) => {
-          const ctx = (DOCTRINE_CONTEXT as any)[meta.key];
+          const ctx = DOCTRINE_CONTEXT[meta.key as keyof typeof DOCTRINE_CONTEXT];
           const moyens = ctx?.moyens_standards_td || [];
           if (!moyens.length) return null;
           return (

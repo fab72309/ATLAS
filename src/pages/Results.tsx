@@ -9,6 +9,8 @@ import { parseOrdreInitial } from '../utils/soiec';
 import { exportOrdreToClipboard, exportOrdreToPdf, exportOrdreToShare, exportOrdreToWord, shareOrdreAsText, shareOrdreAsFile } from '../utils/export';
 import { OrdreInitial } from '../types/soiec';
 
+type DisplaySection = { title?: string; content?: string };
+
 const Results = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -16,7 +18,7 @@ const Results = () => {
   const [copied, setCopied] = useState(false);
   const [ordreInitial, setOrdreInitial] = useState<OrdreInitial | null>(null);
   const [showDebug, setShowDebug] = useState(false);
-  const sections = Array.isArray(displaySections) ? displaySections : [];
+  const sections: DisplaySection[] = Array.isArray(displaySections) ? displaySections : [];
   const showDictationSections = !!fromDictation && sections.length > 0;
   const meta = { adresse, heure: heure_ordre };
 
@@ -65,7 +67,7 @@ const Results = () => {
         let textToCopy = '';
         if (showDictationSections) {
           textToCopy = sections
-            .map((s: any) => `${s.title}:\n${s.content}`)
+            .map((section) => `${section.title || ''}:\n${section.content || ''}`)
             .join('\n\n') || 'Aucune donnée disponible';
         } else {
           textToCopy = stringifyAnalysis();
@@ -86,7 +88,7 @@ const Results = () => {
         await exportOrdreToShare(ordreInitial, meta);
       } else {
         const textToShare = showDictationSections
-          ? sections.map((s: any) => `${s.title}:\n${s.content}`).join('\n\n')
+          ? sections.map((section) => `${section.title || ''}:\n${section.content || ''}`).join('\n\n')
           : stringifyAnalysis();
 
         if (navigator.share) {
@@ -123,7 +125,7 @@ const Results = () => {
     let yPos = 50;
 
     if (showDictationSections) {
-      sections.forEach((section: any) => {
+      sections.forEach((section) => {
         if (yPos > 270) {
           doc.addPage();
           yPos = 20;
@@ -131,12 +133,12 @@ const Results = () => {
 
         doc.setFontSize(14);
         doc.setFont('helvetica', 'bold');
-        doc.text(section.title, 20, yPos);
+        doc.text(section.title || '', 20, yPos);
         yPos += 8;
 
         doc.setFontSize(12);
         doc.setFont('helvetica', 'normal');
-        const splitText = doc.splitTextToSize(section.content, 170);
+        const splitText = doc.splitTextToSize(section.content || '', 170);
         doc.text(splitText, 20, yPos);
         yPos += splitText.length * 7 + 10;
       });
@@ -323,7 +325,7 @@ const Results = () => {
           {showDictationSections ? (
             sections.length > 0 ? (
               <div className="space-y-8">
-                {sections.map((section: any, index: number) => (
+                {sections.map((section, index: number) => (
                   <div key={index} className="border-b border-slate-200 dark:border-white/5 last:border-0 pb-6 last:pb-0">
                     <h3 className="text-lg font-bold text-blue-700 dark:text-blue-400 mb-3 flex items-center gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-blue-600 dark:bg-blue-500" />

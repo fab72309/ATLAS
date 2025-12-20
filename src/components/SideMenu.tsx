@@ -16,6 +16,7 @@ const SideMenu: React.FC<SideMenuProps> = ({ open, onClose }) => {
   const [favorites, setFav] = React.useState<FavoriteKey[]>(getFavorites());
   const [query, setQuery] = React.useState('');
   const [opsOpen, setOpsOpen] = React.useState(true);
+  const opsKeys = ['group', 'column', 'site'] as const;
 
   const filtered = React.useMemo(() => {
     const list = NAV_ITEMS;
@@ -94,7 +95,7 @@ const SideMenu: React.FC<SideMenuProps> = ({ open, onClose }) => {
             </button>
 
             <div className={`space-y-1 overflow-hidden transition-all duration-300 ${opsOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
-              {['group', 'column', 'site'].map((k) => {
+              {opsKeys.map((k) => {
                 const item = NAV_ITEMS.find(n => n.key === k);
                 if (!item) return null;
                 const active = isActive(item.path);
@@ -102,7 +103,7 @@ const SideMenu: React.FC<SideMenuProps> = ({ open, onClose }) => {
                   <div key={k} className={`group flex items-center gap-2 rounded-xl px-3 py-2 transition-all duration-200 ${active ? 'bg-blue-50 border border-blue-200 dark:bg-blue-600/20 dark:border-blue-500/30' : 'hover:bg-slate-100 border border-transparent dark:hover:bg-white/5'}`}>
                     <button onClick={() => { navigate(item.path); onClose(); }} className="flex items-center gap-3 flex-1 text-left">
                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${active ? 'bg-blue-100 dark:bg-blue-500/20' : 'bg-slate-200 group-hover:bg-slate-300 dark:bg-black/40 dark:group-hover:bg-black/60'}`}>
-                        <RoleBadgeIcon role={k as any} className="w-6 h-6" />
+                        <RoleBadgeIcon role={k} className="w-6 h-6" />
                       </div>
                       <span className={`font-medium ${active ? 'text-blue-700 dark:text-blue-400' : 'text-slate-700 group-hover:text-slate-900 dark:text-gray-300 dark:group-hover:text-white'}`}>{item.label}</span>
                     </button>
@@ -122,7 +123,7 @@ const SideMenu: React.FC<SideMenuProps> = ({ open, onClose }) => {
           <div>
             <div className="text-xs font-bold text-slate-500 dark:text-gray-500 uppercase tracking-wider mb-3 px-2">Navigation</div>
             <div className="space-y-1">
-              {filtered.filter(n => !['group', 'column', 'site'].includes(n.key as any)).map((item) => {
+              {filtered.filter((n) => !opsKeys.includes(n.key as (typeof opsKeys)[number])).map((item) => {
                 const active = isActive(item.path);
                 return (
                   <div key={item.key} className={`group flex items-center gap-2 rounded-xl px-3 py-2 transition-all duration-200 ${active ? 'bg-blue-50 text-blue-700 dark:bg-blue-600/20 dark:text-blue-400' : 'hover:bg-slate-100 text-slate-600 hover:text-slate-900 dark:hover:bg-white/5 dark:text-gray-300 dark:hover:text-white'}`}>
