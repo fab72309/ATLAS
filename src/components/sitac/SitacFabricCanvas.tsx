@@ -90,6 +90,38 @@ const setBaseTransform = (obj: fabric.Object, map: maplibregl.Map | null) => {
     meta.baseScaleY = typeof meta.baseScaleY === 'number' ? meta.baseScaleY : (obj.scaleY ?? 1);
 };
 
+const normalizeCustomProperties = (obj: fabric.Object) => {
+    const metaObj = obj as fabric.Object & { customProperties?: unknown };
+    if (!Array.isArray(metaObj.customProperties)) {
+        metaObj.customProperties = [];
+    }
+    const ctor = metaObj.constructor as { customProperties?: unknown };
+    if (!Array.isArray(ctor.customProperties)) {
+        ctor.customProperties = [];
+    }
+};
+
+const copyFabricMeta = (source: fabric.Object, target: fabric.Object) => {
+    const srcMeta = source as FabricMetaObject;
+    const dstMeta = target as FabricMetaObject;
+    if (typeof srcMeta.baseZoom === 'number') dstMeta.baseZoom = srcMeta.baseZoom;
+    if (typeof srcMeta.baseScaleX === 'number') dstMeta.baseScaleX = srcMeta.baseScaleX;
+    if (typeof srcMeta.baseScaleY === 'number') dstMeta.baseScaleY = srcMeta.baseScaleY;
+
+    const srcImage = source as FabricMetaImage;
+    const dstImage = target as FabricMetaImage;
+    if (srcImage.colorizable !== undefined) dstImage.colorizable = srcImage.colorizable;
+    if (typeof srcImage.iconName === 'string') dstImage.iconName = srcImage.iconName;
+
+    const srcGroup = source as FabricMetaGroup;
+    const dstGroup = target as FabricMetaGroup;
+    if ((srcGroup as FabricMetaGroup).isArrow) {
+        dstGroup.isArrow = true;
+        if (typeof srcGroup.strokeColor === 'string') dstGroup.strokeColor = srcGroup.strokeColor;
+        if (typeof srcGroup.arrowLength === 'number') dstGroup.arrowLength = srcGroup.arrowLength;
+    }
+};
+
 const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, height, activeSymbol }) => {
     const canvasEl = useRef<HTMLCanvasElement>(null);
     const fabricCanvas = useRef<fabric.Canvas | null>(null);
@@ -127,7 +159,10 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
 
             if (properties.type === 'text') {
                 obj = new fabric.IText(properties.textContent || 'Texte', {
-                    left: point.x, top: point.y,
+                    left: point.x,
+                    top: point.y,
+                    originX: 'center',
+                    originY: 'center',
                     fill: properties.color,
                     fontSize: 20, fontFamily: 'Arial'
                 });
@@ -333,6 +368,21 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
             borderScaleFactor: 2,
             borderDashArray: [4, 4],
         });
+        const baseCustomProps = [
+            'geoPosition',
+            'baseZoom',
+            'baseScaleX',
+            'baseScaleY',
+            'colorizable',
+            'iconName',
+            'isArrow',
+            'strokeColor',
+            'arrowLength'
+        ];
+        const existingCustomProps = Array.isArray(fabric.Object.prototype.customProperties)
+            ? fabric.Object.prototype.customProperties
+            : [];
+        fabric.Object.prototype.customProperties = Array.from(new Set([...existingCustomProps, ...baseCustomProps]));
 
         // Rehydrate from Store
         const savedData = useSitacStore.getState().geoJSON;
@@ -699,6 +749,8 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                 const text = new fabric.IText('Texte', {
                     left: pointer.x,
                     top: pointer.y,
+                    originX: 'center',
+                    originY: 'center',
                     fontFamily: 'Arial',
                     fill: drawingColor,
                     fontSize: 20,
@@ -1175,6 +1227,67 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
             }
             // Reset action
             useSitacStore.getState().setFabricAction(null);
+        } else if (fabricAction.type === 'duplicate') {
+            const active = canvas.getActiveObject();
+            if (!active) {
+                useSitacStore.getState().setFabricAction(null);
+                return;
+            }
+
+            const clones: fabric.Object[] = [];
+            const offset = { x: 20, y: 20 };
+            const mapInstance = map;
+            const finalize = () => {
+                if (clones.length === 0) return;
+                if (clones.length === 1) {
+                    canvas.setActiveObject(clones[0]);
+                } else {
+                    const selection = new fabric.ActiveSelection(clones, { canvas });
+                    canvas.setActiveObject(selection);
+                }
+                canvas.requestRenderAll();
+            };
+
+            const cloneObject = async (obj: fabric.Object) => {
+                const data = obj.toObject([
+                    'geoPosition',
+                    'baseZoom',
+                    'baseScaleX',
+                    'baseScaleY',
+                    'colorizable',
+                    'iconName',
+                    'isArrow',
+                    'strokeColor',
+                    'arrowLength'
+                ]);
+                const [revived] = await fabric.util.enlivenObjects([data]);
+                if (!revived) return;
+                const next = revived as fabric.Object;
+                const left = (obj.left ?? 0) + offset.x;
+                const top = (obj.top ?? 0) + offset.y;
+                next.set({ left, top });
+                copyFabricMeta(obj, next);
+                if (mapInstance) {
+                    refreshGeoTransform(next as FabricGeoObject, mapInstance);
+                    setBaseTransform(next, mapInstance);
+                }
+                next.setCoords();
+                canvas.add(next);
+                clones.push(next);
+                if (clones.length === (active instanceof fabric.ActiveSelection ? active.getObjects().length : 1)) {
+                    finalize();
+                    canvas.fire('object:modified', { target: next });
+                }
+            };
+
+            const targets = active instanceof fabric.ActiveSelection ? active.getObjects() : [active];
+            void (async () => {
+                for (const obj of targets) {
+                    await cloneObject(obj);
+                }
+            })();
+
+            useSitacStore.getState().setFabricAction(null);
         }
     }, [fabricAction]);
 
@@ -1184,6 +1297,12 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
         if (!canvas) return;
 
         const handleKeyDown = (e: KeyboardEvent) => {
+            const isDuplicateShortcut = e.shiftKey && e.altKey && e.key.toLowerCase() === 'd';
+            if (isDuplicateShortcut) {
+                e.preventDefault();
+                useSitacStore.getState().setFabricAction({ type: 'duplicate' });
+                return;
+            }
             if (e.key === 'Delete' || e.key === 'Backspace') {
                 const active = canvas.getActiveObject();
                 if (active && !(active instanceof fabric.IText && (active as fabric.IText).isEditing)) {

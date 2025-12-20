@@ -90,26 +90,7 @@ export const useSitacDraw = ({ map, activeSymbol }: DrawParams) => {
             if (!map.isStyleLoaded()) return;
             const { mode, drawingColor, activeSymbol, addFeature, setSelectedFeatureId, setMode, deleteFeature } = stateRef.current;
 
-            // Handle Text and Symbol placement (still point-based, so map click is fine)
-            if (mode === 'draw_text') {
-                const id = createId();
-                addFeature({
-                    type: 'Feature',
-                    id,
-                    properties: {
-                        id,
-                        type: 'text',
-                        textContent: 'Texte',
-                        textSize: 16,
-                        color: drawingColor,
-                    },
-                    geometry: { type: 'Point', coordinates: [e.lngLat.lng, e.lngLat.lat] },
-                });
-                setSelectedFeatureId(id);
-                setMode('select');
-                return;
-            }
-
+            // Text placement is handled by the Fabric overlay to avoid duplicates.
             if (mode === 'draw_symbol' && activeSymbol) {
                 const id = createId();
                 addFeature({

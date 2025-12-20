@@ -2,7 +2,19 @@
 import React, { useMemo } from 'react';
 import { useSitacStore } from '../../stores/useSitacStore';
 import {
-    RotateCcw, RotateCw, Trash2, Download, Image as ImageIcon, FileText, Maximize2, Minimize2, ChevronLeft, ChevronRight, ChevronDown, Camera
+    RotateCcw,
+    RotateCw,
+    Trash2,
+    Download,
+    Image as ImageIcon,
+    FileText,
+    Maximize2,
+    Minimize2,
+    ChevronLeft,
+    ChevronRight,
+    ChevronDown,
+    Camera,
+    Copy
 } from 'lucide-react';
 import { rotateGeometry } from '../../utils/sitacUtils';
 
@@ -29,6 +41,7 @@ const SitacEditControls: React.FC<SitacEditControlsProps> = ({
     const selectedFabricProperties = useSitacStore((s) => s.selectedFabricProperties);
     const geoJSON = useSitacStore((s) => s.geoJSON);
     const updateFeature = useSitacStore((s) => s.updateFeature);
+    const duplicateFeature = useSitacStore((s) => s.duplicateFeature);
     const updateFabricObject = useSitacStore((s) => s.updateFabricObject); // New action
     // const deleteFeature = useSitacStore((s) => s.deleteFeature); // Unused for now as we handle delete via Fabric logic or keyboard
     // For fabric delete, we might need a signal or just use keyboard. 
@@ -148,6 +161,15 @@ const SitacEditControls: React.FC<SitacEditControlsProps> = ({
                         <div className="flex items-center gap-2 border-l border-white/10 pl-2">
                             <button
                                 onClick={() => {
+                                    useSitacStore.getState().setFabricAction({ type: 'duplicate' });
+                                }}
+                                className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 transition-colors"
+                                title="Dupliquer — Shift+Alt+D"
+                            >
+                                <Copy className="w-4 h-4" />
+                            </button>
+                            <button
+                                onClick={() => {
                                     useSitacStore.getState().setFabricAction({ type: 'delete' });
                                 }}
                                 className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-colors"
@@ -176,6 +198,17 @@ const SitacEditControls: React.FC<SitacEditControlsProps> = ({
                                 title="Pivoter +15°"
                             >
                                 <RotateCw className="w-4 h-4" />
+                            </button>
+                        </div>
+                    )}
+                    {!isFabric && selectedFeature && (
+                        <div className="flex items-center gap-2 border-l border-white/10 pl-2">
+                            <button
+                                onClick={() => duplicateFeature(String(selectedFeature.id))}
+                                className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 transition-colors"
+                                title="Dupliquer — Shift+Alt+D"
+                            >
+                                <Copy className="w-4 h-4" />
                             </button>
                         </div>
                     )}

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.3-alpha.1
+- Ajustements OCT (titre, boutons, zoom par defaut, hauteur de carte).
+- Export PDF OCT enrichi avec date/heure et adresse d'intervention.
+- Onglet Messages: ajustements UI des champs date/heure et suppression des boutons SOIEC.
+- SITAC: stabilisation des elements, duplication d'objets (bouton + raccourci), correction du doublon texte.
+
 ## 0.2.2-alpha.5
 - Harmonisation du mode clair sur l’onglet SOIEC (cartes et sélecteur de dominante).
 - Harmonisation du mode clair sur l’onglet Moyens (panneaux, sélection et recueil).

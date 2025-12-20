@@ -41,6 +41,68 @@ const escapeHtml = (input: string) =>
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#039;');
 
+const formatExportTimestamp = (heure?: string) => {
+    const parsed = heure ? new Date(heure) : new Date();
+    const safeDate = isNaN(parsed.getTime()) ? new Date() : parsed;
+    return {
+        dateLabel: safeDate.toLocaleDateString('fr-FR'),
+        timeLabel: safeDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    };
+};
+
+const applyBoardExportMeta = (canvas: HTMLCanvasElement, opts?: { adresse?: string; heure?: string }) => {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const { dateLabel, timeLabel } = formatExportTimestamp(opts?.heure);
+    const lines: string[] = [];
+    if (opts?.adresse) {
+        lines.push(`Adresse: ${opts.adresse}`);
+    }
+    lines.push(`Edition: ${dateLabel} ${timeLabel}`);
+    const fontSize = Math.min(18, Math.max(12, Math.round(canvas.width * 0.012)));
+    ctx.font = `${fontSize}px Helvetica, Arial, sans-serif`;
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'top';
+    const lineHeight = Math.round(fontSize * 1.25);
+    const padding = Math.round(fontSize * 0.8);
+    const maxWidth = Math.round(canvas.width * 0.45);
+
+    const wrapLine = (text: string) => {
+        const words = text.split(' ');
+        const wrapped: string[] = [];
+        let current = '';
+        for (const word of words) {
+            const next = current ? `${current} ${word}` : word;
+            if (ctx.measureText(next).width <= maxWidth || !current) {
+                current = next;
+            } else {
+                wrapped.push(current);
+                current = word;
+            }
+        }
+        if (current) wrapped.push(current);
+        return wrapped;
+    };
+
+    const wrappedLines = lines.flatMap((line) => wrapLine(line));
+    if (wrappedLines.length === 0) return;
+    const maxLineWidth = Math.max(...wrappedLines.map((line) => ctx.measureText(line).width));
+    const blockHeight = lineHeight * wrappedLines.length;
+    const x = canvas.width - padding;
+    const y = canvas.height - padding - blockHeight;
+
+    ctx.save();
+    ctx.globalAlpha = 0.7;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(x - maxLineWidth - padding, y - padding, maxLineWidth + padding * 2, blockHeight + padding * 2);
+    ctx.restore();
+
+    ctx.fillStyle = '#111111';
+    wrappedLines.forEach((line, index) => {
+        ctx.fillText(line, x, y + index * lineHeight);
+    });
+};
+
 export const exportOrdreToClipboard = async (ordre: OrdreInitial, opts?: { adresse?: string; heure?: string }): Promise<void> => {
     const text = generateOrdreInitialText(ordre, buildMeta(opts));
     await Clipboard.write({
@@ -290,6 +352,7 @@ export const exportBoardDesignImage = async (el: HTMLElement, opts?: { adresse?:
 
 export const exportBoardDesignPdf = async (el: HTMLElement, opts?: { adresse?: string; heure?: string }) => {
     const canvas = await captureBoardCanvas(el);
+    applyBoardExportMeta(canvas, opts);
     const imgData = canvas.toDataURL('image/jpeg', 0.75);
     const orientation = canvas.width > canvas.height ? 'landscape' : 'portrait';
     const pdf = new jsPDF({

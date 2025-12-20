@@ -212,6 +212,7 @@ export const ensureLayers = (map: maplibregl.Map) => {
                 'text-offset': [0, 1],
                 'text-anchor': 'top',
                 'text-rotation-alignment': 'viewport',
+                'visibility': 'none',
             },
             paint: {
                 'text-color': ['coalesce', ['get', 'color'], '#111111'],
