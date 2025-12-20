@@ -3,8 +3,8 @@ import cors from 'cors';
 import { onRequest } from 'firebase-functions/v2/https';
 import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import type { CommandType, PromptMode } from './prompts';
-import { DeveloperPrompts, OutputSchemas, buildUserPrompt } from './prompts';
+import type { CommandType, PromptMode } from './prompts.js';
+import { DeveloperPrompts, OutputSchemas, buildUserPrompt } from './prompts.js';
 
 // Initialisation Admin (Firebase Functions)
 try { initializeApp(); } catch {}
@@ -33,19 +33,42 @@ async function verifyIdTokenMaybe(authHeader?: string) {
 }
 
 // Normalise l’entrée en deux modes de prompt, tout en restant rétrocompatible
-function normaliseInput(body: any): { type: CommandType; mode: PromptMode; data: { texte?: string; sections?: Record<string, string>; dominante?: string } } {
+function normaliseInput(body: any): {
+  type: CommandType;
+  mode: PromptMode;
+  data: {
+    texte?: string;
+    sections?: Record<string, string>;
+    dominante?: string;
+    secondaryRisks?: string[];
+    extraContext?: string;
+    doctrineContext?: unknown;
+  };
+} {
   const type = (body?.type ?? 'group') as CommandType;
   // Compat: l’app front envoie “situation” (texte libre) aujourd’hui
   const texte = typeof body?.situation === 'string' ? body.situation : undefined;
   const sections = typeof body?.sections === 'object' && body?.sections ? body.sections : undefined;
   const dominante = typeof body?.dominante === 'string' ? body.dominante : undefined;
+  const secondaryRisks = Array.isArray(body?.secondaryRisks)
+    ? body.secondaryRisks.filter((r: any) => typeof r === 'string')
+    : undefined;
+  const extraContext = typeof body?.extraContext === 'string' ? body.extraContext : undefined;
+  let doctrineContext = body?.doctrine_context ?? body?.doctrineContext;
+  if (typeof doctrineContext === 'string') {
+    try {
+      doctrineContext = JSON.parse(doctrineContext);
+    } catch {
+      // Keep raw string if parsing fails.
+    }
+  }
   let mode: PromptMode = 'texte_libre';
   if (sections && Object.keys(sections).length > 0) mode = 'elements_dictes';
-  return { type, mode, data: { texte, sections, dominante } };
+  return { type, mode, data: { texte, sections, dominante, secondaryRisks, extraContext, doctrineContext } };
 }
 
 // Function HTTPS principale: /analyze
-export const analyze = onRequest({ cors: true, region: 'europe-west1', timeoutSeconds: 120 }, async (req, res) => {
+export const analyze = onRequest({ cors: true, region: 'europe-west1', timeoutSeconds: 120 }, async (req: any, res: any) => {
   // CORS
   await new Promise<void>((resolve) => corsMw(req, res, () => resolve()));
 
@@ -72,12 +95,12 @@ export const analyze = onRequest({ cors: true, region: 'europe-west1', timeoutSe
     const user = buildUserPrompt(type, mode, data);
     const { name, schema } = (OutputSchemas as any)[type];
 
-    // Appelle Responses API en forçant JSON conforme au schéma
-    const response = await openai.responses.create({
+    // Appelle Chat Completions API en forçant JSON conforme au schéma
+    const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini-2024-07-18',
-      input: [
-        { role: 'system', content: [{ type: 'text', text: system }] },
-        { role: 'user', content: [{ type: 'text', text: user }] }
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user }
       ],
       response_format: {
         type: 'json_schema',
@@ -86,7 +109,7 @@ export const analyze = onRequest({ cors: true, region: 'europe-west1', timeoutSe
     });
 
     // Récupère le texte JSON retourné
-    const text = response.output_text || '';
+    const text = response.choices?.[0]?.message?.content || '';
     res.json({ result: text, model: response.model });
   } catch (err: any) {
     console.error('[analyze] error', err);

@@ -16,6 +16,8 @@ export const parseOrdreInitial = (jsonString: string): OrdreInitial => {
             C: "Commandement non renseigné"
         };
 
+        const analyseTactique = parsed._analyse_tactique || parsed.analyse_tactique || parsed.analyseTactique;
+
         // Normalisation des champs
         const normalized = {
             S: parsed.S || parsed.Situation || parsed.situation || defaultOrdre.S,
@@ -51,6 +53,7 @@ export const parseOrdreInitial = (jsonString: string): OrdreInitial => {
         // Fusion avec les données parsées
         return {
             ...defaultOrdre,
+            ...(analyseTactique ? { _analyse_tactique: analyseTactique } : {}),
             S: normalized.S,
             // Assurer que A est un tableau de chaînes
             A: Array.isArray(normalized.A)
