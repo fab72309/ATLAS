@@ -14,7 +14,7 @@ import ReactFlow, {
   useNodesState
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { Download, RefreshCw, RotateCw, Sparkles } from 'lucide-react';
+import { Download, RefreshCw, RotateCw } from 'lucide-react';
 import { exportBoardDesignPdf } from '../utils/export';
 import { MeanItem } from '../components/MeansModal';
 import { OctColor, OctNodeType, OctTreeNode, useOctTree, resetOctTree, createInitialOctTree } from '../utils/octTreeStore';
@@ -441,7 +441,9 @@ const OctFlowNode: React.FC<NodeProps<OctNodeData>> = ({ data, selected }) => {
               e.stopPropagation();
               data.onAdd(data.nodeId, data.type === 'cos' ? 'sector' : undefined);
             }}
-            className="w-full text-xs px-3 py-1.5 rounded-xl bg-black/30 hover:bg-black/40 border border-white/20 transition"
+            className={`w-full text-xs px-3 py-1.5 rounded-xl bg-black/30 hover:bg-black/40 border transition ${
+              data.type === 'cos' ? 'border-white/70' : 'border-white/20'
+            }`}
           >
             {data.type === 'cos' ? '+ Secteur' : '+ Engin / Sous-secteur'}
           </button>
@@ -467,9 +469,10 @@ interface EditorState {
 interface OctDiagramProps {
   embedded?: boolean;
   availableMeans?: MeanItem[];
+  exportMeta?: { adresse?: string; heure?: string };
 }
 
-export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availableMeans = [] }) => {
+export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availableMeans = [], exportMeta }) => {
   const { resolvedTheme } = useTheme();
   const { tree, setTree } = useOctTree();
   const [selectedId, setSelectedId] = useState<string>(tree.id);
@@ -479,7 +482,7 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
   const [isPortrait, setIsPortrait] = useState(false);
   const flowRef = useRef<ReactFlowInstance | null>(null);
   const diagramRef = useRef<HTMLDivElement | null>(null);
-  const diagramHeight = embedded ? '65vh' : '75vh';
+  const diagramHeight = embedded ? '75vh' : '85vh';
   const canDeleteEditor = editor && editor.id !== tree.id;
   const COLOR_OPTIONS: { value: OctColor; label: string }[] = [
     { value: 'red', label: 'Rouge' },
@@ -504,6 +507,14 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
   );
   const isDark = resolvedTheme === 'dark';
   const gridDotColor = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(15,23,42,0.12)';
+  const reducedZoomFactor = 1.19;
+
+  const applyReducedZoom = useCallback(() => {
+    const instance = flowRef.current;
+    if (!instance) return;
+    const viewport = instance.getViewport();
+    instance.setViewport({ ...viewport, zoom: viewport.zoom * reducedZoomFactor });
+  }, [reducedZoomFactor]);
 
   useEffect(() => {
     if (!findNodeById(tree, selectedId)) {
@@ -712,11 +723,11 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
   const handleExportPdf = useCallback(async () => {
     if (!diagramRef.current) return;
     try {
-      await exportBoardDesignPdf(diagramRef.current);
+      await exportBoardDesignPdf(diagramRef.current, exportMeta);
     } catch (err) {
       console.error('Export PDF failed', err);
     }
-  }, []);
+  }, [exportMeta]);
 
   const handleToggleStatus = useCallback(
     (id: string) => {
@@ -788,7 +799,8 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
     if (!flowRef.current) return;
     if (!layout.nodes.length) return;
     flowRef.current.fitView({ padding: 0.25, duration: 500 });
-  }, [layout.nodes]);
+    requestAnimationFrame(applyReducedZoom);
+  }, [layout.nodes, applyReducedZoom]);
 
   useEffect(() => {
     const updateOrientation = () => setIsPortrait(window.innerHeight > window.innerWidth);
@@ -811,8 +823,8 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
       <div className={`${embedded ? 'relative z-10 w-full space-y-6' : 'relative z-10 max-w-7xl mx-auto px-4 py-8 space-y-6'}`}>
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-sm text-slate-900 dark:text-cyan-200 uppercase tracking-[0.25em] flex items-center gap-2">
-              <Sparkles className="w-4 h-4" /> OCT – Ordre Complémentaire des Transmissions
+            <p className="text-sm text-slate-900 dark:text-cyan-200 uppercase tracking-[0.25em]">
+              OCT – Ordre Complémentaire des Transmissions
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -858,6 +870,10 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
               onInit={(instance) => {
                 flowRef.current = instance;
                 instance.fitView({ padding: 0.25 });
+                requestAnimationFrame(() => {
+                  const viewport = instance.getViewport();
+                  instance.setViewport({ ...viewport, zoom: viewport.zoom * reducedZoomFactor });
+                });
               }}
             >
               <MiniMap

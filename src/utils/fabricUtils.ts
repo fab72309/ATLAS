@@ -33,11 +33,10 @@ export const syncObjectPosition = (obj: FabricGeoObject, map: maplibregl.Map) =>
         obj.baseScaleY = baseScaleY;
     }
     obj.set({
-        left: point.x,
-        top: point.y,
         scaleX: baseScaleX * zoomScale,
         scaleY: baseScaleY * zoomScale,
     });
+    obj.setPositionByOrigin(new fabric.Point(point.x, point.y), 'center', 'center');
     obj.setCoords();
 };
 

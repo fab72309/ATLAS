@@ -317,7 +317,12 @@ const DictationInput = () => {
     if (activeTab === 'oct') {
       return (
         <div className="w-full">
-          <OctDiagram key={`oct-${octResetKey}`} embedded availableMeans={selectedMeans} />
+          <OctDiagram
+            key={`oct-${octResetKey}`}
+            embedded
+            availableMeans={selectedMeans}
+            exportMeta={{ adresse: fullAddress, heure: orderTime }}
+          />
         </div>
       );
     }
@@ -428,9 +433,9 @@ const DictationInput = () => {
               </div>
 
               <div className="space-y-2">
-                <div className="grid grid-cols-1 sm:grid-cols-[1fr,1fr,auto] gap-2 items-end">
-                  <div className="space-y-1">
-                    <label className="text-xs uppercase tracking-wide text-slate-500 dark:text-gray-400">Date</label>
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] uppercase tracking-[0.25em] text-slate-500 dark:text-gray-400">Date</label>
                     <input
                       type="date"
                       value={ambianceMessage.date}
@@ -441,11 +446,11 @@ const DictationInput = () => {
                           stamped: false
                         }))
                       }
-                      className="w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
+                      className="w-44 bg-white dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 shadow-sm"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs uppercase tracking-wide text-slate-500 dark:text-gray-400">Heure</label>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] uppercase tracking-[0.25em] text-slate-500 dark:text-gray-400">Heure</label>
                     <input
                       type="time"
                       value={ambianceMessage.time}
@@ -456,7 +461,7 @@ const DictationInput = () => {
                           stamped: false
                         }))
                       }
-                      className="w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
+                      className="w-28 bg-white dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 shadow-sm"
                     />
                   </div>
                   <button
@@ -470,7 +475,7 @@ const DictationInput = () => {
                         time: prev.time || nowStamp.time
                       }));
                     }}
-                    className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold transition ${
+                    className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-semibold transition ${
                       ambianceMessage.stamped
                         ? 'bg-emerald-600/15 text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-500/40'
                         : 'bg-slate-200 text-slate-700 border-slate-300 hover:bg-slate-300 dark:bg-white/5 dark:text-gray-200 dark:border-white/10 dark:hover:bg-white/10'
@@ -580,9 +585,9 @@ const DictationInput = () => {
               </div>
 
               <div className="space-y-2">
-                <div className="grid grid-cols-1 sm:grid-cols-[1fr,1fr,auto] gap-2 items-end">
-                  <div className="space-y-1">
-                    <label className="text-xs uppercase tracking-wide text-slate-500 dark:text-gray-400">Date</label>
+                <div className="flex flex-wrap items-end gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] uppercase tracking-[0.25em] text-slate-500 dark:text-gray-400">Date</label>
                     <input
                       type="date"
                       value={compteRenduMessage.date}
@@ -593,11 +598,11 @@ const DictationInput = () => {
                           stamped: false
                         }))
                       }
-                      className="w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
+                      className="w-44 bg-white dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 shadow-sm"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs uppercase tracking-wide text-slate-500 dark:text-gray-400">Heure</label>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] uppercase tracking-[0.25em] text-slate-500 dark:text-gray-400">Heure</label>
                     <input
                       type="time"
                       value={compteRenduMessage.time}
@@ -608,7 +613,7 @@ const DictationInput = () => {
                           stamped: false
                         }))
                       }
-                      className="w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
+                      className="w-28 bg-white dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 shadow-sm"
                     />
                   </div>
                   <button
@@ -622,7 +627,7 @@ const DictationInput = () => {
                         time: prev.time || nowStamp.time
                       }));
                     }}
-                    className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold transition ${
+                    className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-semibold transition ${
                       compteRenduMessage.stamped
                         ? 'bg-emerald-600/15 text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-500/40'
                         : 'bg-slate-200 text-slate-700 border-slate-300 hover:bg-slate-300 dark:bg-white/5 dark:text-gray-200 dark:border-white/10 dark:hover:bg-white/10'
@@ -1217,7 +1222,7 @@ const DictationInput = () => {
             </div>
       </div>
 
-      {activeTab !== 'sitac' && (
+      {activeTab !== 'sitac' && activeTab !== 'moyens' && activeTab !== 'oct' && activeTab !== 'message' && (
         <>
           <div className="grid w-full grid-cols-1 md:grid-cols-2 gap-3 mt-6 mb-[calc(env(safe-area-inset-bottom,0)+12px)]">
             <button

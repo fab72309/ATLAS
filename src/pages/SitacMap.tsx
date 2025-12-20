@@ -54,6 +54,8 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
   const fullscreenRef = useRef<HTMLDivElement | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [fullscreenOffset, setFullscreenOffset] = useState({ top: 0, left: 0 });
+  const syncGeoJSONRef = useRef<() => void>(() => undefined);
+  const ensureIconsRef = useRef<() => void>(() => undefined);
 
   // Map Init Helper ---
   const cycleBaseLayer = () => {
@@ -177,6 +179,14 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
     syncGeoJSONToMap();
   }, [geoJSON, selectedFeatureId, syncGeoJSONToMap]);
 
+  useEffect(() => {
+    syncGeoJSONRef.current = syncGeoJSONToMap;
+  }, [syncGeoJSONToMap]);
+
+  useEffect(() => {
+    ensureIconsRef.current = ensureIcons;
+  }, [ensureIcons]);
+
   // Handle Mode Interaction locks
   useEffect(() => {
     const map = mapRef.current;
@@ -231,15 +241,15 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
 
     map.once('style.load', () => {
       ensureLayers(map);
-      syncGeoJSONToMap();
-      ensureIcons();
+      syncGeoJSONRef.current();
+      ensureIconsRef.current();
     });
 
     return () => {
       map.remove();
       mapRef.current = null;
     };
-  }, [baseLayer, ensureIcons, syncGeoJSONToMap]);
+  }, []);
 
   // Base Layer Switching
   useEffect(() => {
@@ -248,10 +258,10 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
     map.setStyle(BASE_STYLES[baseLayer]);
     map.once('style.load', () => {
       ensureLayers(map);
-      syncGeoJSONToMap();
-      ensureIcons();
+      syncGeoJSONRef.current();
+      ensureIconsRef.current();
     });
-  }, [baseLayer, ensureIcons, syncGeoJSONToMap]);
+  }, [baseLayer]);
 
   // Lock changes (managed in useSitacDraw already, but we sync global lock state)
   useEffect(() => {

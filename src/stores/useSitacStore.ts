@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { SITACCollection, SITACFeature, DrawingMode, Snapshot, SITACFeatureProperties } from '../types/sitac';
+import { createId } from '../utils/sitacUtils';
 
 interface SitacState {
     mode: DrawingMode;
@@ -23,6 +24,7 @@ interface SitacState {
     addFeature: (feature: SITACFeature) => void;
     updateFeature: (id: string, updater: (feature: SITACFeature) => SITACFeature) => void;
     deleteFeature: (id: string) => void;
+    duplicateFeature: (id: string) => void;
     undo: () => void;
     redoAction: () => void;
     clear: () => void;
@@ -31,7 +33,7 @@ interface SitacState {
     setExternalSearch: (query: string) => void;
     // Fabric Sync
     selectedFabricProperties: SITACFeatureProperties | null;
-    fabricAction: { type: 'delete' | 'none' } | null; // Adding missing action
+    fabricAction: { type: 'delete' | 'duplicate' | 'none' } | null; // Adding missing action
     setSelectedFabricProperties: (props: SITACFeatureProperties | null) => void;
     updateFabricObject: (props: Partial<SITACFeatureProperties>) => void;
     setFabricAction: (action: { type: 'delete' | 'none' } | null) => void;
@@ -102,6 +104,25 @@ export const useSitacStore = create<SitacState>((set, get) => ({
             history: [...history, next].slice(-50),
             redo: [],
             selectedFeatureId: null,
+        });
+    },
+
+    duplicateFeature: (id) => {
+        const { geoJSON, history } = get();
+        const safeFeatures = Array.isArray(geoJSON.features) ? geoJSON.features : [];
+        const safeHistory = Array.isArray(history) ? history : [];
+        const target = safeFeatures.find((f) => f.id === id);
+        if (!target) return;
+        const nextId = createId();
+        const clone: SITACFeature = JSON.parse(JSON.stringify(target));
+        clone.id = nextId;
+        clone.properties = { ...(clone.properties || {}), id: nextId };
+        const next: SITACCollection = { ...geoJSON, features: [...safeFeatures, clone] };
+        set({
+            geoJSON: next,
+            history: [...safeHistory, next].slice(-50),
+            redo: [],
+            selectedFeatureId: nextId,
         });
     },
 

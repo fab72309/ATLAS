@@ -314,224 +314,228 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
   if (!isOpen && !inline) return null;
 
   const content = (
-    <div className="flex flex-1 flex-col md:flex-row gap-4 overflow-hidden">
-      <div className="w-full md:w-[28%] lg:w-[26%] border border-slate-200/80 dark:border-white/10 rounded-2xl p-4 space-y-3 overflow-y-auto bg-white/80 dark:bg-white/5 shadow-sm dark:shadow-none">
-        <div className="flex items-center justify-between gap-2">
-          <h4 className="text-sm font-semibold text-slate-800 dark:text-gray-200">Secteurs</h4>
-          <button
-            onClick={handleAddSector}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs text-white transition"
-          >
-            <Plus className="w-4 h-4" />
-            Secteur
-          </button>
-        </div>
-        <p className="text-[11px] text-slate-500 dark:text-gray-400">
-          Les secteurs créés ici sont synchronisés automatiquement avec l&apos;onglet OCT.
-        </p>
-        {!sectors.length && (
-          <div className="text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 dark:text-gray-400 dark:bg-white/5 dark:border-white/10">
-            Aucun secteur pour le moment.
+    <div className="flex flex-1 flex-col gap-4 overflow-hidden">
+      <div className="flex flex-1 flex-col md:flex-row gap-4 overflow-hidden">
+        <div className="w-full md:w-1/3 flex flex-col gap-4">
+          <div className="w-full border border-slate-200/80 dark:border-white/10 rounded-2xl p-4 space-y-3 overflow-y-auto bg-white/80 dark:bg-white/5 shadow-sm dark:shadow-none">
+          <div className="flex items-center gap-2">
+            <h4 className="text-sm font-semibold text-slate-800 dark:text-gray-200">Secteurs</h4>
+            <button
+              onClick={handleAddSector}
+              className="flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-600 hover:bg-emerald-500 text-[11px] text-white transition"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Secteur
+            </button>
           </div>
-        )}
-        <div className="space-y-3">
+          <p className="text-[11px] text-slate-500 dark:text-gray-400">
+            Les secteurs créés ici sont synchronisés automatiquement avec l&apos;onglet OCT.
+          </p>
+          {!sectors.length && (
+            <div className="text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 dark:text-gray-400 dark:bg-white/5 dark:border-white/10">
+              Aucun secteur pour le moment.
+            </div>
+          )}
+          <div className="space-y-3">
           {sectors.map((sector) => {
             const subsectors = sector.children.filter((c) => c.type === 'subsector');
             return (
-              <div key={sector.id} className="rounded-xl border border-slate-200/80 bg-white/70 p-3 space-y-3 dark:border-white/10 dark:bg-black/20">
-                <div className="flex items-center gap-2">
-                  <div className="relative flex-1">
-                    <input
-                      value={sectorDrafts[sector.id] ?? sector.label}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setSectorDrafts((prev) => ({ ...prev, [sector.id]: value }));
-                        setSectorValidated((prev) => ({ ...prev, [sector.id]: false }));
-                      }}
-                      className={`w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200/80 pr-10 dark:bg-white/5 dark:border-white/10 dark:focus:ring-white/20 ${
-                        DEFAULT_SECTOR_LABELS.includes((sectorDrafts[sector.id] ?? sector.label ?? '').toUpperCase())
-                          ? 'text-slate-400 dark:text-white/60'
-                          : 'text-slate-700 dark:text-white'
-                      }`}
-                      placeholder="Nom du secteur"
-                    />
-                    {sectorValidated[sector.id] && (
-                      <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-400" />
-                    )}
-                  </div>
-                  <button
-                    onClick={() => {
-                      const label = (sectorDrafts[sector.id] ?? sector.label).trim();
-                      handleRenameNode(sector.id, label);
-                      setSectorDrafts((prev) => ({ ...prev, [sector.id]: label }));
-                      setSectorValidated((prev) => ({ ...prev, [sector.id]: true }));
-                    }}
-                    className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs text-white border border-emerald-400/40 transition"
-                  >
-                    {sectorValidated[sector.id] ? 'Mettre à jour' : 'Valider'}
-                  </button>
-                  <button
-                    onClick={() => handleDeleteNode(sector.id)}
-                    className="p-2 rounded-lg bg-white border border-slate-200 text-red-600 hover:bg-red-50 transition dark:bg-white/5 dark:hover:bg-red-500/20 dark:border-white/10 dark:text-red-300"
-                    title="Supprimer le secteur"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  <button
-                    onClick={() => setSubsectorOpen((prev) => ({ ...prev, [sector.id]: !prev[sector.id] }))}
-                    className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-200 text-xs text-slate-600 transition dark:bg-white/5 dark:hover:bg-white/10 dark:border-white/10 dark:text-gray-200"
-                  >
-                    <span className="uppercase tracking-wide text-[11px] text-slate-500 dark:text-gray-300">Sous-secteurs</span>
-                    <ChevronDown
-                      className={`w-4 h-4 text-slate-500 dark:text-gray-300 transition-transform ${subsectorOpen[sector.id] ? 'rotate-180' : 'rotate-0'}`}
-                    />
-                  </button>
-                  {subsectorOpen[sector.id] && (
-                    <>
-                      {!subsectors.length && (
-                        <div className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 dark:text-gray-500 dark:bg-white/5 dark:border-white/10">
-                          Aucun sous-secteur.
-                        </div>
+              <div key={sector.id} className="rounded-lg border border-slate-200/80 bg-white/70 p-2.5 space-y-2 dark:border-white/10 dark:bg-black/20">
+                  <div className="inline-grid w-full sm:w-auto grid-cols-1 sm:grid-cols-[14rem_auto_auto] items-center gap-1.5">
+                    <div className="relative w-full">
+                      <input
+                        value={sectorDrafts[sector.id] ?? sector.label}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setSectorDrafts((prev) => ({ ...prev, [sector.id]: value }));
+                          setSectorValidated((prev) => ({ ...prev, [sector.id]: false }));
+                        }}
+                        className={`w-full px-2 py-1.5 rounded-md bg-white border border-slate-200 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200/80 pr-8 dark:bg-white/5 dark:border-white/10 dark:focus:ring-white/20 ${
+                          DEFAULT_SECTOR_LABELS.includes((sectorDrafts[sector.id] ?? sector.label ?? '').toUpperCase())
+                            ? 'text-slate-400 dark:text-white/60'
+                            : 'text-slate-700 dark:text-white'
+                        }`}
+                        placeholder="Nom du secteur"
+                      />
+                      {sectorValidated[sector.id] && (
+                        <Check className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-emerald-400" />
                       )}
-                      {subsectors.map((sub) => (
-                        <div key={sub.id} className="flex items-center gap-2">
-                          <input
-                            value={sub.label}
-                            onChange={(e) => handleRenameNode(sub.id, e.target.value)}
-                            className="flex-1 px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200/80 dark:bg-white/5 dark:border-white/10 dark:text-white dark:focus:ring-white/20"
-                            placeholder="Nom du sous-secteur"
-                          />
-                          <button
-                            onClick={() => handleDeleteNode(sub.id)}
-                            className="p-2 rounded-lg bg-white border border-slate-200 text-red-600 hover:bg-red-50 transition dark:bg-white/5 dark:hover:bg-red-500/20 dark:border-white/10 dark:text-red-300"
-                            title="Supprimer le sous-secteur"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
-                      <button
-                        onClick={() => handleAddSubsector(sector.id)}
-                        className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-slate-50 hover:bg-slate-100 border border-dashed border-slate-200 text-xs text-slate-600 transition dark:bg-white/5 dark:hover:bg-white/10 dark:border-white/20 dark:text-gray-200"
-                      >
-                        <Plus className="w-4 h-4" />
-                        Ajouter un sous-secteur
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="w-full md:w-[36%] lg:w-[37%] border border-slate-200/80 dark:border-white/10 rounded-2xl p-4 space-y-3 overflow-y-auto bg-white/80 dark:bg-white/5 shadow-sm dark:shadow-none">
-        <h4 className="text-sm font-semibold text-slate-800 dark:text-gray-200">Sélection</h4>
-        {selected.length === 0 && <div className="text-slate-500 dark:text-gray-500 text-sm">Aucun moyen sélectionné.</div>}
-        <div className="space-y-2">
-          {selected.map((s) => {
-            const colorMeta = CATEGORIES[s.category || ''] || {
-              statusClass: 'outline-slate-300',
-              color: 'border-slate-200 bg-white text-slate-700 dark:border-white/20 dark:bg-white/5 dark:text-white',
-              fill: 'bg-slate-50/80 dark:bg-white/5',
-              dashedClass: 'border-yellow-300/70 dark:border-yellow-400/80'
-            };
-            const isRequested = s.status === 'demande';
-            const alreadyInOct = octTree ? meanExistsInTree(octTree, s.id) : false;
-            const isAssigned = alreadyInOct;
-            return (
-              <div
-                key={s.id}
-                className={`space-y-2 px-3 py-3 rounded-lg border ${isRequested ? `border-dashed ${colorMeta.dashedClass || 'border-yellow-300/70 dark:border-yellow-400/80'}` : colorMeta.color || 'border-slate-200'} ${colorMeta.fill || 'bg-slate-50/80'} shadow-sm`}
-              >
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                  <div className="flex-1 text-sm text-slate-800 dark:text-gray-100 font-semibold">{s.name}</div>
-                  <select
-                    value={assignSelection[s.id] || assignableNodes[0]?.id || ''}
-                    onChange={(e) => setAssignSelection((prev) => ({ ...prev, [s.id]: e.target.value }))}
-                    className="flex-1 px-3 py-2 rounded-lg bg-white border border-slate-200 text-[12px] text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200/80 dark:bg-white/5 dark:border-white/10 dark:text-gray-200 dark:focus:ring-white/20"
-                    disabled={!assignableNodes.length}
-                  >
-                    {!assignableNodes.length && <option value="">Aucun secteur disponible</option>}
-                    {assignableNodes.map((node) => (
-                      <option key={node.id} value={node.id}>{node.label}</option>
-                    ))}
-                  </select>
-                  <div className="flex items-center gap-2">
+                    </div>
                     <button
-                      onClick={() => handleAssignMean(s)}
-                      disabled={!assignableNodes.length || isAssigned || alreadyInOct}
-                      className={`px-3 py-2 text-[12px] rounded-lg transition border font-semibold ${
-                        isAssigned
-                          ? 'bg-emerald-500 border-emerald-300/70 text-emerald-50'
-                          : 'bg-amber-500 border-amber-300/70 text-amber-50 hover:bg-amber-400'
-                      } ${(!assignableNodes.length || alreadyInOct) ? 'opacity-60 cursor-not-allowed' : ''}`}
+                      onClick={() => {
+                        const label = (sectorDrafts[sector.id] ?? sector.label).trim();
+                        handleRenameNode(sector.id, label);
+                        setSectorDrafts((prev) => ({ ...prev, [sector.id]: label }));
+                        setSectorValidated((prev) => ({ ...prev, [sector.id]: true }));
+                      }}
+                      className="px-2.5 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-500 text-[11px] text-white border border-emerald-400/40 transition"
                     >
-                      {isAssigned ? 'Affecté' : 'À affecter'}
+                      {sectorValidated[sector.id] ? 'Mettre à jour' : 'Valider'}
                     </button>
                     <button
-                      onClick={() => remove(s.id)}
-                      className="p-2 rounded-lg bg-white border border-slate-200 text-red-600 hover:bg-red-50 transition dark:bg-white/5 dark:hover:bg-red-500/20 dark:border-white/10 dark:text-red-300"
-                      title="Retirer"
+                      onClick={() => handleDeleteNode(sector.id)}
+                      className="p-1.5 rounded-md bg-white border border-slate-200 text-red-600 hover:bg-red-50 transition dark:bg-white/5 dark:hover:bg-red-500/20 dark:border-white/10 dark:text-red-300"
+                      title="Supprimer le secteur"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => setSubsectorOpen((prev) => ({ ...prev, [sector.id]: !prev[sector.id] }))}
+                      className="w-full sm:col-span-3 flex items-center justify-between px-2 py-1 rounded-md bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[10px] text-slate-600 transition dark:bg-white/5 dark:hover:bg-white/10 dark:border-white/10 dark:text-gray-200"
+                    >
+                      <span className="uppercase tracking-wide text-[10px] text-slate-500 dark:text-gray-300">Sous-secteurs</span>
+                      <ChevronDown
+                        className={`w-3 h-3 text-slate-500 dark:text-gray-300 transition-transform ${subsectorOpen[sector.id] ? 'rotate-180' : 'rotate-0'}`}
+                      />
                     </button>
                   </div>
-                </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => toggleStatus(s.id)}
-                      className={`relative w-16 h-8 rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-slate-200/80 dark:focus:ring-white/20 shadow-inner ${isRequested ? 'bg-amber-400/80 border-amber-200/80' : 'bg-emerald-400/80 border-emerald-200/80'}`}
-                      aria-label={isRequested ? 'Basculer en sur place' : 'Basculer en demandé'}
-                    >
-                    <div className={`absolute inset-y-1 left-1 w-6 h-6 rounded-full bg-white shadow-lg transition-transform ${isRequested ? 'translate-x-7' : 'translate-x-0'}`} />
-                    {!isRequested && <Check className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-emerald-900/90" />}
-                  </button>
-                  <span className="text-[12px] text-slate-600 dark:text-gray-200">{isRequested ? 'Demandé' : 'Sur place'}</span>
+                  <div className="space-y-1.5">
+                    {subsectorOpen[sector.id] && (
+                      <>
+                        {!subsectors.length && (
+                          <div className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-md px-2 py-1.5 dark:text-gray-500 dark:bg-white/5 dark:border-white/10">
+                            Aucun sous-secteur.
+                          </div>
+                        )}
+                        {subsectors.map((sub) => (
+                          <div key={sub.id} className="flex flex-wrap items-center gap-1.5">
+                            <input
+                              value={sub.label}
+                              onChange={(e) => handleRenameNode(sub.id, e.target.value)}
+                              className="w-full sm:w-56 px-2 py-1.5 rounded-md bg-white border border-slate-200 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200/80 dark:bg-white/5 dark:border-white/10 dark:text-white dark:focus:ring-white/20"
+                              placeholder="Nom du sous-secteur"
+                            />
+                            <button
+                              onClick={() => handleDeleteNode(sub.id)}
+                              className="p-1.5 rounded-md bg-white border border-slate-200 text-red-600 hover:bg-red-50 transition dark:bg-white/5 dark:hover:bg-red-500/20 dark:border-white/10 dark:text-red-300"
+                              title="Supprimer le sous-secteur"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                        <button
+                          onClick={() => handleAddSubsector(sector.id)}
+                          className="w-full flex items-center justify-center gap-2 px-2.5 py-1.5 rounded-md bg-slate-50 hover:bg-slate-100 border border-dashed border-slate-200 text-[11px] text-slate-600 transition dark:bg-white/5 dark:hover:bg-white/10 dark:border-white/20 dark:text-gray-200"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          Ajouter un sous-secteur
+                        </button>
+                      </>
+                    )}
                 </div>
               </div>
             );
           })}
         </div>
-      </div>
+          </div>
 
-      <div className="w-full md:flex-1 border border-slate-200/80 dark:border-white/10 rounded-2xl p-4 space-y-4 overflow-y-auto bg-white/80 dark:bg-white/5 shadow-sm dark:shadow-none">
-        <div className="flex items-center justify-between gap-2">
-          <h4 className="text-sm font-semibold text-slate-800 dark:text-gray-200">Recueil des moyens</h4>
-          <span className="text-[11px] text-slate-500 dark:text-gray-400">{meansList.length} disponibles</span>
-        </div>
-        {Object.entries(CATEGORIES).map(([catKey, meta]) => {
-          const ctx = DOCTRINE_CONTEXT[meta.key as keyof typeof DOCTRINE_CONTEXT];
-          const moyens = ctx?.moyens_standards_td || [];
-          if (!moyens.length) return null;
-          return (
-            <div key={catKey} className="space-y-2">
-              <div className={`text-[11px] font-semibold mb-1 inline-block px-2 py-1 rounded ${meta.color}`}>
-                {meta.label}
-              </div>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-                {moyens.map((m: string) => {
-                  const title = m.split(':')[0].trim();
-                  const already = selected.find((s) => s.name === title);
-                  const isRequested = already?.status === 'demande';
-                  return (
-                    <button
-                      key={title}
-                      onClick={() => addMean({ name: title, category: catKey })}
-                      className={`w-full text-left px-3 py-2 rounded-lg border ${already ? `border-dashed ${meta.dashedClass}` : 'border-slate-200 dark:border-white/15'} ${meta.color} hover:bg-slate-100 dark:hover:bg-white/10 transition`}
-                    >
-                      <div className="text-sm leading-tight">{title}</div>
-                      {already && <div className="text-[11px] text-slate-500 dark:text-gray-300 mt-0.5">{isRequested ? 'Demandé' : 'Sur place'}</div>}
-                    </button>
-                  );
-                })}
-              </div>
+          <div className="w-full border border-slate-200/80 dark:border-white/10 rounded-2xl p-4 space-y-3 overflow-y-auto bg-white/80 dark:bg-white/5 shadow-sm dark:shadow-none">
+            <h4 className="text-sm font-semibold text-slate-800 dark:text-gray-200">Sélection</h4>
+            {selected.length === 0 && <div className="text-slate-500 dark:text-gray-500 text-sm">Aucun moyen sélectionné.</div>}
+            <div className="space-y-2">
+              {selected.map((s) => {
+                const colorMeta = CATEGORIES[s.category || ''] || {
+                  statusClass: 'outline-slate-300',
+                  color: 'border-slate-200 bg-white text-slate-700 dark:border-white/20 dark:bg-white/5 dark:text-white',
+                  fill: 'bg-slate-50/80 dark:bg-white/5',
+                  dashedClass: 'border-yellow-300/70 dark:border-yellow-400/80'
+                };
+                const isRequested = s.status === 'demande';
+                const alreadyInOct = octTree ? meanExistsInTree(octTree, s.id) : false;
+                const isAssigned = alreadyInOct;
+                return (
+                  <div
+                    key={s.id}
+                    className={`space-y-2 px-3 py-3 rounded-lg border ${isRequested ? `border-dashed ${colorMeta.dashedClass || 'border-yellow-300/70 dark:border-yellow-400/80'}` : colorMeta.color || 'border-slate-200'} ${colorMeta.fill || 'bg-slate-50/80'} shadow-sm`}
+                  >
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                      <div className="flex-1 text-sm text-slate-800 dark:text-gray-100 font-semibold">{s.name}</div>
+                      <select
+                        value={assignSelection[s.id] || assignableNodes[0]?.id || ''}
+                        onChange={(e) => setAssignSelection((prev) => ({ ...prev, [s.id]: e.target.value }))}
+                        className="flex-1 px-3 py-2 rounded-lg bg-white border border-slate-200 text-[12px] text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200/80 dark:bg-white/5 dark:border-white/10 dark:text-gray-200 dark:focus:ring-white/20"
+                        disabled={!assignableNodes.length}
+                      >
+                        {!assignableNodes.length && <option value="">Aucun secteur disponible</option>}
+                        {assignableNodes.map((node) => (
+                          <option key={node.id} value={node.id}>{node.label}</option>
+                        ))}
+                      </select>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleAssignMean(s)}
+                          disabled={!assignableNodes.length || isAssigned || alreadyInOct}
+                          className={`px-3 py-2 text-[12px] rounded-lg transition border font-semibold ${
+                            isAssigned
+                              ? 'bg-emerald-500 border-emerald-300/70 text-emerald-50'
+                              : 'bg-amber-500 border-amber-300/70 text-amber-50 hover:bg-amber-400'
+                          } ${(!assignableNodes.length || alreadyInOct) ? 'opacity-60 cursor-not-allowed' : ''}`}
+                        >
+                          {isAssigned ? 'Affecté' : 'À affecter'}
+                        </button>
+                        <button
+                          onClick={() => remove(s.id)}
+                          className="p-2 rounded-lg bg-white border border-slate-200 text-red-600 hover:bg-red-50 transition dark:bg-white/5 dark:hover:bg-red-500/20 dark:border-white/10 dark:text-red-300"
+                          title="Retirer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => toggleStatus(s.id)}
+                        className={`relative w-16 h-8 rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-slate-200/80 dark:focus:ring-white/20 shadow-inner ${isRequested ? 'bg-amber-400/80 border-amber-200/80' : 'bg-emerald-400/80 border-emerald-200/80'}`}
+                        aria-label={isRequested ? 'Basculer en sur place' : 'Basculer en demandé'}
+                      >
+                        <div className={`absolute inset-y-1 left-1 w-6 h-6 rounded-full bg-white shadow-lg transition-transform ${isRequested ? 'translate-x-7' : 'translate-x-0'}`} />
+                        {!isRequested && <Check className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-emerald-900/90" />}
+                      </button>
+                      <span className="text-[12px] text-slate-600 dark:text-gray-200">{isRequested ? 'Demandé' : 'Sur place'}</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          );
-        })}
+          </div>
+        </div>
+
+        <div className="w-full md:flex-1 border border-slate-200/80 dark:border-white/10 rounded-2xl p-4 space-y-4 overflow-y-auto bg-white/80 dark:bg-white/5 shadow-sm dark:shadow-none">
+          <div className="flex items-center justify-between gap-2">
+            <h4 className="text-sm font-semibold text-slate-800 dark:text-gray-200">Recueil des moyens</h4>
+            <span className="text-[11px] text-slate-500 dark:text-gray-400">{meansList.length} disponibles</span>
+          </div>
+          {Object.entries(CATEGORIES).map(([catKey, meta]) => {
+            const ctx = DOCTRINE_CONTEXT[meta.key as keyof typeof DOCTRINE_CONTEXT];
+            const moyens = ctx?.moyens_standards_td || [];
+            if (!moyens.length) return null;
+            return (
+              <div key={catKey} className="space-y-2">
+                <div className={`text-[11px] font-semibold mb-1 inline-block px-2 py-1 rounded ${meta.color}`}>
+                  {meta.label}
+                </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                  {moyens.map((m: string) => {
+                    const title = m.split(':')[0].trim();
+                    const already = selected.find((s) => s.name === title);
+                    const isRequested = already?.status === 'demande';
+                    return (
+                      <button
+                        key={title}
+                        onClick={() => addMean({ name: title, category: catKey })}
+                        className={`w-full text-left px-3 py-2 rounded-lg border ${already ? `border-dashed ${meta.dashedClass}` : 'border-slate-200 dark:border-white/15'} ${meta.color} hover:bg-slate-100 dark:hover:bg-white/10 transition`}
+                      >
+                        <div className="text-sm leading-tight">{title}</div>
+                        {already && <div className="text-[11px] text-slate-500 dark:text-gray-300 mt-0.5">{isRequested ? 'Demandé' : 'Sur place'}</div>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
