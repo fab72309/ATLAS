@@ -27,11 +27,48 @@ const generateMeanId = () => {
   return `mean-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
 
-const CATEGORIES: Record<string, { label: string; key: keyof typeof DOCTRINE_CONTEXT; color: string; statusClass: string; dashedClass: string }> = {
-  incendie: { label: 'Incendie', key: 'incendie_structure', color: 'border-red-500/60 bg-red-500/10 text-red-200', statusClass: 'outline-red-400', dashedClass: 'border-red-400/80' },
-  suap: { label: 'SUAP', key: 'secours_personne_complexe', color: 'border-green-500/60 bg-green-500/10 text-green-200', statusClass: 'outline-green-400', dashedClass: 'border-green-400/80' },
-  speciaux: { label: 'Engins spéciaux', key: 'fuite_gaz', color: 'border-orange-400/60 bg-orange-500/10 text-orange-200', statusClass: 'outline-orange-400', dashedClass: 'border-orange-400/80' },
-  commandement: { label: 'Commandement', key: 'secours_personne_complexe', color: 'border-purple-500/60 bg-purple-500/10 text-purple-200', statusClass: 'outline-purple-400', dashedClass: 'border-purple-400/80' },
+type CategoryStyle = {
+  label: string;
+  key: keyof typeof DOCTRINE_CONTEXT;
+  color: string;
+  fill: string;
+  statusClass: string;
+  dashedClass: string;
+};
+
+const CATEGORIES: Record<string, CategoryStyle> = {
+  incendie: {
+    label: 'Incendie',
+    key: 'incendie_structure',
+    color: 'border-red-300/70 bg-red-50 text-red-700 dark:border-red-500/60 dark:bg-red-500/10 dark:text-red-200',
+    fill: 'bg-red-50/80 dark:bg-red-500/10',
+    statusClass: 'outline-red-400',
+    dashedClass: 'border-red-300/70 dark:border-red-400/80'
+  },
+  suap: {
+    label: 'SUAP',
+    key: 'secours_personne_complexe',
+    color: 'border-green-300/70 bg-green-50 text-green-700 dark:border-green-500/60 dark:bg-green-500/10 dark:text-green-200',
+    fill: 'bg-green-50/80 dark:bg-green-500/10',
+    statusClass: 'outline-green-400',
+    dashedClass: 'border-green-300/70 dark:border-green-400/80'
+  },
+  speciaux: {
+    label: 'Engins spéciaux',
+    key: 'fuite_gaz',
+    color: 'border-orange-300/70 bg-orange-50 text-orange-700 dark:border-orange-400/60 dark:bg-orange-500/10 dark:text-orange-200',
+    fill: 'bg-orange-50/80 dark:bg-orange-500/10',
+    statusClass: 'outline-orange-400',
+    dashedClass: 'border-orange-300/70 dark:border-orange-400/80'
+  },
+  commandement: {
+    label: 'Commandement',
+    key: 'secours_personne_complexe',
+    color: 'border-purple-300/70 bg-purple-50 text-purple-700 dark:border-purple-500/60 dark:bg-purple-500/10 dark:text-purple-200',
+    fill: 'bg-purple-50/80 dark:bg-purple-500/10',
+    statusClass: 'outline-purple-400',
+    dashedClass: 'border-purple-300/70 dark:border-purple-400/80'
+  },
 };
 
 const generateId = () => {
@@ -122,7 +159,7 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
   const meansList = React.useMemo(() => {
     const data: { name: string; category: string }[] = [];
     Object.entries(CATEGORIES).forEach(([catKey, meta]) => {
-      const ctx = (DOCTRINE_CONTEXT as any)[meta.key];
+      const ctx = DOCTRINE_CONTEXT[meta.key as keyof typeof DOCTRINE_CONTEXT];
       const moyens = ctx?.moyens_standards_td || [];
       moyens.forEach((m: string) => {
         const title = m.split(':')[0].trim();
@@ -278,9 +315,9 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
 
   const content = (
     <div className="flex flex-1 flex-col md:flex-row gap-4 overflow-hidden">
-      <div className="w-full md:w-[28%] lg:w-[26%] border border-white/10 rounded-2xl p-4 space-y-3 overflow-y-auto bg-white/5">
+      <div className="w-full md:w-[28%] lg:w-[26%] border border-slate-200/80 dark:border-white/10 rounded-2xl p-4 space-y-3 overflow-y-auto bg-white/80 dark:bg-white/5 shadow-sm dark:shadow-none">
         <div className="flex items-center justify-between gap-2">
-          <h4 className="text-sm font-semibold text-gray-200">Secteurs</h4>
+          <h4 className="text-sm font-semibold text-slate-800 dark:text-gray-200">Secteurs</h4>
           <button
             onClick={handleAddSector}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs text-white transition"
@@ -289,11 +326,11 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
             Secteur
           </button>
         </div>
-        <p className="text-[11px] text-gray-400">
+        <p className="text-[11px] text-slate-500 dark:text-gray-400">
           Les secteurs créés ici sont synchronisés automatiquement avec l&apos;onglet OCT.
         </p>
         {!sectors.length && (
-          <div className="text-sm text-gray-400 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
+          <div className="text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 dark:text-gray-400 dark:bg-white/5 dark:border-white/10">
             Aucun secteur pour le moment.
           </div>
         )}
@@ -301,7 +338,7 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
           {sectors.map((sector) => {
             const subsectors = sector.children.filter((c) => c.type === 'subsector');
             return (
-              <div key={sector.id} className="rounded-xl border border-white/10 bg-black/20 p-3 space-y-3">
+              <div key={sector.id} className="rounded-xl border border-slate-200/80 bg-white/70 p-3 space-y-3 dark:border-white/10 dark:bg-black/20">
                 <div className="flex items-center gap-2">
                   <div className="relative flex-1">
                     <input
@@ -311,10 +348,10 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
                         setSectorDrafts((prev) => ({ ...prev, [sector.id]: value }));
                         setSectorValidated((prev) => ({ ...prev, [sector.id]: false }));
                       }}
-                      className={`w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm focus:outline-none focus:ring-2 focus:ring-white/20 pr-10 ${
+                      className={`w-full px-3 py-2 rounded-lg bg-white border border-slate-200 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200/80 pr-10 dark:bg-white/5 dark:border-white/10 dark:focus:ring-white/20 ${
                         DEFAULT_SECTOR_LABELS.includes((sectorDrafts[sector.id] ?? sector.label ?? '').toUpperCase())
-                          ? 'text-white/60'
-                          : 'text-white'
+                          ? 'text-slate-400 dark:text-white/60'
+                          : 'text-slate-700 dark:text-white'
                       }`}
                       placeholder="Nom du secteur"
                     />
@@ -335,7 +372,7 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
                   </button>
                   <button
                     onClick={() => handleDeleteNode(sector.id)}
-                    className="p-2 rounded-lg bg-white/5 hover:bg-red-500/20 border border-white/10 text-red-300 transition"
+                    className="p-2 rounded-lg bg-white border border-slate-200 text-red-600 hover:bg-red-50 transition dark:bg-white/5 dark:hover:bg-red-500/20 dark:border-white/10 dark:text-red-300"
                     title="Supprimer le secteur"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -344,17 +381,17 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
                 <div className="space-y-2">
                   <button
                     onClick={() => setSubsectorOpen((prev) => ({ ...prev, [sector.id]: !prev[sector.id] }))}
-                    className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-gray-200 transition"
+                    className="w-full flex items-center justify-between px-3 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 border border-slate-200 text-xs text-slate-600 transition dark:bg-white/5 dark:hover:bg-white/10 dark:border-white/10 dark:text-gray-200"
                   >
-                    <span className="uppercase tracking-wide text-[11px] text-gray-300">Sous-secteurs</span>
+                    <span className="uppercase tracking-wide text-[11px] text-slate-500 dark:text-gray-300">Sous-secteurs</span>
                     <ChevronDown
-                      className={`w-4 h-4 text-gray-300 transition-transform ${subsectorOpen[sector.id] ? 'rotate-180' : 'rotate-0'}`}
+                      className={`w-4 h-4 text-slate-500 dark:text-gray-300 transition-transform ${subsectorOpen[sector.id] ? 'rotate-180' : 'rotate-0'}`}
                     />
                   </button>
                   {subsectorOpen[sector.id] && (
                     <>
                       {!subsectors.length && (
-                        <div className="text-xs text-gray-500 bg-white/5 border border-white/10 rounded-lg px-2.5 py-2">
+                        <div className="text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 dark:text-gray-500 dark:bg-white/5 dark:border-white/10">
                           Aucun sous-secteur.
                         </div>
                       )}
@@ -363,12 +400,12 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
                           <input
                             value={sub.label}
                             onChange={(e) => handleRenameNode(sub.id, e.target.value)}
-                            className="flex-1 px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-sm text-white focus:outline-none focus:ring-2 focus:ring-white/20"
+                            className="flex-1 px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200/80 dark:bg-white/5 dark:border-white/10 dark:text-white dark:focus:ring-white/20"
                             placeholder="Nom du sous-secteur"
                           />
                           <button
                             onClick={() => handleDeleteNode(sub.id)}
-                            className="p-2 rounded-lg bg-white/5 hover:bg-red-500/20 border border-white/10 text-red-300 transition"
+                            className="p-2 rounded-lg bg-white border border-slate-200 text-red-600 hover:bg-red-50 transition dark:bg-white/5 dark:hover:bg-red-500/20 dark:border-white/10 dark:text-red-300"
                             title="Supprimer le sous-secteur"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -377,7 +414,7 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
                       ))}
                       <button
                         onClick={() => handleAddSubsector(sector.id)}
-                        className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-dashed border-white/20 text-xs text-gray-200 transition"
+                        className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-slate-50 hover:bg-slate-100 border border-dashed border-slate-200 text-xs text-slate-600 transition dark:bg-white/5 dark:hover:bg-white/10 dark:border-white/20 dark:text-gray-200"
                       >
                         <Plus className="w-4 h-4" />
                         Ajouter un sous-secteur
@@ -391,26 +428,31 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
         </div>
       </div>
 
-      <div className="w-full md:w-[36%] lg:w-[37%] border border-white/10 rounded-2xl p-4 space-y-3 overflow-y-auto bg-white/5">
-        <h4 className="text-sm font-semibold text-gray-200">Sélection</h4>
-        {selected.length === 0 && <div className="text-gray-500 text-sm">Aucun moyen sélectionné.</div>}
+      <div className="w-full md:w-[36%] lg:w-[37%] border border-slate-200/80 dark:border-white/10 rounded-2xl p-4 space-y-3 overflow-y-auto bg-white/80 dark:bg-white/5 shadow-sm dark:shadow-none">
+        <h4 className="text-sm font-semibold text-slate-800 dark:text-gray-200">Sélection</h4>
+        {selected.length === 0 && <div className="text-slate-500 dark:text-gray-500 text-sm">Aucun moyen sélectionné.</div>}
         <div className="space-y-2">
           {selected.map((s) => {
-            const colorMeta = CATEGORIES[s.category || ''] || { statusClass: 'outline-white/30', color: 'border-white/20 bg-white/5 text-white', dashedClass: 'border-yellow-400/80' };
+            const colorMeta = CATEGORIES[s.category || ''] || {
+              statusClass: 'outline-slate-300',
+              color: 'border-slate-200 bg-white text-slate-700 dark:border-white/20 dark:bg-white/5 dark:text-white',
+              fill: 'bg-slate-50/80 dark:bg-white/5',
+              dashedClass: 'border-yellow-300/70 dark:border-yellow-400/80'
+            };
             const isRequested = s.status === 'demande';
             const alreadyInOct = octTree ? meanExistsInTree(octTree, s.id) : false;
             const isAssigned = alreadyInOct;
             return (
               <div
                 key={s.id}
-                className={`space-y-2 px-3 py-3 rounded-lg border ${isRequested ? `border-dashed ${colorMeta.dashedClass || 'border-yellow-400/80'}` : colorMeta.color || 'border-white/20'} ${colorMeta.color?.replace('border', 'bg') || 'bg-white/5'} shadow-sm`}
+                className={`space-y-2 px-3 py-3 rounded-lg border ${isRequested ? `border-dashed ${colorMeta.dashedClass || 'border-yellow-300/70 dark:border-yellow-400/80'}` : colorMeta.color || 'border-slate-200'} ${colorMeta.fill || 'bg-slate-50/80'} shadow-sm`}
               >
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                  <div className="flex-1 text-sm text-gray-100 font-semibold">{s.name}</div>
+                  <div className="flex-1 text-sm text-slate-800 dark:text-gray-100 font-semibold">{s.name}</div>
                   <select
                     value={assignSelection[s.id] || assignableNodes[0]?.id || ''}
                     onChange={(e) => setAssignSelection((prev) => ({ ...prev, [s.id]: e.target.value }))}
-                    className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-[12px] text-gray-200 focus:outline-none focus:ring-2 focus:ring-white/20"
+                    className="flex-1 px-3 py-2 rounded-lg bg-white border border-slate-200 text-[12px] text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200/80 dark:bg-white/5 dark:border-white/10 dark:text-gray-200 dark:focus:ring-white/20"
                     disabled={!assignableNodes.length}
                   >
                     {!assignableNodes.length && <option value="">Aucun secteur disponible</option>}
@@ -432,7 +474,7 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
                     </button>
                     <button
                       onClick={() => remove(s.id)}
-                      className="p-2 rounded-lg bg-white/5 hover:bg-red-500/20 border border-white/10 text-red-300 transition"
+                      className="p-2 rounded-lg bg-white border border-slate-200 text-red-600 hover:bg-red-50 transition dark:bg-white/5 dark:hover:bg-red-500/20 dark:border-white/10 dark:text-red-300"
                       title="Retirer"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -442,13 +484,13 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => toggleStatus(s.id)}
-                      className={`relative w-16 h-8 rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-white/20 shadow-inner ${isRequested ? 'bg-amber-400/80 border-amber-200/80' : 'bg-emerald-400/80 border-emerald-200/80'}`}
+                      className={`relative w-16 h-8 rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-slate-200/80 dark:focus:ring-white/20 shadow-inner ${isRequested ? 'bg-amber-400/80 border-amber-200/80' : 'bg-emerald-400/80 border-emerald-200/80'}`}
                       aria-label={isRequested ? 'Basculer en sur place' : 'Basculer en demandé'}
                     >
                     <div className={`absolute inset-y-1 left-1 w-6 h-6 rounded-full bg-white shadow-lg transition-transform ${isRequested ? 'translate-x-7' : 'translate-x-0'}`} />
                     {!isRequested && <Check className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-emerald-900/90" />}
                   </button>
-                  <span className="text-[12px] text-gray-200">{isRequested ? 'Demandé' : 'Sur place'}</span>
+                  <span className="text-[12px] text-slate-600 dark:text-gray-200">{isRequested ? 'Demandé' : 'Sur place'}</span>
                 </div>
               </div>
             );
@@ -456,13 +498,13 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
         </div>
       </div>
 
-      <div className="w-full md:flex-1 border border-white/10 rounded-2xl p-4 space-y-4 overflow-y-auto bg-white/5">
+      <div className="w-full md:flex-1 border border-slate-200/80 dark:border-white/10 rounded-2xl p-4 space-y-4 overflow-y-auto bg-white/80 dark:bg-white/5 shadow-sm dark:shadow-none">
         <div className="flex items-center justify-between gap-2">
-          <h4 className="text-sm font-semibold text-gray-200">Recueil des moyens</h4>
-          <span className="text-[11px] text-gray-400">{meansList.length} disponibles</span>
+          <h4 className="text-sm font-semibold text-slate-800 dark:text-gray-200">Recueil des moyens</h4>
+          <span className="text-[11px] text-slate-500 dark:text-gray-400">{meansList.length} disponibles</span>
         </div>
         {Object.entries(CATEGORIES).map(([catKey, meta]) => {
-          const ctx = (DOCTRINE_CONTEXT as any)[meta.key];
+          const ctx = DOCTRINE_CONTEXT[meta.key as keyof typeof DOCTRINE_CONTEXT];
           const moyens = ctx?.moyens_standards_td || [];
           if (!moyens.length) return null;
           return (
@@ -479,10 +521,10 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
                     <button
                       key={title}
                       onClick={() => addMean({ name: title, category: catKey })}
-                      className={`w-full text-left px-3 py-2 rounded-lg border ${already ? `border-dashed ${meta.dashedClass}` : 'border-white/15'} ${meta.color} hover:bg-white/10 transition`}
+                      className={`w-full text-left px-3 py-2 rounded-lg border ${already ? `border-dashed ${meta.dashedClass}` : 'border-slate-200 dark:border-white/15'} ${meta.color} hover:bg-slate-100 dark:hover:bg-white/10 transition`}
                     >
                       <div className="text-sm leading-tight">{title}</div>
-                      {already && <div className="text-[11px] text-gray-300 mt-0.5">{isRequested ? 'Demandé' : 'Sur place'}</div>}
+                      {already && <div className="text-[11px] text-slate-500 dark:text-gray-300 mt-0.5">{isRequested ? 'Demandé' : 'Sur place'}</div>}
                     </button>
                   );
                 })}
@@ -496,9 +538,9 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
 
   if (inline) {
     return (
-      <div className="w-full bg-[#0f121a] border border-white/10 rounded-2xl shadow-lg flex flex-col">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-          <h3 className="text-lg font-semibold text-white">Moyens</h3>
+      <div className="w-full bg-white/80 dark:bg-[#0f121a] border border-slate-200/80 dark:border-white/10 rounded-2xl shadow-sm dark:shadow-lg flex flex-col">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200/80 dark:border-white/10">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Moyens</h3>
         </div>
         {content}
       </div>
@@ -507,10 +549,10 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
 
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-      <div className="bg-[#0f121a] border border-white/10 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-          <h3 className="text-lg font-semibold text-white">Ajouter des moyens</h3>
-          <button onClick={onClose} className="p-2 text-gray-400 hover:text-white">
+      <div className="bg-white/90 dark:bg-[#0f121a] border border-slate-200/80 dark:border-white/10 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200/80 dark:border-white/10">
+          <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Ajouter des moyens</h3>
+          <button onClick={onClose} className="p-2 text-slate-500 hover:text-slate-700 dark:text-gray-400 dark:hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>

@@ -1,15 +1,105 @@
-import OpenAI from 'openai';
 import { auth } from './firebase';
 import { DOCTRINE_CONTEXT } from '../constants/doctrine';
 
-const PROMPT_ID = 'pmpt_69335ad9b51c8195832b50cc47e91f0f02e34251eac6000c';
+const DOCTRINE_DOMINANTE_MAP: Record<string, keyof typeof DOCTRINE_CONTEXT> = {
+  Incendie: 'incendie_structure',
+  'Risque Gaz': 'fuite_gaz',
+  'Accident de circulation': 'secours_routier',
+  SMV: 'secours_personne_complexe',
+  SUAP: 'secours_personne_complexe',
+  NRBC: 'secours_personne_complexe',
+  'Risque Chimique': 'fuite_gaz',
+  'Risque Radiologique': 'secours_personne_complexe',
+  'Feux de végétation': 'incendie_vegetation',
+  'Incendie de végétation': 'incendie_vegetation',
+};
 
-const ASSISTANT_IDS = {
-  group: 'asst_Bsocyc9ni7fjeReaEBBsHCzi',
-  column: 'asst_Uk4muOm9jLF3TWsYY2n0dxSI',
-  site: 'asst_Bsocyc9ni7fjeReaEBBsHCzi',
-  communication: 'asst_Hc0fc9SD87L763ZIMDVeNWzQ'
-} as const;
+const getDoctrineContext = (dominante?: string) => {
+  if (!dominante) return null;
+  const key = DOCTRINE_DOMINANTE_MAP[dominante];
+  return key ? DOCTRINE_CONTEXT[key] : null;
+};
+
+const normalizeTitle = (title: string) => (
+  title
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+);
+
+const mapSectionTitleToKey = (title: string) => {
+  const normalized = normalizeTitle(title);
+  if (normalized.includes('situation')) return 'S';
+  if (normalized.includes('anticipation')) return 'A';
+  if (normalized.includes('objectif')) return 'O';
+  if (normalized.includes('idee') || normalized.includes('manoeuvre')) return 'I';
+  if (normalized.includes('execution')) return 'E';
+  if (normalized.includes('commandement')) return 'C';
+  if (normalized.includes('logistique')) return 'L';
+  return null;
+};
+
+const parseJsonSafely = (value: string): unknown | null => {
+  try {
+    const cleaned = value.replace(/```json/g, '').replace(/```/g, '').trim();
+    return JSON.parse(cleaned);
+  } catch {
+    return null;
+  }
+};
+
+const normalizeProxyPayload = (payload: unknown) => {
+  if (!payload || typeof payload !== 'object') return payload;
+  const record = payload as { sections?: unknown };
+  if (!Array.isArray(record.sections)) return payload;
+
+  const mapped: Record<string, string> = {};
+  record.sections.forEach((section) => {
+    const sectionRecord = section as { title?: unknown; content?: unknown };
+    if (!sectionRecord || typeof sectionRecord.content !== 'string') return;
+    const key = mapSectionTitleToKey(typeof sectionRecord.title === 'string' ? sectionRecord.title : '');
+    if (key) {
+      mapped[key] = sectionRecord.content;
+    }
+  });
+
+  return Object.keys(mapped).length > 0 ? mapped : payload;
+};
+
+const normalizeProxyResult = (payload: unknown, type: 'group' | 'column' | 'site' | 'communication') => {
+  if (type !== 'group') {
+    return typeof payload === 'string' ? payload : JSON.stringify(payload);
+  }
+
+  if (typeof payload === 'string') {
+    const parsed = parseJsonSafely(payload.trim());
+    if (!parsed) return payload;
+    return JSON.stringify(normalizeProxyPayload(parsed));
+  }
+
+  return JSON.stringify(normalizeProxyPayload(payload));
+};
+
+const buildEnrichedSituation = (
+  situation: string,
+  opts?: {
+    dominante?: string;
+    secondaryRisks?: string[];
+    extraContext?: string;
+  }
+) => {
+  const extraLines: string[] = [];
+  if (opts?.secondaryRisks?.length) {
+    extraLines.push(`Risques secondaires: ${opts.secondaryRisks.join(', ')}`);
+  }
+  if (opts?.extraContext) {
+    extraLines.push(`Contexte complémentaire: ${opts.extraContext}`);
+  }
+  if (!extraLines.length) return situation;
+  return `${situation}\n\n${extraLines.join('\n')}`.trim();
+};
 
 export const analyzeEmergency = async (
   situation: string,
@@ -22,129 +112,55 @@ export const analyzeEmergency = async (
   }
 ) => {
   try {
-    const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error('Clé API OpenAI manquante.');
+    const proxyUrl = import.meta.env.VITE_OPENAI_PROXY_URL?.trim();
+    const enrichedSituation = buildEnrichedSituation(situation, opts);
+    const requestSituation = type === 'group' ? situation : enrichedSituation;
+    const doctrineContext = type === 'group' ? getDoctrineContext(opts?.dominante) : null;
+
+    if (!proxyUrl) {
+      throw new Error('VITE_OPENAI_PROXY_URL manquante. L\'app doit passer par la Function Firebase pour protéger la clé.');
     }
 
-    // NOUVEAU MODE: Prompt API (Uniquement pour Chef de Groupe)
-    if (type === 'group') {
-      const variables = {
-        type_risque_principal: opts?.dominante ?? "",
-        types_risque_secondaires: opts?.secondaryRisks?.length
-          ? opts.secondaryRisks.join(", ")
-          : "",
-        description_situation: situation ?? "",
-        contexte_complementaire: opts?.extraContext ?? "",
-        doctrine_context: JSON.stringify(DOCTRINE_CONTEXT)
-      };
-
-      const response = await fetch('https://api.openai.com/v1/responses', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          prompt: {
-            id: PROMPT_ID,
-            version: "9",
-            variables: {
-              situation: situation ?? "",
-              ...variables
-            }
-          },
-          text: {
-            format: {
-              type: "text"
-            }
-          }
-        })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('OpenAI API Error Details:', {
-          status: response.status,
-          statusText: response.statusText,
-          body: errorText
-        });
-        throw new Error(`Erreur lors de l'appel à l'IA: ${response.status} ${response.statusText} - ${errorText}`);
-      }
-
-      const data = await response.json();
-
-      // Parse new API response format
-      let content = '';
-      if (data.output && Array.isArray(data.output)) {
-        const messageItem = data.output.find((item: any) => item.type === 'message');
-        if (messageItem && messageItem.content && Array.isArray(messageItem.content)) {
-          const textItem = messageItem.content.find((c: any) => c.type === 'output_text');
-          if (textItem) {
-            content = textItem.text;
-          }
-        }
-      }
-
-      // Fallback if structure is different
-      if (!content) {
-        content = data.output || data.content || (data.choices && data.choices[0]?.message?.content) || JSON.stringify(data);
-      }
-
-      return content;
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
+    const user = auth.currentUser;
+    if (user) {
+      const token = await user.getIdToken();
+      headers.Authorization = `Bearer ${token}`;
     }
 
-    // ANCIEN MODE: Assistants API (Pour les autres fonctions)
+    const payload: Record<string, unknown> = {
+      type,
+      situation: requestSituation,
+      dominante: opts?.dominante,
+      secondaryRisks: opts?.secondaryRisks,
+      extraContext: opts?.extraContext,
+      sections: opts?.sections
+    };
+    if (doctrineContext) {
+      payload.doctrine_context = doctrineContext;
+    }
 
-    // Fallback: direct client call (not recommended for production)
-    const openai = new OpenAI({
-      apiKey: apiKey,
-      dangerouslyAllowBrowser: true
+    const response = await fetch(proxyUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload)
     });
 
-    // Create a thread
-    const thread = await openai.beta.threads.create();
-
-    // Add a message to the thread
-    await openai.beta.threads.messages.create(thread.id, {
-      role: "user",
-      content: situation
-    });
-
-    // Run the assistant
-    const assistantId = (ASSISTANT_IDS as any)[type] || ASSISTANT_IDS.group;
-    const run = await openai.beta.threads.runs.create(thread.id, {
-      assistant_id: assistantId
-    });
-
-    // Wait for the run to complete with timeout (60s)
-    const start = Date.now();
-    let runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
-    while (runStatus.status !== 'completed') {
-      if (runStatus.status === 'failed') {
-        throw new Error('L\'analyse a échoué. Veuillez réessayer.');
-      }
-      if (Date.now() - start > 60000) {
-        throw new Error('Délai dépassé pour l\'analyse. Veuillez réessayer.');
-      }
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Erreur proxy IA: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
-    // Get the messages
-    const messages = await openai.beta.threads.messages.list(thread.id);
-    const assistantMessage = messages.data.find(m => m.role === 'assistant');
-    const contentParts = assistantMessage?.content?.filter((c: any) => c.type === 'text') || [];
-    const content = contentParts.map((c: any) => c.text?.value || '').join('\n').trim();
+    const rawText = await response.text();
+    const data = parseJsonSafely(rawText);
+    const resultPayload = data?.result ?? data?.output ?? data?.content ?? data ?? rawText;
+    return normalizeProxyResult(resultPayload, type);
 
-    if (!content) {
-      throw new Error('Invalid response format from AI');
-    }
-
-    return content;
-
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error analyzing emergency:', error);
-    throw new Error(error.message || 'Erreur lors de l\'analyse de la situation d\'urgence.');
+    const message = error instanceof Error ? error.message : 'Erreur lors de l\'analyse de la situation d\'urgence.';
+    throw new Error(message);
   }
 };

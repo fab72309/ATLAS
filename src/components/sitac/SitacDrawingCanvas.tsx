@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import type maplibregl from 'maplibre-gl';
 import { useSitacStore } from '../../stores/useSitacStore';
 import { createId, simplifyLine } from '../../utils/sitacUtils';
@@ -30,7 +30,7 @@ const SitacDrawingCanvas: React.FC<SitacDrawingCanvasProps> = ({ width, height, 
     const isCanvasMode = ['draw_freehand', 'draw_line', 'draw_rect', 'draw_circle'].includes(mode);
 
     // --- Rendering ---
-    const render = () => {
+    const render = useCallback(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
         const ctx = canvas.getContext('2d');
@@ -80,7 +80,7 @@ const SitacDrawingCanvas: React.FC<SitacDrawingCanvasProps> = ({ width, height, 
         }
 
         ctx.stroke();
-    };
+    }, [width, height, mode, drawingColor, lineStyle]);
 
     // --- Logic ---
     const finalizeShape = () => {
@@ -205,7 +205,7 @@ const SitacDrawingCanvas: React.FC<SitacDrawingCanvasProps> = ({ width, height, 
         requestAnimationFrame(render);
     };
 
-    const handleMouseUp = (e: React.MouseEvent | React.TouchEvent) => {
+    const handleMouseUp = () => {
         if (!isCanvasMode || !isDrawing.current) return;
         finalizeShape();
     };
@@ -213,7 +213,7 @@ const SitacDrawingCanvas: React.FC<SitacDrawingCanvasProps> = ({ width, height, 
     // Reset/Redraw when resizing or mode changing
     useEffect(() => {
         render();
-    }, [width, height, mode, drawingColor, lineStyle]);
+    }, [render]);
 
 
     if (!isCanvasMode) return null;

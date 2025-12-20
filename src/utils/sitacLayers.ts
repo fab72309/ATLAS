@@ -61,26 +61,7 @@ const WHITEBOARD_STYLE: StyleSpecification = {
     ],
 };
 
-const SATELLITE_STYLE: StyleSpecification = {
-    version: 8,
-    sources: {
-        sat: {
-            type: 'raster',
-            tiles: [`https://api.maptiler.com/tiles/satellite-v2/{z}/{x}/{y}.jpg?key=${MAPTILER_KEY}`],
-            tileSize: 256,
-            attribution: '© MapTiler',
-        },
-    },
-    layers: [
-        {
-            id: 'sat',
-            type: 'raster',
-            source: 'sat',
-            minzoom: 0,
-            maxzoom: 19,
-        },
-    ],
-};
+const SATELLITE_STYLE = `https://api.maptiler.com/maps/satellite/style.json?key=${MAPTILER_KEY}`;
 
 const OFFLINE_STYLE: StyleSpecification = {
     version: 8,
@@ -158,9 +139,9 @@ export const ensureLayers = (map: maplibregl.Map) => {
                     'match',
                     ['get', 'lineStyle'],
                     'dashed',
-                    ['literal', [2, 2]],
+                    ['literal', [2, 1.5]],
                     'dot-dash',
-                    ['literal', [2, 2, 0.35, 2]],
+                    ['literal', [2, 1, 0.5, 1]],
                     ['literal', [1, 0]],
                 ],
             },
@@ -210,7 +191,7 @@ export const ensureLayers = (map: maplibregl.Map) => {
                 'icon-color': [
                     'case',
                     ['boolean', ['get', 'colorizable'], false],
-                    ['coalesce', ['get', 'color'], '#111111'],
+                    ['coalesce', ['get', 'color'], '#ef4444'],
                     ['literal', '#ffffff'],
                 ],
                 'icon-opacity': 0.95,
@@ -289,7 +270,9 @@ export const ensureLayers = (map: maplibregl.Map) => {
 };
 
 export const setSelectionFilter = (map: maplibregl.Map, featureId: string | null) => {
-    const idFilter = featureId ? (['==', ['get', 'id'], featureId] as any) : (['==', ['get', 'id'], ''] as any);
+    const idFilter = featureId
+        ? (['==', ['get', 'id'], featureId] as maplibregl.Expression)
+        : (['==', ['get', 'id'], ''] as maplibregl.Expression);
 
     if (map.getLayer(SELECT_LINE_LAYER_ID)) map.setFilter(SELECT_LINE_LAYER_ID, idFilter);
 
@@ -301,8 +284,8 @@ export const setSelectionFilter = (map: maplibregl.Map, featureId: string | null
                     'all',
                     ['==', ['get', 'id'], featureId],
                     ['==', ['geometry-type'], 'Point'],
-                ] as any)
-                : (['==', ['get', 'id'], ''] as any),
+                ] as maplibregl.Expression)
+                : (['==', ['get', 'id'], ''] as maplibregl.Expression),
         );
     }
 
@@ -314,8 +297,8 @@ export const setSelectionFilter = (map: maplibregl.Map, featureId: string | null
                     'all',
                     ['==', ['get', 'id'], featureId],
                     ['==', ['geometry-type'], 'Polygon'],
-                ] as any)
-                : (['==', ['get', 'id'], ''] as any),
+                ] as maplibregl.Expression)
+                : (['==', ['get', 'id'], ''] as maplibregl.Expression),
         );
     }
 };

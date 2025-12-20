@@ -2,7 +2,7 @@
 
 Aide Tactique et Logique pour l'Action des Secours
 
-**Version courante : Alpha 0.2.0**
+**Version courante : Alpha-0.2.3**
 
 ## 📱 Fonctionnalités
 
@@ -79,9 +79,15 @@ npx cap open android  # ou 'npx cap open ios'
 
 ## 🔁 Proxy OpenAI (Firebase Functions)
 
-- Créez une Function HTTPS `analyze` qui valide l’input et appelle l’API OpenAI (Responses API avec `response_format` JSON schema).
-- Définissez la clé dans les variables d’env Functions (`OPENAI_API_KEY`).
-- Exposez l’URL et renseignez `VITE_OPENAI_PROXY_URL` côté client.
+### Flux IA actuel (recommandé)
+- Le client appelle uniquement la Function `analyze` (Firebase Functions) via `VITE_OPENAI_PROXY_URL`.
+- La Function utilise **Chat Completions** et un **prompt côté serveur** (voir `functions/src/prompts.ts`).
+- Le schéma JSON attendu est défini côté serveur et impose le format SOIEC.
+- Le client envoie `doctrine_context` (calculé depuis la dominante) pour guider les formulations doctrinales.
+
+### Configuration
+- Définissez la clé OpenAI côté Functions (`OPENAI_API_KEY`).
+- Exposez l’URL HTTPS de la Function et renseignez `VITE_OPENAI_PROXY_URL` côté client.
 
 ## 🧩 Modifications notables (branche: optimisation-diverse-par-cursor)
 

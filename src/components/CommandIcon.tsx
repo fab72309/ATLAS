@@ -7,7 +7,7 @@ interface CommandIconProps {
 
 const CommandIcon: React.FC<CommandIconProps> = ({ type }) => {
   return (
-    <div className="bg-[#1A1A1A] rounded-2xl p-4 w-full max-w-[200px] mx-auto border-2 border-white">
+    <div className="bg-white dark:bg-[#1A1A1A] rounded-2xl p-4 w-full max-w-[200px] mx-auto border border-slate-200 dark:border-white/20">
       <div className="bg-black rounded-xl aspect-[4/3] flex flex-col justify-center items-center p-4">
         {type === 'communication' ? (
           <Radio className="w-16 h-16 text-white" />
@@ -24,14 +24,14 @@ const CommandIcon: React.FC<CommandIconProps> = ({ type }) => {
               <div className="w-20 h-3.5 bg-white"></div>
             </>
           ) : type === 'site' ? (
-            <div className="w-20 h-16 border-4 border-black bg-white relative flex flex-col justify-center">
-              <div className="h-2 bg-[#222]" />
+            <div className="w-20 h-16 border-4 border-blue-600 bg-white relative flex flex-col justify-center">
+              <div className="h-2 bg-blue-700" />
               <div className="h-4 bg-[#FFE082]" />
-              <div className="h-4 bg-[#222]" />
+              <div className="h-4 bg-blue-700" />
               <div className="h-2 bg-white" />
-              <div className="h-2 bg-[#222]" />
+              <div className="h-2 bg-blue-700" />
               <div className="h-4 bg-[#FFE082]" />
-              <div className="h-2 bg-[#222]" />
+              <div className="h-2 bg-blue-700" />
             </div>
           ) : type === 'security' ? (
             <div className="grid grid-cols-4 grid-rows-4 gap-0.5">
@@ -46,7 +46,7 @@ const CommandIcon: React.FC<CommandIconProps> = ({ type }) => {
           )
         )}
       </div>
-      <h2 className="text-lg text-white text-center mt-2">
+      <h2 className="text-lg text-slate-900 dark:text-white text-center mt-2">
         {type === 'group' ? 'Chef de groupe' : 
          type === 'column' ? 'Chef de colonne' : 
          type === 'site' ? 'Chef de site' :

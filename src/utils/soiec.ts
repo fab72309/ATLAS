@@ -16,6 +16,8 @@ export const parseOrdreInitial = (jsonString: string): OrdreInitial => {
             C: "Commandement non renseigné"
         };
 
+        const analyseTactique = parsed._analyse_tactique || parsed.analyse_tactique || parsed.analyseTactique;
+
         // Normalisation des champs
         const normalized = {
             S: parsed.S || parsed.Situation || parsed.situation || defaultOrdre.S,
@@ -34,7 +36,7 @@ export const parseOrdreInitial = (jsonString: string): OrdreInitial => {
         // Si E est un tableau (ou une chaîne qui est un tableau JSON), on regarde ce qu'il y a dedans
         let parsedE = finalE;
         if (typeof finalE === 'string' && (finalE.trim().startsWith('[') || finalE.trim().startsWith('{'))) {
-            try { parsedE = JSON.parse(finalE); } catch (e) { }
+            try { parsedE = JSON.parse(finalE); } catch (err) { void err; }
         }
 
         // Si E est un tableau d'objets avec "mission" ou "moyen", c'est bien l'Exécution (qui fait quoi avec quoi)
@@ -51,19 +53,24 @@ export const parseOrdreInitial = (jsonString: string): OrdreInitial => {
         // Fusion avec les données parsées
         return {
             ...defaultOrdre,
+            ...(analyseTactique ? { _analyse_tactique: analyseTactique } : {}),
             S: normalized.S,
             // Assurer que A est un tableau de chaînes
             A: Array.isArray(normalized.A)
-                ? normalized.A.map((a: any) => typeof a === 'string' ? a : JSON.stringify(a))
+                ? normalized.A.map((a: unknown) => typeof a === 'string' ? a : JSON.stringify(a))
                 : (normalized.A ? [typeof normalized.A === 'string' ? normalized.A : JSON.stringify(normalized.A)] : []),
             // Assurer que O est un tableau de chaînes
             O: Array.isArray(normalized.O)
-                ? normalized.O.map((o: any) => typeof o === 'string' ? o : JSON.stringify(o))
+                ? normalized.O.map((o: unknown) => typeof o === 'string' ? o : JSON.stringify(o))
                 : (normalized.O ? [typeof normalized.O === 'string' ? normalized.O : JSON.stringify(normalized.O)] : []),
 
             // I est maintenant une liste de chaînes (Idées de manœuvre générales)
             I: Array.isArray(finalI)
-                ? finalI.map((i: any) => typeof i === 'string' ? i : (i.mission || JSON.stringify(i)))
+                ? finalI.map((i: unknown) => {
+                    if (typeof i === 'string') return i;
+                    const mission = (i as { mission?: unknown }).mission;
+                    return typeof mission === 'string' ? mission : JSON.stringify(i);
+                })
                 : (typeof finalI === 'string' ? [finalI] : []),
 
             // E contient maintenant potentiellement les données structurées (Missions/Moyens)
@@ -75,7 +82,7 @@ export const parseOrdreInitial = (jsonString: string): OrdreInitial => {
 
             // Assurer que L est un tableau de chaînes
             L: Array.isArray(normalized.L)
-                ? normalized.L.map((l: any) => typeof l === 'string' ? l : JSON.stringify(l))
+                ? normalized.L.map((l: unknown) => typeof l === 'string' ? l : JSON.stringify(l))
                 : (normalized.L ? [typeof normalized.L === 'string' ? normalized.L : JSON.stringify(normalized.L)] : []),
 
             C: normalized.C

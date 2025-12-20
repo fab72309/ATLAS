@@ -63,13 +63,17 @@ export const simplifyLine = (points: [number, number][], tolerance = 0.00005) =>
 };
 
 export const translateGeometry = (geometry: Geometry, delta: { dLng: number; dLat: number }) => {
-    const moveCoords = (coords: any): any => {
-        if (typeof coords[0] === 'number') {
-            return [(coords[0] as number) + delta.dLng, (coords[1] as number) + delta.dLat];
+    const moveCoords = (coords: unknown): unknown => {
+        if (Array.isArray(coords) && typeof coords[0] === 'number') {
+            return [coords[0] + delta.dLng, (coords[1] as number) + delta.dLat];
         }
-        return coords.map((c: any) => moveCoords(c));
+        if (Array.isArray(coords)) {
+            return coords.map((c) => moveCoords(c));
+        }
+        return coords;
     };
-    return { ...geometry, coordinates: moveCoords((geometry as any).coordinates) };
+    const geometryWithCoords = geometry as Geometry & { coordinates: unknown };
+    return { ...geometry, coordinates: moveCoords(geometryWithCoords.coordinates) } as Geometry;
 };
 
 export const centroid = (geometry: Geometry): [number, number] => {
@@ -90,28 +94,36 @@ export const centroid = (geometry: Geometry): [number, number] => {
 export const rotateGeometry = (geometry: Geometry, angleDeg: number) => {
     const center = centroid(geometry);
     const angle = (angleDeg * Math.PI) / 180;
-    const rotate = (coords: any): any => {
-        if (typeof coords[0] === 'number') {
+    const rotate = (coords: unknown): unknown => {
+        if (Array.isArray(coords) && typeof coords[0] === 'number') {
             const x = coords[0] - center[0];
-            const y = coords[1] - center[1];
+            const y = (coords[1] as number) - center[1];
             const nx = x * Math.cos(angle) - y * Math.sin(angle) + center[0];
             const ny = x * Math.sin(angle) + y * Math.cos(angle) + center[1];
             return [nx, ny];
         }
-        return coords.map((c: any) => rotate(c));
+        if (Array.isArray(coords)) {
+            return coords.map((c) => rotate(c));
+        }
+        return coords;
     };
-    return { ...geometry, coordinates: rotate((geometry as any).coordinates) };
+    const geometryWithCoords = geometry as Geometry & { coordinates: unknown };
+    return { ...geometry, coordinates: rotate(geometryWithCoords.coordinates) } as Geometry;
 };
 
 export const scaleGeometry = (geometry: Geometry, factor: number) => {
     const center = centroid(geometry);
-    const scale = (coords: any): any => {
-        if (typeof coords[0] === 'number') {
+    const scale = (coords: unknown): unknown => {
+        if (Array.isArray(coords) && typeof coords[0] === 'number') {
             const x = coords[0];
-            const y = coords[1];
+            const y = coords[1] as number;
             return [center[0] + (x - center[0]) * factor, center[1] + (y - center[1]) * factor];
         }
-        return coords.map((c: any) => scale(c));
+        if (Array.isArray(coords)) {
+            return coords.map((c) => scale(c));
+        }
+        return coords;
     };
-    return { ...geometry, coordinates: scale((geometry as any).coordinates) };
+    const geometryWithCoords = geometry as Geometry & { coordinates: unknown };
+    return { ...geometry, coordinates: scale(geometryWithCoords.coordinates) } as Geometry;
 };

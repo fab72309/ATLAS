@@ -1,5 +1,3 @@
-import { } from 'react';
-
 export type DominanteType =
   | 'Incendie'
   | 'Explosion'
@@ -33,10 +31,10 @@ export const DEFAULT_DOMINANTES: DominanteType[] = [
 
 const STORAGE_KEY = 'atlas-dominantes-order';
 
-const isDominante = (v: any): v is DominanteType =>
+const isDominante = (v: unknown): v is DominanteType =>
   (DEFAULT_DOMINANTES as readonly string[]).includes(String(v));
 
-export const sanitizeOrder = (order: any): DominanteType[] => {
+export const sanitizeOrder = (order: unknown): DominanteType[] => {
   const arr = Array.isArray(order) ? order : [];
   const filtered = arr.filter(isDominante) as DominanteType[];
   const unique: DominanteType[] = [];
@@ -66,7 +64,8 @@ export const setDominantesOrder = (order: DominanteType[]) => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(cleaned));
   try {
     window.dispatchEvent(new CustomEvent('atlas:dominantes-order-changed'));
-  } catch {}
+  } catch (err) {
+    void err;
+  }
   return cleaned;
 };
-

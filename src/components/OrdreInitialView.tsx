@@ -15,6 +15,8 @@ interface OrdreInitialViewProps {
   means?: { name: string; status: 'sur_place' | 'demande' }[];
   type?: 'group' | 'column' | 'site' | 'communication';
   boardRef?: React.RefObject<HTMLDivElement>;
+  readOnly?: boolean;
+  aiGenerateLabel?: string;
 }
 
 // Types pour la gestion d'état locale
@@ -36,7 +38,7 @@ interface ColumnData {
   items: CardItem[];
 }
 
-const safeRender = (content: any) => {
+const safeRender = (content: unknown) => {
   if (typeof content === 'string') return content;
   if (typeof content === 'number') return content;
   if (Array.isArray(content)) return content.map(c => safeRender(c)).join('\n');
@@ -59,17 +61,20 @@ const DOCTRINE_DOMINANTE_MAP: Partial<Record<DominanteType, keyof typeof DOCTRIN
 };
 
 const buildColumnsFromOrdre = (ordre: OrdreInitial | null) => {
-  const processItems = (content: any, isManeuver = false): CardItem[] => {
+  const processItems = (content: unknown, isManeuver = false): CardItem[] => {
     if (!content) return [];
     if (Array.isArray(content)) {
-      return content.map(item => ({
-        id: generateId(),
-        content: isManeuver ? '' : safeRender(item),
-        mission: isManeuver ? item.mission : undefined,
-        moyen: isManeuver ? item.moyen : undefined,
-        moyen_supp: isManeuver ? item.moyen_supp : undefined,
-        details: isManeuver ? item.details : undefined
-      }));
+      return content.map(item => {
+        const isPlainObject = item && typeof item === 'object' && !Array.isArray(item);
+        return {
+          id: generateId(),
+          content: isManeuver ? '' : safeRender(item),
+          mission: isManeuver ? (isPlainObject ? item.mission : safeRender(item)) : undefined,
+          moyen: isManeuver && isPlainObject ? item.moyen : undefined,
+          moyen_supp: isManeuver && isPlainObject ? item.moyen_supp : undefined,
+          details: isManeuver && isPlainObject ? item.details : undefined
+        };
+      });
     }
     return typeof content === 'string'
       ? content.split('\n').filter(l => l.trim()).map(l => ({ id: generateId(), content: l }))
@@ -89,13 +94,23 @@ const buildColumnsFromOrdre = (ordre: OrdreInitial | null) => {
   return {
     S: { id: 'S', title: 'Situation', letter: 'S', color: 'blue', items: processItems(ordre.S) },
     O: { id: 'O', title: 'Objectif', letter: 'O', color: 'green', items: processItems(ordre.O) },
-    I: { id: 'I', title: 'Idée de manœuvre', letter: 'I', color: 'yellow', items: processItems(ordre.I) },
+    I: { id: 'I', title: 'Idée de manœuvre', letter: 'I', color: 'yellow', items: processItems(ordre.I, true) },
     E: { id: 'E', title: 'Exécution', letter: 'E', color: 'red', items: processItems(ordre.E, true) },
     C: { id: 'C', title: 'Commandement', letter: 'C', color: 'purple', items: processItems(ordre.C) }
   };
 };
 
-const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hideToolbar = false, dominante, means = [], type = 'group', boardRef }) => {
+const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
+  ordre,
+  onChange,
+  hideToolbar = false,
+  dominante,
+  means = [],
+  type = 'group',
+  boardRef,
+  readOnly = false,
+  aiGenerateLabel = "Générer ordre initial avec l'IA"
+}) => {
   const [columns, setColumns] = useState<Record<string, ColumnData>>({});
   const [draggedItem, setDraggedItem] = useState<{ id: string, sourceCol: string } | null>(null);
   const [editingItem, setEditingItem] = useState<{ id: string, colId: string, content: string, mission?: string, moyen?: string, moyen_supp?: string, details?: string } | null>(null);
@@ -108,7 +123,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
     () => (dominante ? DOCTRINE_DOMINANTE_MAP[dominante] : undefined),
     [dominante]
   );
-  const doctrineData = doctrineKey ? (DOCTRINE_CONTEXT as any)[doctrineKey] : null;
+  const doctrineData = doctrineKey ? DOCTRINE_CONTEXT[doctrineKey] : null;
 
   // Initialisation des données
   useEffect(() => {
@@ -126,14 +141,16 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
     if (!onChange) return;
 
     // Convert columns back to OrdreInitial format
+    const situationItems = columns.S?.items?.map(i => i.content) ?? [];
+    const commandItems = columns.C?.items?.map(i => i.content) ?? [];
     const ordreData: OrdreInitial = {
-      S: columns.S?.items?.map(i => i.content).join('\n') || '',
+      S: situationItems.join('\n'),
       O: columns.O?.items?.map(i => i.content) || [],
       I: columns.I?.items?.map(i => ({
-        mission: i.content,
-        moyen: 'Non spécifié',
-        moyen_supp: '',
-        details: ''
+        mission: i.mission || i.content || '',
+        moyen: i.moyen || '',
+        moyen_supp: i.moyen_supp || '',
+        details: i.details || ''
       })) || [],
       E: columns.E?.items?.map(i => ({
         mission: i.mission || '',
@@ -141,7 +158,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
         moyen_supp: i.moyen_supp || '',
         details: i.details || ''
       })) || [],
-      C: columns.C?.items?.map(i => i.content).join('\n') || ''
+      C: commandItems.join('\n')
     };
 
     onChange(ordreData);
@@ -158,25 +175,27 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
   }, []);
 
   useEffect(() => {
-    if (!editingItem) {
-      stopDictation();
-      setSpeechError(null);
+    if (readOnly && editingItem) {
+      setEditingItem(null);
     }
-  }, [editingItem]);
+  }, [readOnly, editingItem]);
 
   // Gestion du Drag & Drop
   const handleDragStart = (e: React.DragEvent, id: string, sourceCol: string) => {
+    if (readOnly) return;
     setDraggedItem({ id, sourceCol });
     e.dataTransfer.effectAllowed = 'move';
   };
 
   const handleDragOver = (e: React.DragEvent) => {
+    if (readOnly) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
   };
 
   const handleDrop = (e: React.DragEvent, targetColId: string, targetItemId?: string) => {
     e.preventDefault();
+    if (readOnly) return;
     if (!draggedItem) return;
 
     const sourceCol = columns[draggedItem.sourceCol];
@@ -186,7 +205,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
     if (!itemToMove) return;
 
     // Retirer de la source
-    let newSourceItems = sourceCol.items.filter(i => i.id !== draggedItem.id);
+    const newSourceItems = sourceCol.items.filter(i => i.id !== draggedItem.id);
 
     // Ajouter à la cible
     let newTargetItems = [...targetCol.items];
@@ -223,12 +242,14 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
 
   // Gestion de l'ajout
   const handleAddItem = (colId: string) => {
+    if (readOnly) return;
+    const isManeuver = colId === 'E' || colId === 'I';
     const newItem: CardItem = {
       id: generateId(),
-      content: 'Nouvel élément',
-      mission: colId === 'E' ? 'Nouvelle mission' : undefined,
-      moyen: colId === 'E' ? 'Moyen' : undefined,
-      moyen_supp: colId === 'E' ? 'Renfort' : undefined
+      content: isManeuver ? '' : 'Nouvel élément',
+      mission: isManeuver ? 'Nouvelle mission' : undefined,
+      moyen: isManeuver ? 'Moyen' : undefined,
+      moyen_supp: isManeuver ? 'Renfort' : undefined
     };
 
     setColumns(prev => ({
@@ -252,6 +273,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
 
   // Gestion de l'édition
   const handleSaveEdit = () => {
+    if (readOnly) return;
     if (!editingItem) return;
     setColumns(prev => ({
       ...prev,
@@ -275,19 +297,19 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
   };
 
   // Dictée vocale pour la modal
-  const ensureSpeechService = () => {
+  const ensureSpeechService = React.useCallback(() => {
     if (!speechServiceRef.current) {
       speechServiceRef.current = new SpeechRecognitionService();
     }
     return speechServiceRef.current;
-  };
+  }, []);
 
-  const stopDictation = () => {
+  const stopDictation = React.useCallback(() => {
     ensureSpeechService().stop();
     setIsListening(false);
-  };
+  }, [ensureSpeechService]);
 
-  const startDictation = (target: 'content' | 'mission') => {
+  const startDictation = React.useCallback((target: 'content' | 'mission') => {
     const service = ensureSpeechService();
     if (!editingItem) return;
     setSpeechError(null);
@@ -314,9 +336,17 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
         });
       }
     });
-  };
+  }, [editingItem, ensureSpeechService]);
+
+  useEffect(() => {
+    if (!editingItem) {
+      stopDictation();
+      setSpeechError(null);
+    }
+  }, [editingItem, stopDictation]);
 
   const handleDelete = (colId: string, itemId: string) => {
+    if (readOnly) return;
     setColumns(prev => ({
       ...prev,
       [colId]: {
@@ -327,6 +357,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
   };
 
   const handleGenerateAI = async () => {
+    if (readOnly) return;
     const situationText = (columns.S?.items || []).map(i => i.content).join('\n').trim();
     if (!situationText) {
       alert('Ajoutez une situation avant de générer avec l’IA.');
@@ -347,15 +378,16 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
       const parsed = parseOrdreInitial(typeof response === 'string' ? response : JSON.stringify(response));
       setColumns(buildColumnsFromOrdre(parsed));
       skipPropSyncRef.current = true;
-    } catch (error: any) {
+    } catch (error) {
       console.error('Erreur génération IA:', error);
-      alert(error.message || 'Impossible de générer l’ordre via l’IA pour le moment.');
+      const message = error instanceof Error ? error.message : 'Impossible de générer l’ordre via l’IA pour le moment.';
+      alert(message);
     } finally {
       setIsGeneratingAI(false);
     }
   };
 
-  const getSuggestions = (colId: string, query: string) => {
+  const getSuggestions = React.useCallback((colId: string, query: string) => {
     if (!doctrineData) return [];
     const base: string[] =
       colId === 'O'
@@ -369,7 +401,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
       ? base.filter((item: string) => item.toLowerCase().includes(q))
       : base;
     return filtered.slice(0, 6);
-  };
+  }, [doctrineData]);
 
   const suggestions = useMemo(() => {
     if (!editingItem) return [];
@@ -378,69 +410,81 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
         ? editingItem.mission || ''
         : editingItem.content || '';
     return getSuggestions(editingItem.colId, query);
-  }, [editingItem, doctrineData]);
+  }, [editingItem, getSuggestions]);
 
   // Rendu d'une carte
   const renderCard = (item: CardItem, col: ColumnData) => {
-    const isExecution = col.id === 'E';
+    const isManeuver = col.id === 'I' || col.id === 'E';
+    const missionTextClass =
+      col.id === 'E'
+        ? 'text-red-700 dark:text-red-100'
+        : 'text-yellow-700 dark:text-yellow-100';
+    const detailTextClass =
+      col.id === 'E'
+        ? 'text-red-600/80 dark:text-red-200/70'
+        : 'text-yellow-700/80 dark:text-yellow-200/70';
+    const missionValue = item.mission || item.content;
     const bgColor = {
-      blue: 'bg-blue-900/20 border-blue-500/30 hover:bg-blue-900/30',
-      green: 'bg-green-900/20 border-green-500/30 hover:bg-green-900/30',
-      yellow: 'bg-yellow-900/20 border-yellow-500/30 hover:bg-yellow-900/30',
-      red: 'bg-red-900/20 border-red-500/30 hover:bg-red-900/30',
-      purple: 'bg-purple-900/20 border-purple-500/30 hover:bg-purple-900/30'
+      blue: 'bg-blue-50/80 border-blue-200/70 hover:bg-blue-100/70 dark:bg-blue-900/20 dark:border-blue-500/30 dark:hover:bg-blue-900/30',
+      green: 'bg-green-50/80 border-green-200/70 hover:bg-green-100/70 dark:bg-green-900/20 dark:border-green-500/30 dark:hover:bg-green-900/30',
+      yellow: 'bg-yellow-50/80 border-yellow-200/70 hover:bg-yellow-100/70 dark:bg-yellow-900/20 dark:border-yellow-500/30 dark:hover:bg-yellow-900/30',
+      red: 'bg-red-50/80 border-red-200/70 hover:bg-red-100/70 dark:bg-red-900/20 dark:border-red-500/30 dark:hover:bg-red-900/30',
+      purple: 'bg-purple-50/80 border-purple-200/70 hover:bg-purple-100/70 dark:bg-purple-900/20 dark:border-purple-500/30 dark:hover:bg-purple-900/30'
     }[col.color];
 
     return (
       <div
         key={item.id}
-        draggable
+        draggable={!readOnly}
         onDragStart={(e) => handleDragStart(e, item.id, col.id)}
         onDrop={(e) => {
+          if (readOnly) return;
           e.stopPropagation(); // Empêcher le drop sur la colonne
           handleDrop(e, col.id, item.id);
         }}
-        className={`p-3 rounded-lg border backdrop-blur-sm cursor-move transition-all duration-200 group relative ${bgColor} mb-2`}
+        className={`p-3 rounded-lg border backdrop-blur-sm transition-all duration-200 group relative shadow-sm dark:shadow-none ${bgColor} mb-2 ${readOnly ? 'cursor-default' : 'cursor-move'}`}
       >
         <div className="pr-8"> {/* Padding droit pour éviter le chevauchement avec les boutons */}
-          {isExecution ? (
+          {isManeuver ? (
             <div className="space-y-1">
-              <div className="font-bold text-red-100">{item.mission}</div>
-              <div className="text-xs text-red-200/70">
+              <div className={`font-bold ${missionTextClass}`}>{missionValue}</div>
+              <div className={`text-xs ${detailTextClass}`}>
                 {item.moyen && <div>Moyen: {item.moyen}</div>}
                 {item.moyen_supp && <div>Renfort: {item.moyen_supp}</div>}
               </div>
             </div>
           ) : (
-            <div className="text-gray-100 text-sm whitespace-pre-wrap">{item.content}</div>
+            <div className="text-slate-700 dark:text-gray-100 text-sm whitespace-pre-wrap">{item.content}</div>
           )}
         </div>
 
         {/* Actions (Edit/Delete) - Plus gros et positionnés */}
-        <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 rounded p-1 backdrop-blur-md">
-          <button
-            onClick={() => setEditingItem({
-              id: item.id,
-              colId: col.id,
-              content: item.content,
-              mission: item.mission,
-              moyen: item.moyen,
-              moyen_supp: item.moyen_supp,
-              details: item.details
-            })}
-            className="p-1.5 hover:bg-white/20 rounded text-blue-300 transition-colors"
-            title="Modifier"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-          </button>
-          <button
-            onClick={() => handleDelete(col.id, item.id)}
-            className="p-1.5 hover:bg-white/20 rounded text-red-400 transition-colors"
-            title="Supprimer"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-          </button>
-        </div>
+        {!readOnly && (
+          <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 border border-slate-200 rounded p-1 shadow-sm backdrop-blur-md dark:bg-black/40 dark:border-transparent dark:shadow-none">
+            <button
+              onClick={() => setEditingItem({
+                id: item.id,
+                colId: col.id,
+                content: item.content,
+                mission: item.mission,
+                moyen: item.moyen,
+                moyen_supp: item.moyen_supp,
+                details: item.details
+              })}
+              className="p-1.5 hover:bg-slate-100 dark:hover:bg-white/20 rounded text-blue-600 dark:text-blue-300 transition-colors"
+              title="Modifier"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+            </button>
+            <button
+              onClick={() => handleDelete(col.id, item.id)}
+              className="p-1.5 hover:bg-slate-100 dark:hover:bg-white/20 rounded text-red-500 dark:text-red-400 transition-colors"
+              title="Supprimer"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+            </button>
+          </div>
+        )}
       </div>
     );
   };
@@ -449,7 +493,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
     <div className="w-full h-full flex flex-col gap-4">
       {/* Barre d'outils */}
       {!hideToolbar && (
-        <div className="flex gap-3 p-2 bg-gray-900/50 rounded-lg border border-white/5 backdrop-blur-md">
+        <div className="flex gap-3 p-2 bg-white/70 dark:bg-gray-900/50 rounded-lg border border-slate-200/80 dark:border-white/5 backdrop-blur-md shadow-sm dark:shadow-none">
           <button className="px-4 py-2 bg-red-500/80 hover:bg-red-500 text-white text-xs font-bold rounded transition-colors">Réinitialiser</button>
           <button className="px-4 py-2 bg-cyan-500/80 hover:bg-cyan-500 text-white text-xs font-bold rounded transition-colors">Exporter en image</button>
           <button className="px-4 py-2 bg-blue-600/80 hover:bg-blue-600 text-white text-xs font-bold rounded transition-colors">Générer avec IA</button>
@@ -462,11 +506,11 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
       <div className="flex-1 grid grid-cols-5 gap-4 min-h-[600px]" ref={boardRef}>
         {Object.values(columns).map(col => {
           const headerColor = {
-            blue: 'text-blue-400 border-blue-500/30 bg-blue-900/20',
-            green: 'text-green-400 border-green-500/30 bg-green-900/20',
-            yellow: 'text-yellow-400 border-yellow-500/30 bg-yellow-900/20',
-            red: 'text-red-400 border-red-500/30 bg-red-900/20',
-            purple: 'text-purple-400 border-purple-500/30 bg-purple-900/20'
+            blue: 'text-blue-700 border-blue-200/80 bg-blue-50/80 dark:text-blue-400 dark:border-blue-500/30 dark:bg-blue-900/20',
+            green: 'text-green-700 border-green-200/80 bg-green-50/80 dark:text-green-400 dark:border-green-500/30 dark:bg-green-900/20',
+            yellow: 'text-yellow-700 border-yellow-200/80 bg-yellow-50/80 dark:text-yellow-400 dark:border-yellow-500/30 dark:bg-yellow-900/20',
+            red: 'text-red-700 border-red-200/80 bg-red-50/80 dark:text-red-400 dark:border-red-500/30 dark:bg-red-900/20',
+            purple: 'text-purple-700 border-purple-200/80 bg-purple-50/80 dark:text-purple-400 dark:border-purple-500/30 dark:bg-purple-900/20'
           }[col.color];
 
           return (
@@ -474,43 +518,57 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
               key={col.id}
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, col.id)}
-              className="flex flex-col h-full bg-gray-900/40 rounded-xl border border-white/5 overflow-hidden transition-colors hover:border-white/10"
+              className="flex flex-col h-full bg-white/80 dark:bg-gray-900/40 rounded-xl border border-slate-200/80 dark:border-white/5 overflow-hidden transition-colors hover:border-slate-300 dark:hover:border-white/10 shadow-sm dark:shadow-none"
             >
               <div className={`px-4 py-3 border-b flex items-center justify-between ${headerColor}`}>
                 <div className="flex items-center gap-3 font-bold">
-                  <span className="w-6 h-6 rounded bg-white/10 flex items-center justify-center text-xs">{col.letter}</span>
+                  <span className="w-6 h-6 rounded bg-white/80 dark:bg-white/10 border border-slate-200/80 dark:border-white/10 flex items-center justify-center text-xs text-slate-700 dark:text-slate-100">{col.letter}</span>
                   {col.title}
                 </div>
-                <span className="text-xs opacity-50">{col.items.length}</span>
+                <span className="text-xs text-slate-500 dark:text-white/60">{col.items.length}</span>
               </div>
               <div className="p-3 flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-2 min-h-0">
                 {col.items.map(item => renderCard(item, col))}
 
                 {/* Bouton Ajouter (toutes colonnes) */}
-                <button
-                  onClick={() => handleAddItem(col.id)}
-                  className="w-full py-3 border-2 border-dashed border-white/10 rounded-lg flex items-center justify-center text-white/30 hover:text-white/60 hover:border-white/20 hover:bg-white/5 transition-all group"
-                >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                </button>
+                {!readOnly && (
+                  <button
+                    onClick={() => handleAddItem(col.id)}
+                    className="w-full py-3 border-2 border-dashed border-slate-200 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:text-white/30 dark:hover:text-white/60 dark:hover:border-white/20 dark:hover:bg-white/5 transition-all group"
+                  >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  </button>
+                )}
 
                 {/* Bouton IA en bas de la colonne Situation */}
-                {col.id === 'S' && (
+                {col.id === 'S' && !readOnly && (
                   <button
                     type="button"
                     onClick={handleGenerateAI}
                     disabled={isGeneratingAI}
                     data-export-hide="true"
-                    className="w-full p-3 mt-auto rounded-lg border backdrop-blur-sm transition-all duration-200 bg-blue-900/25 border-blue-500/40 hover:bg-blue-800/40 hover:border-blue-300/60 text-blue-50 shadow-inner flex items-center justify-center gap-2 font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="w-full p-3 mt-auto rounded-lg border backdrop-blur-sm transition-all duration-200 bg-blue-50 border-blue-200 hover:bg-blue-100 hover:border-blue-300 text-blue-700 shadow-sm dark:bg-blue-900/25 dark:border-blue-500/40 dark:hover:bg-blue-800/40 dark:hover:border-blue-300/60 dark:text-blue-50 dark:shadow-inner flex items-center justify-center gap-2 font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {isGeneratingAI ? (
-                      <div className="w-5 h-5 border-2 border-blue-200/50 border-t-transparent rounded-full animate-spin" />
+                      <div className="w-5 h-5 border-2 border-blue-300 border-t-transparent dark:border-blue-200/50 rounded-full animate-spin" />
                     ) : (
-                      <Sparkles className="w-5 h-5 text-blue-200" />
+                      <Sparkles className="w-5 h-5 text-blue-600 dark:text-blue-200" />
                     )}
-                    <span>Générer ordre initial avec l'IA</span>
+                    <span>{aiGenerateLabel}</span>
+                  </button>
+                )}
+
+                {/* Bouton IA en bas de la colonne Commandement */}
+                {col.id === 'C' && !readOnly && (
+                  <button
+                    type="button"
+                    data-export-hide="true"
+                    className="w-full p-3 mt-auto rounded-lg border backdrop-blur-sm transition-all duration-200 bg-purple-50 border-purple-200 hover:bg-purple-100 hover:border-purple-300 text-purple-700 shadow-sm dark:bg-purple-900/25 dark:border-purple-500/40 dark:hover:bg-purple-800/40 dark:hover:border-purple-300/60 dark:text-purple-50 dark:shadow-inner flex items-center justify-center gap-2 font-semibold"
+                  >
+                    <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-200" />
+                    <span>Générer un message de CR avec l&apos;IA</span>
                   </button>
                 )}
               </div>
@@ -522,7 +580,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
       {/* Modal d'édition */}
       {editingItem && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 backdrop-blur-sm">
-          <div className="bg-gray-900 border border-white/10 rounded-xl p-6 w-full max-w-lg shadow-2xl">
+          <div className="bg-gray-900 border border-white/10 rounded-xl p-6 w-full max-w-3xl max-h-[85vh] overflow-y-auto shadow-2xl">
             <h3 className="text-lg font-bold text-white mb-4">Modifier l'élément</h3>
             <div className="space-y-4">
               {editingItem.colId === 'I' || editingItem.colId === 'E' ? (

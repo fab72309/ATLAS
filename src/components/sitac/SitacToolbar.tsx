@@ -1,119 +1,118 @@
 import React from 'react';
 import { useSitacStore } from '../../stores/useSitacStore';
-import { Undo2, Redo2, Trash2, Search, Target, Layers, Lock, Unlock, Home } from 'lucide-react';
+import { Undo2, Redo2, Trash2, Search, Layers, Lock, Unlock, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { BaseLayerKey } from '../../types/sitac';
 
 interface SitacToolbarProps {
-    mapRef: React.MutableRefObject<any>;
     baseLayer: BaseLayerKey;
-    setBaseLayer: (layer: BaseLayerKey) => void;
     cycleBaseLayer: () => void;
     searchValue: string;
     setSearchValue: (val: string) => void;
     handleSearch: () => void;
-    handleHome: () => void;
 }
 
 const SitacToolbar: React.FC<SitacToolbarProps> = ({
-    mapRef,
     baseLayer,
     cycleBaseLayer,
     searchValue,
     setSearchValue,
     handleSearch,
-    handleHome,
 }) => {
     const undo = useSitacStore((s) => s.undo);
     const redoAction = useSitacStore((s) => s.redoAction);
     const clear = useSitacStore((s) => s.clear);
     const locked = useSitacStore((s) => s.locked);
     const toggleLock = useSitacStore((s) => s.toggleLock);
-
-    const handleGPS = () => {
-        const map = mapRef.current;
-        if (!map) return;
-        if ('geolocation' in navigator) {
-            navigator.geolocation.getCurrentPosition((pos) => {
-                map.flyTo({ center: [pos.coords.longitude, pos.coords.latitude], zoom: 16, speed: 0.9 });
-            });
-        }
-    };
+    const [isCollapsed, setIsCollapsed] = React.useState(false);
 
     return (
-        <div className="absolute top-4 left-4 right-4 z-20 flex items-center gap-3 pointer-events-auto">
-            <div className="flex items-center gap-2 bg-black/60 border border-white/10 rounded-2xl px-3 py-2 backdrop-blur">
-                <button
-                    onClick={undo}
-                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white border border-white/10"
-                    aria-label="Annuler"
-                >
-                    <Undo2 className="w-4 h-4" />
-                </button>
-                <button
-                    onClick={redoAction}
-                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white border border-white/10"
-                    aria-label="Rétablir"
-                >
-                    <Redo2 className="w-4 h-4" />
-                </button>
-                <button
-                    onClick={clear}
-                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white border border-white/10"
-                    aria-label="Tout effacer"
-                >
-                    <Trash2 className="w-4 h-4" />
-                </button>
-                <div className="h-6 w-px bg-white/10" />
-                <div className="flex items-center gap-2">
-                    <input
-                        value={searchValue}
-                        onChange={(e) => setSearchValue(e.target.value)}
-                        placeholder="Recherche adresse ou lat,lng"
-                        className="bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-sm text-white/90 placeholder:text-gray-400 w-52 md:w-72"
-                    />
+        <div className="absolute top-4 left-4 z-20 pointer-events-none">
+            <div
+                className={`pointer-events-auto relative rounded-2xl px-2 py-2 transition-all duration-300 ${isCollapsed
+                    ? 'w-16 bg-white/10 border border-white/25 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl backdrop-saturate-150 overflow-hidden'
+                    : 'bg-white/10 border border-white/20 shadow-[0_8px_24px_rgba(0,0,0,0.25)] backdrop-blur-xl backdrop-saturate-150'
+                    }`}
+            >
+                {isCollapsed && (
+                    <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-white/35 via-white/10 to-transparent opacity-70" />
+                )}
+                <div className={`relative z-10 flex items-center gap-2 ${isCollapsed ? 'w-full justify-center' : ''}`}>
+                    {!isCollapsed && (
+                        <>
+                        <button
+                            onClick={undo}
+                            className="p-2 rounded-xl bg-black/45 hover:bg-black/55 text-white border border-white/25 shadow-[0_6px_16px_rgba(0,0,0,0.35)]"
+                            aria-label="Annuler"
+                        >
+                            <Undo2 className="w-4 h-4" />
+                        </button>
+                        <button
+                            onClick={redoAction}
+                            className="p-2 rounded-xl bg-black/45 hover:bg-black/55 text-white border border-white/25 shadow-[0_6px_16px_rgba(0,0,0,0.35)]"
+                            aria-label="Rétablir"
+                        >
+                            <Redo2 className="w-4 h-4" />
+                        </button>
+                        <button
+                            onClick={clear}
+                            className="p-2 rounded-xl bg-black/45 hover:bg-black/55 text-white border border-white/25 shadow-[0_6px_16px_rgba(0,0,0,0.35)]"
+                            aria-label="Tout effacer"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                        </button>
+                        <div className="h-6 w-px bg-white/10" />
+                        <div className="flex items-center gap-2">
+                            <input
+                                value={searchValue}
+                                onChange={(e) => setSearchValue(e.target.value)}
+                                placeholder="Recherche adresse ou lat,lng"
+                                className="bg-black/35 border border-white/25 rounded-xl px-3 py-1.5 text-sm text-white/90 placeholder:text-gray-300 shadow-[0_6px_16px_rgba(0,0,0,0.25)] w-52 md:w-72"
+                            />
+                            <button
+                                onClick={handleSearch}
+                                className="px-3 py-2 rounded-xl bg-blue-500/90 hover:bg-blue-500 text-white text-sm font-semibold shadow-[0_6px_16px_rgba(0,0,0,0.35)]"
+                            >
+                                <Search className="w-4 h-4" />
+                            </button>
+                        </div>
+                        <button
+                            onClick={cycleBaseLayer}
+                            className="px-3 py-2 rounded-xl bg-black/45 hover:bg-black/55 text-white border border-white/25 text-sm flex items-center gap-2 shadow-[0_6px_16px_rgba(0,0,0,0.35)]"
+                        >
+                            <Layers className="w-4 h-4" />
+                            {baseLayer === 'plan'
+                                ? 'Plan'
+                                : baseLayer === 'satellite'
+                                    ? 'Satellite'
+                                    : baseLayer === 'whiteboard'
+                                        ? 'Tableau blanc'
+                                        : 'Offline'}
+                        </button>
+                        <button
+                            onClick={toggleLock}
+                            className={`p-2 rounded-xl border text-white shadow-[0_6px_16px_rgba(0,0,0,0.35)] ${locked
+                                ? 'bg-red-600/80 hover:bg-red-600 border-red-400/70'
+                                : 'bg-black/45 hover:bg-black/55 border-white/25'
+                                }`}
+                            aria-label={locked ? 'Déverrouiller la carte' : 'Verrouiller la carte'}
+                            title={locked ? 'Déverrouiller la carte' : 'Verrouiller la carte'}
+                        >
+                            {locked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                        </button>
+                        </>
+                    )}
                     <button
-                        onClick={handleSearch}
-                        className="px-3 py-2 rounded-xl bg-blue-500/80 hover:bg-blue-500 text-white text-sm font-semibold"
+                        onClick={() => setIsCollapsed((prev) => !prev)}
+                        className={`p-2 rounded-lg border transition-colors ${isCollapsed
+                            ? 'bg-black/80 border-white/40 text-white shadow-[0_10px_28px_rgba(0,0,0,0.5)] hover:bg-black/90'
+                            : 'bg-black/45 border-white/25 text-white shadow-[0_6px_16px_rgba(0,0,0,0.35)] hover:bg-black/55'
+                            }`}
+                        aria-label={isCollapsed ? 'Afficher la barre d’outils' : 'Masquer la barre d’outils'}
+                        title={isCollapsed ? 'Afficher la barre d’outils' : 'Masquer la barre d’outils'}
                     >
-                        <Search className="w-4 h-4" />
+                        {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-4 h-4" />}
                     </button>
                 </div>
-                <div className="h-6 w-px bg-white/10" />
-                <button
-                    onClick={handleGPS}
-                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white border border-white/10"
-                    aria-label="GPS"
-                >
-                    <Target className="w-4 h-4" />
-                </button>
-                <button
-                    onClick={cycleBaseLayer}
-                    className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white border border-white/10 text-sm flex items-center gap-2"
-                >
-                    <Layers className="w-4 h-4" />
-                    {baseLayer === 'plan'
-                        ? 'Plan'
-                        : baseLayer === 'satellite'
-                            ? 'Satellite'
-                            : baseLayer === 'whiteboard'
-                                ? 'Tableau blanc'
-                                : 'Offline'}
-                </button>
-                <button
-                    onClick={toggleLock}
-                    className={`p-2 rounded-xl border text-white ${locked ? 'bg-amber-500/20 border-amber-400/50' : 'bg-white/5 border-white/10'
-                        }`}
-                    aria-label="Verrouillage de la navigation"
-                >
-                    {locked ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
-                </button>
-                <button
-                    onClick={handleHome}
-                    className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white border border-white/10"
-                    aria-label="Vue initiale"
-                >
-                    <Home className="w-4 h-4" />
-                </button>
             </div>
         </div>
     );

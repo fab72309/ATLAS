@@ -3,7 +3,7 @@ import cors from 'cors';
 import { onRequest } from 'firebase-functions/v2/https';
 import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import { DeveloperPrompts, OutputSchemas, buildUserPrompt } from './prompts';
+import { DeveloperPrompts, OutputSchemas, buildUserPrompt } from './prompts.js';
 // Initialisation Admin (Firebase Functions)
 try {
     initializeApp();
@@ -41,10 +41,23 @@ function normaliseInput(body) {
     const texte = typeof body?.situation === 'string' ? body.situation : undefined;
     const sections = typeof body?.sections === 'object' && body?.sections ? body.sections : undefined;
     const dominante = typeof body?.dominante === 'string' ? body.dominante : undefined;
+    const secondaryRisks = Array.isArray(body?.secondaryRisks)
+        ? body.secondaryRisks.filter((r) => typeof r === 'string')
+        : undefined;
+    const extraContext = typeof body?.extraContext === 'string' ? body.extraContext : undefined;
+    let doctrineContext = body?.doctrine_context ?? body?.doctrineContext;
+    if (typeof doctrineContext === 'string') {
+        try {
+            doctrineContext = JSON.parse(doctrineContext);
+        }
+        catch {
+            // Keep raw string if parsing fails.
+        }
+    }
     let mode = 'texte_libre';
     if (sections && Object.keys(sections).length > 0)
         mode = 'elements_dictes';
-    return { type, mode, data: { texte, sections, dominante } };
+    return { type, mode, data: { texte, sections, dominante, secondaryRisks, extraContext, doctrineContext } };
 }
 // Function HTTPS principale: /analyze
 export const analyze = onRequest({ cors: true, region: 'europe-west1', timeoutSeconds: 120 }, async (req, res) => {
@@ -67,12 +80,12 @@ export const analyze = onRequest({ cors: true, region: 'europe-west1', timeoutSe
         const system = DeveloperPrompts[type];
         const user = buildUserPrompt(type, mode, data);
         const { name, schema } = OutputSchemas[type];
-        // Appelle Responses API en forçant JSON conforme au schéma
-        const response = await openai.responses.create({
+        // Appelle Chat Completions API en forçant JSON conforme au schéma
+        const response = await openai.chat.completions.create({
             model: 'gpt-4o-mini-2024-07-18',
-            input: [
-                { role: 'system', content: [{ type: 'text', text: system }] },
-                { role: 'user', content: [{ type: 'text', text: user }] }
+            messages: [
+                { role: 'system', content: system },
+                { role: 'user', content: user }
             ],
             response_format: {
                 type: 'json_schema',
@@ -80,7 +93,7 @@ export const analyze = onRequest({ cors: true, region: 'europe-west1', timeoutSe
             }
         });
         // Récupère le texte JSON retourné
-        const text = response.output_text || '';
+        const text = response.choices?.[0]?.message?.content || '';
         res.json({ result: text, model: response.model });
     }
     catch (err) {

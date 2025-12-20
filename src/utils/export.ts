@@ -329,11 +329,21 @@ const buildBoardHtmlTemplate = (ordre: OrdreInitial, opts?: { adresse?: string; 
     if (opts?.adresse) metaLines.push(`<div class="meta">Adresse : ${escapeHtml(opts.adresse)}</div>`);
     if (opts?.heure) metaLines.push(`<div class="meta">Heure : ${escapeHtml(opts.heure)}</div>`);
 
+    const executionData = Array.isArray(ordre.E)
+        ? ordre.E.map((entry) => {
+            if (typeof entry === 'string') return entry;
+            const record = (entry ?? {}) as Record<string, unknown>;
+            const mission = typeof record.mission === 'string' ? record.mission : '';
+            const moyen = typeof record.moyen === 'string' ? record.moyen : '';
+            return `${mission} – ${moyen}`.trim();
+        })
+        : [typeof ordre.E === 'string' ? ordre.E : String(ordre.E ?? '')];
+
     const columns = [
         { title: 'Situation', color: '#1e3a8a', data: typeof ordre.S === 'string' ? ordre.S.split('\n').filter(Boolean) : [] },
         { title: 'Objectif', color: '#065f46', data: ordre.O || [] },
         { title: 'Idée de manœuvre', color: '#92400e', data: (ordre.I || []).map(i => i.mission || '') },
-        { title: 'Exécution', color: '#7f1d1d', data: Array.isArray(ordre.E) ? ordre.E.map((e: any) => `${e.mission || ''} – ${e.moyen || ''}`) : [ordre.E as any] },
+        { title: 'Exécution', color: '#7f1d1d', data: executionData },
         { title: 'Commandement', color: '#6b21a8', data: typeof ordre.C === 'string' ? ordre.C.split('\n').filter(Boolean) : [] },
     ];
 

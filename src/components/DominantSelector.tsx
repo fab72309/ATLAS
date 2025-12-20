@@ -7,6 +7,7 @@ interface DominantSelectorProps {
   selectedRisks: DominanteType[];
   onChange: (risks: DominanteType[]) => void;
   className?: string;
+  disabled?: boolean;
 }
 
 const useDominantes = () => {
@@ -14,19 +15,20 @@ const useDominantes = () => {
   React.useEffect(() => {
     const handler = () => setOrder(getDominantesOrder());
     window.addEventListener('storage', handler);
-    window.addEventListener('atlas:dominantes-order-changed', handler as any);
+    window.addEventListener('atlas:dominantes-order-changed', handler as EventListener);
     return () => {
       window.removeEventListener('storage', handler);
-      window.removeEventListener('atlas:dominantes-order-changed', handler as any);
+      window.removeEventListener('atlas:dominantes-order-changed', handler as EventListener);
     };
   }, []);
   return order;
 };
 
-const DominantSelector: React.FC<DominantSelectorProps> = ({ selectedRisks, onChange, className }) => {
+const DominantSelector: React.FC<DominantSelectorProps> = ({ selectedRisks, onChange, className, disabled = false }) => {
   const order = useDominantes();
 
   const handleSelect = (opt: DominanteType) => {
+    if (disabled) return;
     if (selectedRisks.includes(opt)) {
       // Si déjà sélectionné, on le retire
       onChange(selectedRisks.filter(r => r !== opt));
@@ -42,7 +44,7 @@ const DominantSelector: React.FC<DominantSelectorProps> = ({ selectedRisks, onCh
 
   return (
     <div className={containerClass}>
-      <div className="inline-flex flex-wrap justify-center items-stretch gap-2 border-2 border-red-500 rounded-3xl px-3 py-2 bg-black/20 max-w-full">
+      <div className="inline-flex flex-wrap justify-center items-stretch gap-2 border border-red-400/60 dark:border-red-500/50 rounded-3xl px-3 py-2 bg-white/70 dark:bg-black/20 shadow-sm dark:shadow-none backdrop-blur-sm max-w-full">
         {order.map((opt) => {
           const index = selectedRisks.indexOf(opt);
           const isSelected = index !== -1;
@@ -51,18 +53,20 @@ const DominantSelector: React.FC<DominantSelectorProps> = ({ selectedRisks, onCh
             <button
               key={opt}
               type="button"
+              disabled={disabled}
               onClick={() => handleSelect(opt)}
               className={
-                `relative px-4 py-1.5 rounded-3xl text-sm font-semibold transition-all duration-200 ` +
+                `relative px-4 py-1.5 rounded-3xl text-sm font-semibold transition-all duration-200 border disabled:opacity-60 disabled:cursor-not-allowed ` +
                 (isSelected
-                  ? 'bg-orange-500 text-white shadow-lg scale-105'
-                  : 'bg-gray-300 text-gray-800 hover:bg-gray-200')
+                  ? 'bg-orange-500 text-white border-orange-300 shadow-md scale-[1.02] dark:bg-orange-500 dark:text-white dark:border-orange-400/70'
+                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 dark:bg-gray-800/70 dark:text-gray-200 dark:border-white/10 dark:hover:bg-gray-700/70')
               }
               aria-pressed={isSelected}
+              aria-disabled={disabled}
             >
               {opt}
               {isSelected && (
-                <span className="absolute -top-2 -right-2 w-5 h-5 bg-white text-orange-600 rounded-full flex items-center justify-center text-xs font-bold shadow-sm border border-orange-200">
+                <span className="absolute -top-2 -right-2 w-5 h-5 bg-white text-orange-600 rounded-full flex items-center justify-center text-xs font-bold shadow-sm border border-orange-200 dark:bg-slate-900 dark:text-orange-300 dark:border-orange-500/60">
                   {index + 1}
                 </span>
               )}

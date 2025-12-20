@@ -62,16 +62,6 @@ export const useSitacDraw = ({ map, activeSymbol }: DrawParams) => {
         if (!map) return;
 
         // --- Helpers ---
-        const enableInteractions = () => {
-            const { locked } = stateRef.current;
-            if (locked) return; // Keep locked if global lock is on
-            map.dragPan.enable();
-            map.scrollZoom.enable();
-            map.boxZoom.enable();
-            map.touchZoomRotate.enable();
-        };
-
-        // --- Helpers ---
         // (No helpers needed currently for simple selection logic)
 
 
@@ -96,8 +86,7 @@ export const useSitacDraw = ({ map, activeSymbol }: DrawParams) => {
 
         // --- Handlers ---
 
-        // We use 'any' for event data to avoid the strict typing issues with maplibre-gl EventData which is sometimes not exported correctly or clashes
-        const handleClick = (e: MapMouseEvent & any) => {
+        const handleClick = (e: MapMouseEvent) => {
             if (!map.isStyleLoaded()) return;
             const { mode, drawingColor, activeSymbol, addFeature, setSelectedFeatureId, setMode, deleteFeature } = stateRef.current;
 
