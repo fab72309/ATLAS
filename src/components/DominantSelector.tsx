@@ -42,7 +42,7 @@ const DominantSelector: React.FC<DominantSelectorProps> = ({ selectedRisks, onCh
 
   return (
     <div className={containerClass}>
-      <div className="inline-flex flex-wrap justify-center items-stretch gap-2 border-2 border-red-500 rounded-3xl px-3 py-2 bg-black/20 max-w-full">
+      <div className="inline-flex flex-wrap justify-center items-stretch gap-2 border border-red-400/60 dark:border-red-500/50 rounded-3xl px-3 py-2 bg-white/70 dark:bg-black/20 shadow-sm dark:shadow-none backdrop-blur-sm max-w-full">
         {order.map((opt) => {
           const index = selectedRisks.indexOf(opt);
           const isSelected = index !== -1;
@@ -53,16 +53,16 @@ const DominantSelector: React.FC<DominantSelectorProps> = ({ selectedRisks, onCh
               type="button"
               onClick={() => handleSelect(opt)}
               className={
-                `relative px-4 py-1.5 rounded-3xl text-sm font-semibold transition-all duration-200 ` +
+                `relative px-4 py-1.5 rounded-3xl text-sm font-semibold transition-all duration-200 border ` +
                 (isSelected
-                  ? 'bg-orange-500 text-white shadow-lg scale-105'
-                  : 'bg-gray-300 text-gray-800 hover:bg-gray-200')
+                  ? 'bg-orange-500 text-white border-orange-300 shadow-md scale-[1.02] dark:bg-orange-500 dark:text-white dark:border-orange-400/70'
+                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 dark:bg-gray-800/70 dark:text-gray-200 dark:border-white/10 dark:hover:bg-gray-700/70')
               }
               aria-pressed={isSelected}
             >
               {opt}
               {isSelected && (
-                <span className="absolute -top-2 -right-2 w-5 h-5 bg-white text-orange-600 rounded-full flex items-center justify-center text-xs font-bold shadow-sm border border-orange-200">
+                <span className="absolute -top-2 -right-2 w-5 h-5 bg-white text-orange-600 rounded-full flex items-center justify-center text-xs font-bold shadow-sm border border-orange-200 dark:bg-slate-900 dark:text-orange-300 dark:border-orange-500/60">
                   {index + 1}
                 </span>
               )}

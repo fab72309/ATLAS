@@ -18,6 +18,7 @@ import { Download, RefreshCw, RotateCw, Sparkles } from 'lucide-react';
 import { exportBoardDesignPdf } from '../utils/export';
 import { MeanItem } from '../components/MeansModal';
 import { OctColor, OctNodeType, OctTreeNode, useOctTree, resetOctTree, createInitialOctTree } from '../utils/octTreeStore';
+import { useTheme } from '../contexts/ThemeContext';
 
 type MeanSource = 'manual' | 'means';
 
@@ -469,6 +470,7 @@ interface OctDiagramProps {
 }
 
 export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availableMeans = [] }) => {
+  const { resolvedTheme } = useTheme();
   const { tree, setTree } = useOctTree();
   const [selectedId, setSelectedId] = useState<string>(tree.id);
   const [nodes, setNodes, onNodesChange] = useNodesState<OctNodeData>([]);
@@ -500,6 +502,8 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
     () => availableMeans.filter((m) => !usedMeanRefs.has(m.id)),
     [availableMeans, usedMeanRefs]
   );
+  const isDark = resolvedTheme === 'dark';
+  const gridDotColor = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(15,23,42,0.12)';
 
   useEffect(() => {
     if (!findNodeById(tree, selectedId)) {
@@ -807,7 +811,7 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
       <div className={`${embedded ? 'relative z-10 w-full space-y-6' : 'relative z-10 max-w-7xl mx-auto px-4 py-8 space-y-6'}`}>
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-sm text-cyan-200 uppercase tracking-[0.25em] flex items-center gap-2">
+            <p className="text-sm text-slate-900 dark:text-cyan-200 uppercase tracking-[0.25em] flex items-center gap-2">
               <Sparkles className="w-4 h-4" /> OCT – Ordre Complémentaire des Transmissions
             </p>
           </div>
@@ -829,9 +833,9 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
 
         <div
           ref={diagramRef}
-          className={`relative bg-[#0c1424] border border-white/10 rounded-3xl shadow-2xl overflow-hidden ${isPortrait ? 'opacity-40 pointer-events-none' : ''}`}
+          className={`relative bg-slate-100 dark:bg-[#0c1424] border border-slate-200/80 dark:border-white/10 rounded-3xl shadow-2xl overflow-hidden ${isPortrait ? 'opacity-40 pointer-events-none' : ''}`}
         >
-          <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-cyan-500/5 pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-200/60 via-transparent to-cyan-200/40 pointer-events-none dark:from-white/5 dark:to-cyan-500/5" />
           <div className="relative z-10" style={{ height: diagramHeight }}>
             <ReactFlow
               nodes={nodes}
@@ -883,7 +887,7 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
                 className="bg-black/40 border border-white/10"
               />
               <Controls position="top-right" showFitView={false} className="!bg-black/40 !border-white/10" />
-              <Background variant={BackgroundVariant.Dots} gap={18} size={2} color="rgba(255,255,255,0.15)" />
+              <Background variant={BackgroundVariant.Dots} gap={18} size={2} color={gridDotColor} />
             </ReactFlow>
           </div>
         </div>

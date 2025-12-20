@@ -384,11 +384,11 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
   const renderCard = (item: CardItem, col: ColumnData) => {
     const isExecution = col.id === 'E';
     const bgColor = {
-      blue: 'bg-blue-900/20 border-blue-500/30 hover:bg-blue-900/30',
-      green: 'bg-green-900/20 border-green-500/30 hover:bg-green-900/30',
-      yellow: 'bg-yellow-900/20 border-yellow-500/30 hover:bg-yellow-900/30',
-      red: 'bg-red-900/20 border-red-500/30 hover:bg-red-900/30',
-      purple: 'bg-purple-900/20 border-purple-500/30 hover:bg-purple-900/30'
+      blue: 'bg-blue-50/80 border-blue-200/70 hover:bg-blue-100/70 dark:bg-blue-900/20 dark:border-blue-500/30 dark:hover:bg-blue-900/30',
+      green: 'bg-green-50/80 border-green-200/70 hover:bg-green-100/70 dark:bg-green-900/20 dark:border-green-500/30 dark:hover:bg-green-900/30',
+      yellow: 'bg-yellow-50/80 border-yellow-200/70 hover:bg-yellow-100/70 dark:bg-yellow-900/20 dark:border-yellow-500/30 dark:hover:bg-yellow-900/30',
+      red: 'bg-red-50/80 border-red-200/70 hover:bg-red-100/70 dark:bg-red-900/20 dark:border-red-500/30 dark:hover:bg-red-900/30',
+      purple: 'bg-purple-50/80 border-purple-200/70 hover:bg-purple-100/70 dark:bg-purple-900/20 dark:border-purple-500/30 dark:hover:bg-purple-900/30'
     }[col.color];
 
     return (
@@ -400,24 +400,24 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
           e.stopPropagation(); // Empêcher le drop sur la colonne
           handleDrop(e, col.id, item.id);
         }}
-        className={`p-3 rounded-lg border backdrop-blur-sm cursor-move transition-all duration-200 group relative ${bgColor} mb-2`}
+        className={`p-3 rounded-lg border backdrop-blur-sm cursor-move transition-all duration-200 group relative shadow-sm dark:shadow-none ${bgColor} mb-2`}
       >
         <div className="pr-8"> {/* Padding droit pour éviter le chevauchement avec les boutons */}
           {isExecution ? (
             <div className="space-y-1">
-              <div className="font-bold text-red-100">{item.mission}</div>
-              <div className="text-xs text-red-200/70">
+              <div className="font-bold text-red-700 dark:text-red-100">{item.mission}</div>
+              <div className="text-xs text-red-600/80 dark:text-red-200/70">
                 {item.moyen && <div>Moyen: {item.moyen}</div>}
                 {item.moyen_supp && <div>Renfort: {item.moyen_supp}</div>}
               </div>
             </div>
           ) : (
-            <div className="text-gray-100 text-sm whitespace-pre-wrap">{item.content}</div>
+            <div className="text-slate-700 dark:text-gray-100 text-sm whitespace-pre-wrap">{item.content}</div>
           )}
         </div>
 
         {/* Actions (Edit/Delete) - Plus gros et positionnés */}
-        <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 rounded p-1 backdrop-blur-md">
+        <div className="absolute top-2 right-2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white/90 border border-slate-200 rounded p-1 shadow-sm backdrop-blur-md dark:bg-black/40 dark:border-transparent dark:shadow-none">
           <button
             onClick={() => setEditingItem({
               id: item.id,
@@ -428,14 +428,14 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
               moyen_supp: item.moyen_supp,
               details: item.details
             })}
-            className="p-1.5 hover:bg-white/20 rounded text-blue-300 transition-colors"
+            className="p-1.5 hover:bg-slate-100 dark:hover:bg-white/20 rounded text-blue-600 dark:text-blue-300 transition-colors"
             title="Modifier"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
           </button>
           <button
             onClick={() => handleDelete(col.id, item.id)}
-            className="p-1.5 hover:bg-white/20 rounded text-red-400 transition-colors"
+            className="p-1.5 hover:bg-slate-100 dark:hover:bg-white/20 rounded text-red-500 dark:text-red-400 transition-colors"
             title="Supprimer"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -449,7 +449,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
     <div className="w-full h-full flex flex-col gap-4">
       {/* Barre d'outils */}
       {!hideToolbar && (
-        <div className="flex gap-3 p-2 bg-gray-900/50 rounded-lg border border-white/5 backdrop-blur-md">
+        <div className="flex gap-3 p-2 bg-white/70 dark:bg-gray-900/50 rounded-lg border border-slate-200/80 dark:border-white/5 backdrop-blur-md shadow-sm dark:shadow-none">
           <button className="px-4 py-2 bg-red-500/80 hover:bg-red-500 text-white text-xs font-bold rounded transition-colors">Réinitialiser</button>
           <button className="px-4 py-2 bg-cyan-500/80 hover:bg-cyan-500 text-white text-xs font-bold rounded transition-colors">Exporter en image</button>
           <button className="px-4 py-2 bg-blue-600/80 hover:bg-blue-600 text-white text-xs font-bold rounded transition-colors">Générer avec IA</button>
@@ -462,11 +462,11 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
       <div className="flex-1 grid grid-cols-5 gap-4 min-h-[600px]" ref={boardRef}>
         {Object.values(columns).map(col => {
           const headerColor = {
-            blue: 'text-blue-400 border-blue-500/30 bg-blue-900/20',
-            green: 'text-green-400 border-green-500/30 bg-green-900/20',
-            yellow: 'text-yellow-400 border-yellow-500/30 bg-yellow-900/20',
-            red: 'text-red-400 border-red-500/30 bg-red-900/20',
-            purple: 'text-purple-400 border-purple-500/30 bg-purple-900/20'
+            blue: 'text-blue-700 border-blue-200/80 bg-blue-50/80 dark:text-blue-400 dark:border-blue-500/30 dark:bg-blue-900/20',
+            green: 'text-green-700 border-green-200/80 bg-green-50/80 dark:text-green-400 dark:border-green-500/30 dark:bg-green-900/20',
+            yellow: 'text-yellow-700 border-yellow-200/80 bg-yellow-50/80 dark:text-yellow-400 dark:border-yellow-500/30 dark:bg-yellow-900/20',
+            red: 'text-red-700 border-red-200/80 bg-red-50/80 dark:text-red-400 dark:border-red-500/30 dark:bg-red-900/20',
+            purple: 'text-purple-700 border-purple-200/80 bg-purple-50/80 dark:text-purple-400 dark:border-purple-500/30 dark:bg-purple-900/20'
           }[col.color];
 
           return (
@@ -474,14 +474,14 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
               key={col.id}
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, col.id)}
-              className="flex flex-col h-full bg-gray-900/40 rounded-xl border border-white/5 overflow-hidden transition-colors hover:border-white/10"
+              className="flex flex-col h-full bg-white/80 dark:bg-gray-900/40 rounded-xl border border-slate-200/80 dark:border-white/5 overflow-hidden transition-colors hover:border-slate-300 dark:hover:border-white/10 shadow-sm dark:shadow-none"
             >
               <div className={`px-4 py-3 border-b flex items-center justify-between ${headerColor}`}>
                 <div className="flex items-center gap-3 font-bold">
-                  <span className="w-6 h-6 rounded bg-white/10 flex items-center justify-center text-xs">{col.letter}</span>
+                  <span className="w-6 h-6 rounded bg-white/80 dark:bg-white/10 border border-slate-200/80 dark:border-white/10 flex items-center justify-center text-xs text-slate-700 dark:text-slate-100">{col.letter}</span>
                   {col.title}
                 </div>
-                <span className="text-xs opacity-50">{col.items.length}</span>
+                <span className="text-xs text-slate-500 dark:text-white/60">{col.items.length}</span>
               </div>
               <div className="p-3 flex-1 overflow-y-auto custom-scrollbar flex flex-col gap-2 min-h-0">
                 {col.items.map(item => renderCard(item, col))}
@@ -489,7 +489,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
                 {/* Bouton Ajouter (toutes colonnes) */}
                 <button
                   onClick={() => handleAddItem(col.id)}
-                  className="w-full py-3 border-2 border-dashed border-white/10 rounded-lg flex items-center justify-center text-white/30 hover:text-white/60 hover:border-white/20 hover:bg-white/5 transition-all group"
+                  className="w-full py-3 border-2 border-dashed border-slate-200 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:border-slate-300 hover:bg-slate-50 dark:border-white/10 dark:text-white/30 dark:hover:text-white/60 dark:hover:border-white/20 dark:hover:bg-white/5 transition-all group"
                 >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -503,12 +503,12 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({ ordre, onChange, hi
                     onClick={handleGenerateAI}
                     disabled={isGeneratingAI}
                     data-export-hide="true"
-                    className="w-full p-3 mt-auto rounded-lg border backdrop-blur-sm transition-all duration-200 bg-blue-900/25 border-blue-500/40 hover:bg-blue-800/40 hover:border-blue-300/60 text-blue-50 shadow-inner flex items-center justify-center gap-2 font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="w-full p-3 mt-auto rounded-lg border backdrop-blur-sm transition-all duration-200 bg-blue-50 border-blue-200 hover:bg-blue-100 hover:border-blue-300 text-blue-700 shadow-sm dark:bg-blue-900/25 dark:border-blue-500/40 dark:hover:bg-blue-800/40 dark:hover:border-blue-300/60 dark:text-blue-50 dark:shadow-inner flex items-center justify-center gap-2 font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {isGeneratingAI ? (
-                      <div className="w-5 h-5 border-2 border-blue-200/50 border-t-transparent rounded-full animate-spin" />
+                      <div className="w-5 h-5 border-2 border-blue-300 border-t-transparent dark:border-blue-200/50 rounded-full animate-spin" />
                     ) : (
-                      <Sparkles className="w-5 h-5 text-blue-200" />
+                      <Sparkles className="w-5 h-5 text-blue-600 dark:text-blue-200" />
                     )}
                     <span>Générer ordre initial avec l'IA</span>
                   </button>
