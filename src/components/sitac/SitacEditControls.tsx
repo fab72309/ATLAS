@@ -2,21 +2,28 @@
 import React, { useMemo } from 'react';
 import { useSitacStore } from '../../stores/useSitacStore';
 import {
-    RotateCcw, RotateCw, Trash2, Download, Camera
+    RotateCcw, RotateCw, Trash2, Download, Image as ImageIcon, FileText, Maximize2, Minimize2, ChevronLeft, ChevronRight, ChevronDown, Camera
 } from 'lucide-react';
 import { rotateGeometry } from '../../utils/sitacUtils';
-import type { Snapshot } from '../../types/sitac';
+
+const COLOR_OPTIONS = ['#ef4444', '#111111', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'];
 
 interface SitacEditControlsProps {
-    handleSnapshot: () => void;
     handleExport: () => void;
-    restoreSnapshot: (snap: Snapshot) => void;
+    onExportImage?: () => void;
+    onExportPDF?: () => void;
+    onSnapshot?: () => void;
+    onToggleFullscreen: () => void;
+    isFullscreen: boolean;
 }
 
 const SitacEditControls: React.FC<SitacEditControlsProps> = ({
-    handleSnapshot,
     handleExport,
-    restoreSnapshot,
+    onExportImage,
+    onExportPDF,
+    onSnapshot,
+    onToggleFullscreen,
+    isFullscreen,
 }) => {
     const selectedFeatureId = useSitacStore((s) => s.selectedFeatureId);
     const selectedFabricProperties = useSitacStore((s) => s.selectedFabricProperties);
@@ -33,7 +40,8 @@ const SitacEditControls: React.FC<SitacEditControlsProps> = ({
     // Actually, I can use window event or similar? No, store action is cleaner.
     // I'll skip button delete for Fabric for a second and focus on Color/Rotate.
 
-    const snapshots = useSitacStore((s) => s.snapshots);
+    const [isExportOpen, setIsExportOpen] = React.useState(false);
+    const [isRightCollapsed, setIsRightCollapsed] = React.useState(false);
 
     const selectedFeature = useMemo(
         () => geoJSON.features.find((f) => f.id === selectedFeatureId),
@@ -51,6 +59,7 @@ const SitacEditControls: React.FC<SitacEditControlsProps> = ({
             updateFeature(selectedFeature.id as string, (f) => ({ ...f, properties: { ...f.properties, color: val } }));
         }
     };
+    const activeColor = activeProps?.color || COLOR_OPTIONS[0];
 
     const handleRotate = (angle: number) => {
         if (isFabric) {
@@ -70,11 +79,10 @@ const SitacEditControls: React.FC<SitacEditControlsProps> = ({
     // For now, let's just make Color work perfectly for Fabric.
 
     return (
-        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 pointer-events-auto flex flex-col items-center gap-3 w-full max-w-3xl px-4">
-
+        <div className="absolute inset-0 z-20 pointer-events-none">
             {/* Selection Editor Bar */}
             {activeProps && (
-                <div className="bg-[#1a1a1a]/90 border border-white/10 rounded-2xl p-2 backdrop-blur-md shadow-2xl flex items-center gap-4 animate-in slide-in-from-bottom-5 fade-in duration-300">
+                <div className="pointer-events-auto absolute bottom-6 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-[#1a1a1a]/90 border border-white/10 rounded-2xl p-2 backdrop-blur-md shadow-2xl animate-in slide-in-from-bottom-5 fade-in duration-300">
                     <div className="flex items-center gap-2 pl-2 border-r border-white/10 pr-4">
                         <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">
                             {(activeProps.type === 'polygon' || activeProps.type === 'rect') ? 'RECTANGLE' : activeProps.type || 'Element'}
@@ -83,12 +91,16 @@ const SitacEditControls: React.FC<SitacEditControlsProps> = ({
 
                     {/* Color */}
                     <div className="flex items-center gap-1 bg-white/5 rounded-lg border border-white/5 p-1">
-                        <input
-                            type="color"
-                            value={activeProps.color || '#3b82f6'}
-                            onChange={(e) => handleColorChange(e.target.value)}
-                            className="w-5 h-5 rounded cursor-pointer bg-transparent border-0 p-0"
-                        />
+                        {COLOR_OPTIONS.map((color) => (
+                            <button
+                                key={color}
+                                onClick={() => handleColorChange(color)}
+                                style={{ backgroundColor: color }}
+                                className={`w-5 h-5 rounded border ${activeColor === color ? 'border-white' : 'border-white/20'
+                                    }`}
+                                aria-label={`Couleur ${color}`}
+                            />
+                        ))}
                     </div>
 
                     <div className="w-px h-6 bg-white/10 mx-1" />
@@ -97,7 +109,17 @@ const SitacEditControls: React.FC<SitacEditControlsProps> = ({
                     {activeProps.type !== 'text' && activeProps.type !== 'symbol' && (
                         <select
                             value={activeProps.lineStyle || 'solid'}
-                            onChange={(e) => isFabric ? updateFabricObject({ lineStyle: e.target.value as any }) : null}
+                            onChange={(e) => {
+                                const nextStyle = e.target.value as any;
+                                if (isFabric) {
+                                    updateFabricObject({ lineStyle: nextStyle });
+                                } else if (selectedFeature) {
+                                    updateFeature(selectedFeature.id as string, (f) => ({
+                                        ...f,
+                                        properties: { ...f.properties, lineStyle: nextStyle },
+                                    }));
+                                }
+                            }}
                             className="bg-white/5 border border-white/5 text-xs text-gray-300 rounded-lg h-7 px-1 outline-none focus:bg-white/10"
                         >
                             <option value="solid">Trait plein</option>
@@ -106,7 +128,8 @@ const SitacEditControls: React.FC<SitacEditControlsProps> = ({
                         </select>
                     )}
 
-                    <div className="w-px h-6 bg-white/10 mx-1" />                  {!isFabric && (
+                    <div className="w-px h-6 bg-white/10 mx-1" />
+                    {!isFabric && (
                         <div className="flex items-center gap-2">
                             <RotateCcw className="w-4 h-4 text-gray-400" />
                             <input
@@ -120,14 +143,11 @@ const SitacEditControls: React.FC<SitacEditControlsProps> = ({
                         </div>
                     )}
 
-                    {/* For Fabric, user uses handles for rotation/scale. */}
-
                     {/* Delete & Rotate for Fabric */}
                     {isFabric && (
                         <div className="flex items-center gap-2 border-l border-white/10 pl-2">
                             <button
                                 onClick={() => {
-                                    // Robust delete via store action
                                     useSitacStore.getState().setFabricAction({ type: 'delete' });
                                 }}
                                 className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 transition-colors"
@@ -138,7 +158,6 @@ const SitacEditControls: React.FC<SitacEditControlsProps> = ({
 
                             <button
                                 onClick={() => {
-                                    // Rotate -15 degrees
                                     const currentRot = activeProps.rotation || 0;
                                     updateFabricObject({ rotation: (currentRot - 15) % 360 });
                                 }}
@@ -150,7 +169,6 @@ const SitacEditControls: React.FC<SitacEditControlsProps> = ({
 
                             <button
                                 onClick={() => {
-                                    // Rotate +15 degrees
                                     const currentRot = activeProps.rotation || 0;
                                     updateFabricObject({ rotation: (currentRot + 15) % 360 });
                                 }}
@@ -164,35 +182,97 @@ const SitacEditControls: React.FC<SitacEditControlsProps> = ({
                 </div>
             )}
 
-            {/* Global Bottom Bar (Snapshots & Export) */}
-            <div className="flex items-center justify-between w-full">
-                {/* Snapshots Mini-Gallery */}
-                <div className="flex gap-2 bg-black/50 p-1.5 rounded-xl border border-white/5 backdrop-blur-sm">
-                    <button
-                        onClick={handleSnapshot}
-                        className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white border border-white/10 transition"
-                        title="Prendre un snapshot"
-                    >
-                        <Camera className="w-4 h-4" />
-                    </button>
-                    {snapshots.map((snap, i) => (
-                        <button
-                            key={snap.id}
-                            onClick={() => restoreSnapshot(snap)}
-                            className="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-[10px] text-gray-300"
-                        >
-                            Snap {i + 1}
-                        </button>
-                    ))}
-                </div>
-
-                <button
-                    onClick={handleExport}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600/90 hover:bg-blue-600 rounded-xl text-white text-xs font-semibold shadow-lg backdrop-blur-sm transition-all hover:scale-105"
+            {/* Right Bar (Save / Export / Fullscreen) */}
+            <div className="pointer-events-auto absolute top-4 right-4 flex items-center gap-2">
+                <div
+                    className={`relative flex items-center gap-2 rounded-2xl px-2 py-2 transition-all duration-300 ${isRightCollapsed
+                        ? 'w-16 bg-white/10 border border-white/25 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl backdrop-saturate-150 overflow-hidden'
+                        : 'bg-white/10 border border-white/20 shadow-[0_8px_24px_rgba(0,0,0,0.25)] backdrop-blur-xl backdrop-saturate-150'
+                        }`}
                 >
-                    <Download className="w-3 h-3" />
-                    Export
-                </button>
+                    {isRightCollapsed && (
+                        <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-white/35 via-white/10 to-transparent opacity-70" />
+                    )}
+                    <div className={`relative z-10 flex items-center gap-2 ${isRightCollapsed ? 'w-full justify-center' : ''}`}>
+                        <button
+                            onClick={() => {
+                                setIsExportOpen(false);
+                                setIsRightCollapsed((prev) => !prev);
+                            }}
+                            className={`p-2 rounded-lg border transition-colors ${isRightCollapsed
+                                ? 'bg-black/80 border-white/40 text-white shadow-[0_10px_28px_rgba(0,0,0,0.5)] hover:bg-black/90'
+                                : 'bg-black/45 border-white/25 text-white shadow-[0_6px_16px_rgba(0,0,0,0.35)] hover:bg-black/55'
+                                }`}
+                            aria-label={isRightCollapsed ? 'Afficher la barre de droite' : 'Masquer la barre de droite'}
+                            title={isRightCollapsed ? 'Afficher la barre de droite' : 'Masquer la barre de droite'}
+                        >
+                            {isRightCollapsed ? <ChevronLeft className="w-5 h-5" /> : <ChevronRight className="w-4 h-4" />}
+                        </button>
+                        {!isRightCollapsed && (
+                            <>
+                                <div className="relative">
+                                    <button
+                                        onClick={() => {
+                                            setIsExportOpen((prev) => !prev);
+                                        }}
+                                        className="flex items-center gap-2 px-4 py-2 bg-blue-600/90 hover:bg-blue-600 rounded-xl text-white text-xs font-semibold shadow-[0_6px_18px_rgba(0,0,0,0.4)] backdrop-blur-sm transition-all hover:scale-105"
+                                        aria-label="Exporter"
+                                    >
+                                        <Download className="w-3 h-3" />
+                                        Export
+                                        <ChevronDown className="w-3 h-3 opacity-80" />
+                                    </button>
+                                    {isExportOpen && (
+                                        <div className="absolute right-0 top-full mt-2 w-48 bg-gray-900/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl p-1 flex flex-col gap-1">
+                                            <button
+                                                onClick={() => {
+                                                    onExportImage?.();
+                                                    setIsExportOpen(false);
+                                                }}
+                                                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-200 hover:bg-white/10 rounded-lg transition-colors text-left"
+                                            >
+                                                <ImageIcon className="w-4 h-4 text-blue-400" />
+                                                Exporter image
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    (onExportPDF || handleExport)();
+                                                    setIsExportOpen(false);
+                                                }}
+                                                className="flex items-center gap-2 px-3 py-2 text-sm text-gray-200 hover:bg-white/10 rounded-lg transition-colors text-left"
+                                            >
+                                                <FileText className="w-4 h-4 text-orange-400" />
+                                                Exporter PDF
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                                <button
+                                    onClick={onToggleFullscreen}
+                                    className="flex items-center gap-2 px-3 py-2 bg-black/45 hover:bg-black/55 border border-white/25 rounded-xl text-white text-xs font-semibold shadow-[0_6px_18px_rgba(0,0,0,0.35)] backdrop-blur-sm transition-all hover:scale-105"
+                                    title={isFullscreen ? 'Quitter le plein écran' : 'Plein écran'}
+                                    aria-label={isFullscreen ? 'Quitter le plein écran' : 'Plein écran'}
+                                >
+                                    {isFullscreen ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
+                                    {isFullscreen ? 'Quitter' : 'Plein écran'}
+                                </button>
+                                <div className="relative">
+                                    <button
+                                        onClick={() => {
+                                            setIsExportOpen(false);
+                                            onSnapshot?.();
+                                        }}
+                                        className="p-2 bg-black/45 hover:bg-black/55 text-white border border-white/25 rounded-xl shadow-[0_6px_18px_rgba(0,0,0,0.35)] backdrop-blur-sm transition-all hover:scale-105"
+                                        aria-label="Snapshot"
+                                        title="Snapshot"
+                                    >
+                                        <Camera className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
             </div>
         </div>
     );

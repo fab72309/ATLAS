@@ -407,7 +407,7 @@ const OperationalZoning = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#0A0A0A] relative overflow-hidden">
+    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 dark:bg-[#0A0A0A] dark:text-white relative overflow-hidden">
       {/* Background Ambient Glow */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-900/10 rounded-full blur-[120px]" />
@@ -452,14 +452,14 @@ const OperationalZoning = () => {
         </div>
 
         <div className="flex-1 flex flex-col px-4 pb-4">
-          <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400 mb-6 text-center animate-fade-in-down">
+          <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-slate-900 to-slate-500 dark:from-white dark:to-gray-400 mb-6 text-center animate-fade-in-down">
             Zonage opérationnel
           </h1>
 
           <div className="w-full max-w-4xl mx-auto mb-6 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
             <div className="relative group">
               {isGeolocating && (
-                <div className="absolute -top-10 left-0 right-0 text-center text-white text-sm bg-black/60 backdrop-blur-md py-2 px-4 rounded-xl border border-white/10 mx-auto w-fit">
+                <div className="absolute -top-10 left-0 right-0 text-center text-slate-900 dark:text-white text-sm bg-white/80 dark:bg-black/60 backdrop-blur-md py-2 px-4 rounded-xl border border-slate-200 dark:border-white/10 mx-auto w-fit">
                   <div className="flex items-center justify-center gap-2">
                     <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
                     Recherche de votre position...
@@ -473,13 +473,13 @@ const OperationalZoning = () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 placeholder="Rechercher une adresse..."
-                className={`w-full px-6 py-4 pr-14 rounded-2xl bg-[#151515] border border-white/10 text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500/50 focus:bg-[#1A1A1A] transition-all duration-300 shadow-lg ${error ? 'border-red-500/50 focus:border-red-500' : ''
+                className={`w-full px-6 py-4 pr-14 rounded-2xl bg-white/90 dark:bg-[#151515] border border-slate-200 dark:border-white/10 text-slate-800 dark:text-gray-200 placeholder-slate-500 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500/50 dark:focus:bg-[#1A1A1A] transition-all duration-300 shadow-lg ${error ? 'border-red-500/50 focus:border-red-500' : ''
                   }`}
               />
               <button
                 onClick={handleSearch}
                 disabled={isLoading}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-gray-400 hover:text-white transition-all duration-200"
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-2.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-xl text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition-all duration-200"
               >
                 {isLoading ? (
                   <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
@@ -505,8 +505,8 @@ const OperationalZoning = () => {
             <button
               onClick={() => changeMapLayer('street')}
               className={`px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition-all duration-200 ${currentLayer === 'street'
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
-                : 'bg-[#151515] border border-white/10 text-gray-400 hover:bg-[#1A1A1A] hover:text-white'
+                ? 'bg-blue-600 text-white shadow-lg shadow-red-500/30'
+                : 'bg-white/90 border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:bg-[#151515] dark:border-white/10 dark:text-gray-400 dark:hover:bg-[#1A1A1A] dark:hover:text-white'
                 }`}
             >
               <Layers className="w-4 h-4" />
@@ -515,8 +515,8 @@ const OperationalZoning = () => {
             <button
               onClick={() => changeMapLayer('satellite')}
               className={`px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition-all duration-200 ${currentLayer === 'satellite'
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
-                : 'bg-[#151515] border border-white/10 text-gray-400 hover:bg-[#1A1A1A] hover:text-white'
+                ? 'bg-blue-600 text-white shadow-lg shadow-red-500/30'
+                : 'bg-white/90 border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:bg-[#151515] dark:border-white/10 dark:text-gray-400 dark:hover:bg-[#1A1A1A] dark:hover:text-white'
                 }`}
             >
               <Layers className="w-4 h-4" />
@@ -525,8 +525,8 @@ const OperationalZoning = () => {
             <button
               onClick={() => changeMapLayer('hybrid')}
               className={`px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition-all duration-200 ${currentLayer === 'hybrid'
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
-                : 'bg-[#151515] border border-white/10 text-gray-400 hover:bg-[#1A1A1A] hover:text-white'
+                ? 'bg-blue-600 text-white shadow-lg shadow-red-500/30'
+                : 'bg-white/90 border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:bg-[#151515] dark:border-white/10 dark:text-gray-400 dark:hover:bg-[#1A1A1A] dark:hover:text-white'
                 }`}
             >
               <Layers className="w-4 h-4" />
@@ -548,11 +548,11 @@ const OperationalZoning = () => {
 
           <button
             onClick={() => setIsShareOpen(true)}
-            className="absolute top-6 right-6 z-20 bg-[#151515]/90 backdrop-blur-md border border-white/10 p-3 rounded-xl shadow-lg hover:bg-[#1A1A1A] hover:scale-105 transition-all duration-200 group"
+            className="absolute top-6 right-6 z-20 bg-white/90 dark:bg-[#151515]/90 backdrop-blur-md border border-slate-200 dark:border-white/10 p-3 rounded-xl shadow-lg hover:bg-slate-100 dark:hover:bg-[#1A1A1A] hover:scale-105 transition-all duration-200 group"
           >
-            <Share2 className="w-5 h-5 text-gray-400 group-hover:text-white" />
+            <Share2 className="w-5 h-5 text-slate-600 dark:text-gray-400 group-hover:text-slate-900 dark:group-hover:text-white" />
           </button>
-          <div className="flex-1 w-full max-w-4xl mx-auto rounded-2xl overflow-hidden border border-white/10 shadow-2xl animate-fade-in-down" style={{ animationDelay: '0.3s' }}>
+          <div className="flex-1 w-full max-w-4xl mx-auto rounded-2xl overflow-hidden border border-slate-200 dark:border-white/10 shadow-2xl animate-fade-in-down" style={{ animationDelay: '0.3s' }}>
             <div className="relative">
               <MapContainer
                 ref={mapRef}
@@ -621,66 +621,66 @@ const OperationalZoning = () => {
               </MapContainer>
             </div>
 
-            <div className="mt-4 bg-[#151515] border border-white/10 rounded-2xl p-6 shadow-xl animate-fade-in-down" style={{ animationDelay: '0.4s' }}>
+            <div className="mt-4 bg-white/90 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl p-6 shadow-xl animate-fade-in-down" style={{ animationDelay: '0.4s' }}>
               <div className="grid grid-cols-1 md:grid-cols-[2fr,1fr] gap-8">
                 <div className="space-y-6">
                   <div className="flex items-center gap-4">
-                    <h3 className="text-gray-300 font-medium w-36">Zone d'exclusion</h3>
+                    <h3 className="text-slate-700 dark:text-gray-300 font-medium w-36">Zone d'exclusion</h3>
                     <div className="flex items-center gap-3 flex-1">
                       <button
                         onClick={() => adjustRadius(false, 'exclusion')}
-                        className="p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors border border-white/5"
+                        className="p-2 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg transition-colors border border-slate-200 dark:border-white/5"
                         title="Réduire le périmètre"
                       >
-                        <Minus className="w-5 h-5 text-gray-400 group-hover:text-white" />
+                        <Minus className="w-5 h-5 text-slate-600 dark:text-gray-400 group-hover:text-slate-900 dark:group-hover:text-white" />
                       </button>
-                      <div className="w-24 text-center font-bold text-white text-lg">
+                      <div className="w-24 text-center font-bold text-slate-900 dark:text-white text-lg">
                         {exclusionRadius} m
                       </div>
                       <button
                         onClick={() => adjustRadius(true, 'exclusion')}
-                        className="p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors border border-white/5"
+                        className="p-2 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg transition-colors border border-slate-200 dark:border-white/5"
                         title="Augmenter le périmètre"
                       >
-                        <Plus className="w-5 h-5 text-gray-400 group-hover:text-white" />
+                        <Plus className="w-5 h-5 text-slate-600 dark:text-gray-400 group-hover:text-slate-900 dark:group-hover:text-white" />
                       </button>
                       <button
                         onClick={() => setVisibleZones(prev => ({ ...prev, exclusion: !prev.exclusion }))}
                         className={`ml-auto px-4 py-1.5 rounded-lg transition-all duration-200 ${visibleZones.exclusion
                           ? 'bg-red-500/20 border border-red-500/30'
-                          : 'bg-white/5 border border-white/5'
+                          : 'bg-slate-200 border border-slate-200 dark:bg-white/5 dark:border-white/5'
                           }`}
                       >
-                        <div className={`w-3 h-3 rounded-full ${visibleZones.exclusion ? 'bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]' : 'bg-gray-600'}`}></div>
+                        <div className={`w-3 h-3 rounded-full ${visibleZones.exclusion ? 'bg-red-500 shadow-[0_0_4px_rgba(59,130,246,0.6),0_0_10px_rgba(239,68,68,0.55)]' : 'bg-gray-600'}`}></div>
                       </button>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-4">
-                    <h3 className="text-gray-300 font-medium w-36">Zone contrôlée</h3>
+                    <h3 className="text-slate-700 dark:text-gray-300 font-medium w-36">Zone contrôlée</h3>
                     <div className="flex items-center gap-3 flex-1">
                       <button
                         onClick={() => adjustRadius(false, 'controlled')}
-                        className="p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors border border-white/5"
+                        className="p-2 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg transition-colors border border-slate-200 dark:border-white/5"
                         title="Réduire le périmètre"
                       >
-                        <Minus className="w-5 h-5 text-gray-400" />
+                        <Minus className="w-5 h-5 text-slate-600 dark:text-gray-400" />
                       </button>
-                      <div className="w-24 text-center font-bold text-white text-lg">
+                      <div className="w-24 text-center font-bold text-slate-900 dark:text-white text-lg">
                         {controlledRadius} m
                       </div>
                       <button
                         onClick={() => adjustRadius(true, 'controlled')}
-                        className="p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors border border-white/5"
+                        className="p-2 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg transition-colors border border-slate-200 dark:border-white/5"
                         title="Augmenter le périmètre"
                       >
-                        <Plus className="w-5 h-5 text-gray-400" />
+                        <Plus className="w-5 h-5 text-slate-600 dark:text-gray-400" />
                       </button>
                       <button
                         onClick={() => setVisibleZones(prev => ({ ...prev, controlled: !prev.controlled }))}
                         className={`ml-auto px-4 py-1.5 rounded-lg transition-all duration-200 ${visibleZones.controlled
                           ? 'bg-orange-500/20 border border-orange-500/30'
-                          : 'bg-white/5 border border-white/5'
+                          : 'bg-slate-200 border border-slate-200 dark:bg-white/5 dark:border-white/5'
                           }`}
                       >
                         <div className={`w-3 h-3 rounded-full ${visibleZones.controlled ? 'bg-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.5)]' : 'bg-gray-600'}`}></div>
@@ -689,30 +689,30 @@ const OperationalZoning = () => {
                   </div>
 
                   <div className="flex items-center gap-4">
-                    <h3 className="text-gray-300 font-medium w-36">Zone de soutien</h3>
+                    <h3 className="text-slate-700 dark:text-gray-300 font-medium w-36">Zone de soutien</h3>
                     <div className="flex items-center gap-3 flex-1">
                       <button
                         onClick={() => adjustRadius(false, 'support')}
-                        className="p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors border border-white/5"
+                        className="p-2 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg transition-colors border border-slate-200 dark:border-white/5"
                         title="Réduire le périmètre"
                       >
-                        <Minus className="w-5 h-5 text-gray-400" />
+                        <Minus className="w-5 h-5 text-slate-600 dark:text-gray-400" />
                       </button>
-                      <div className="w-24 text-center font-bold text-white text-lg">
+                      <div className="w-24 text-center font-bold text-slate-900 dark:text-white text-lg">
                         {supportRadius} m
                       </div>
                       <button
                         onClick={() => adjustRadius(true, 'support')}
-                        className="p-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors border border-white/5"
+                        className="p-2 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg transition-colors border border-slate-200 dark:border-white/5"
                         title="Augmenter le périmètre"
                       >
-                        <Plus className="w-5 h-5 text-gray-400" />
+                        <Plus className="w-5 h-5 text-slate-600 dark:text-gray-400" />
                       </button>
                       <button
                         onClick={() => setVisibleZones(prev => ({ ...prev, support: !prev.support }))}
                         className={`ml-auto px-4 py-1.5 rounded-lg transition-all duration-200 ${visibleZones.support
                           ? 'bg-green-500/20 border border-green-500/30'
-                          : 'bg-white/5 border border-white/5'
+                          : 'bg-slate-200 border border-slate-200 dark:bg-white/5 dark:border-white/5'
                           }`}
                       >
                         <div className={`w-3 h-3 rounded-full ${visibleZones.support ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-gray-600'}`}></div>
@@ -722,46 +722,46 @@ const OperationalZoning = () => {
                 </div>
 
                 {weather ? (
-                  <div className="border-l border-white/10 pl-8 space-y-4">
+                  <div className="border-l border-slate-200 dark:border-white/10 pl-8 space-y-4">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-500/10 rounded-lg">
-                        <Thermometer className="w-5 h-5 text-blue-400" />
+                      <div className="p-2 bg-blue-100 dark:bg-blue-500/10 rounded-lg">
+                        <Thermometer className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                       </div>
                       <div>
-                        <p className="text-xs text-blue-400 font-medium">Température</p>
-                        <p className="text-xl font-bold text-gray-200">{weather.temperature}°C</p>
+                        <p className="text-xs text-blue-600 dark:text-blue-400 font-medium">Température</p>
+                        <p className="text-xl font-bold text-slate-800 dark:text-gray-200">{weather.temperature}°C</p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-orange-500/10 rounded-lg">
+                      <div className="p-2 bg-orange-100 dark:bg-orange-500/10 rounded-lg">
                         <Wind
-                          className="w-5 h-5 text-orange-400"
+                          className="w-5 h-5 text-orange-600 dark:text-orange-400"
                           style={{ transform: `rotate(${weather.windDirection}deg)` }}
                         />
                       </div>
                       <div>
-                        <p className="text-xs text-orange-400 font-medium">Vent</p>
-                        <p className="text-xl font-bold text-gray-200">{weather.windSpeed} km/h</p>
-                        <p className="text-xs text-orange-400/80">Direction: {getCardinalDirection(weather.windDirection)} ({weather.windDirection}°)</p>
+                        <p className="text-xs text-orange-600 dark:text-orange-400 font-medium">Vent</p>
+                        <p className="text-xl font-bold text-slate-800 dark:text-gray-200">{weather.windSpeed} km/h</p>
+                        <p className="text-xs text-orange-500/80 dark:text-orange-400/80">Direction: {getCardinalDirection(weather.windDirection)} ({weather.windDirection}°)</p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-green-500/10 rounded-lg">
-                        <Droplets className="w-5 h-5 text-green-400" />
+                      <div className="p-2 bg-green-100 dark:bg-green-500/10 rounded-lg">
+                        <Droplets className="w-5 h-5 text-green-600 dark:text-green-400" />
                       </div>
                       <div>
-                        <p className="text-xs text-green-400 font-medium">Humidité</p>
-                        <p className="text-xl font-bold text-gray-200">{weather.humidity}%</p>
+                        <p className="text-xs text-green-600 dark:text-green-400 font-medium">Humidité</p>
+                        <p className="text-xl font-bold text-slate-800 dark:text-gray-200">{weather.humidity}%</p>
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="border-l border-white/10 pl-8 flex items-center justify-center">
-                    <div className="text-center p-4 bg-white/5 rounded-xl border border-white/5">
-                      <MapPin className="w-8 h-8 mx-auto mb-2 text-gray-500" />
-                      <p className="text-gray-400 text-xs">
+                  <div className="border-l border-slate-200 dark:border-white/10 pl-8 flex items-center justify-center">
+                    <div className="text-center p-4 bg-slate-100 dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/5">
+                      <MapPin className="w-8 h-8 mx-auto mb-2 text-slate-500 dark:text-gray-500" />
+                      <p className="text-slate-600 dark:text-gray-400 text-xs">
                         Cliquez sur la carte pour afficher les données météorologiques
                       </p>
                     </div>

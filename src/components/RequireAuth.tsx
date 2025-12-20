@@ -8,10 +8,10 @@ const RequireAuth = ({ children }: { children: React.ReactElement }) => {
 
   if (initializing) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0A0A0A] text-white">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-900 dark:bg-[#0A0A0A] dark:text-white">
         <div className="text-center space-y-3">
           <div className="animate-pulse text-xl font-semibold">Connexion...</div>
-          <div className="text-sm text-gray-400">Vérification de la session en cours</div>
+          <div className="text-sm text-slate-600 dark:text-gray-400">Vérification de la session en cours</div>
         </div>
       </div>
     );

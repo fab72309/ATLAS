@@ -4,6 +4,7 @@ import App from './App.tsx';
 import './index.css';
 import { initAnalytics } from './utils/firebase';
 import { AuthProvider } from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 
 // Ensure HashRouter has a starting hash on iOS WebView (Capacitor) to prevent blank screen
 if (!window.location.hash) {
@@ -34,8 +35,10 @@ initAnalytics().catch((err) => {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <AuthProvider>
-      <App />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <App />
+      </AuthProvider>
+    </ThemeProvider>
   </StrictMode>
 );

@@ -795,7 +795,7 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
 
   return (
     <div
-      className={`text-white relative overflow-hidden ${embedded ? 'w-full' : 'min-h-screen bg-[#0A0A0A]'}`}
+      className={`text-slate-900 dark:text-white relative overflow-hidden ${embedded ? 'w-full' : 'min-h-screen bg-slate-50 dark:bg-[#0A0A0A]'}`}
     >
       {!embedded && (
         <>
@@ -814,13 +814,13 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
           <div className="flex flex-wrap gap-3">
             <button
               onClick={handleReset}
-              className="px-4 py-3 rounded-2xl bg-black/40 hover:bg-black/60 border border-white/15 flex items-center gap-2 transition"
+              className="px-4 py-3 rounded-2xl bg-black/40 hover:bg-black/60 border border-white/15 text-white flex items-center gap-2 transition"
             >
               <RefreshCw className="w-4 h-4" /> Réinitialiser
             </button>
             <button
               onClick={handleExportPdf}
-              className="px-4 py-3 rounded-2xl bg-blue-600/80 hover:bg-blue-600 border border-blue-400/60 flex items-center gap-2 transition"
+              className="px-4 py-3 rounded-2xl bg-blue-600/80 hover:bg-blue-600 border border-blue-400/60 text-white flex items-center gap-2 transition"
             >
               <Download className="w-4 h-4" /> Exporter en PDF
             </button>

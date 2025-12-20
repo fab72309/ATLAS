@@ -47,6 +47,24 @@ const flagIfMonochrome = (img: fabric.FabricImage) => {
     return (img as any).colorizable === true;
 };
 
+const getDashArrayForStyle = (style?: string | null) => {
+    switch (style) {
+        case 'dashed':
+            return [12, 8];
+        case 'dot-dash':
+            return [12, 6, 2, 6];
+        case 'solid':
+        default:
+            return [];
+    }
+};
+
+const getLineStyleFromDash = (dash?: number[] | null) => {
+    if (!dash || dash.length === 0) return 'solid';
+    if (dash.length >= 4) return 'dot-dash';
+    return 'dashed';
+};
+
 const setBaseTransform = (obj: fabric.Object, map: maplibregl.Map | null) => {
     if (!map) return;
     (obj as any).baseZoom = (obj as any).baseZoom ?? map.getZoom();
@@ -115,22 +133,20 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                         (img as any).baseZoom = properties.baseZoom ?? map.getZoom();
                         setBaseTransform(img, map);
 
-                    (img as any).colorizable = properties.colorizable;
-                    (img as any).iconName = properties.iconName;
+                        (img as any).colorizable = properties.colorizable;
+                        (img as any).iconName = properties.iconName;
 
                         flagIfMonochrome(img);
 
-                        if (properties.color && properties.colorizable === true) {
-                            const filter = new fabric.filters.BlendColor({
-                                color: properties.color,
-                                mode: 'tint',
-                                alpha: 1
-                            });
-                            img.filters = [filter];
-                            img.applyFilters();
-                        } else {
-                            img.filters = [];
-                        }
+                        const symbolColor = properties.color || '#ef4444';
+                        const filter = new fabric.filters.BlendColor({
+                            color: symbolColor,
+                            mode: 'tint',
+                            alpha: 1
+                        });
+                        img.filters = [filter];
+                        img.applyFilters();
+                        (img as any).colorizable = true;
 
                         canvas.add(img);
                         canvas.renderAll();
@@ -147,7 +163,8 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                     originX: 'center', originY: 'center',
                     fill: properties.color + '40' || '#3b82f640',
                     stroke: properties.color || '#3b82f6',
-                    strokeWidth: properties.strokeWidth || 2
+                    strokeWidth: properties.strokeWidth || 2,
+                    strokeDashArray: getDashArrayForStyle(properties.lineStyle)
                 });
                 (obj as any).baseZoom = properties.baseZoom ?? map.getZoom();
                 setBaseTransform(obj, map);
@@ -161,6 +178,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                         fill: properties.color + '40' || '#3b82f640',
                         stroke: properties.color || '#3b82f6',
                         strokeWidth: properties.strokeWidth || 2,
+                        strokeDashArray: getDashArrayForStyle(properties.lineStyle),
                         objectCaching: false,
                         angle: properties.rotation || 0,
                     });
@@ -173,6 +191,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                         fill: properties.color + '40' || '#3b82f640',
                         stroke: properties.color || '#3b82f6',
                         strokeWidth: properties.strokeWidth || 2,
+                        strokeDashArray: getDashArrayForStyle(properties.lineStyle),
                         angle: properties.rotation || 0,
                     });
                     (obj as any).baseZoom = properties.baseZoom ?? map.getZoom();
@@ -188,6 +207,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                     stroke: properties.color || '#3b82f6',
                     strokeWidth: properties.strokeWidth || 4,
                     strokeLineCap: 'round',
+                    strokeDashArray: getDashArrayForStyle(properties.lineStyle),
                     angle: properties.rotation || 0,
                 });
                 (obj as any).baseZoom = properties.baseZoom ?? map.getZoom();
@@ -200,6 +220,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                     stroke: properties.color || '#3b82f6',
                     strokeWidth: properties.strokeWidth || 4,
                     strokeLineCap: 'round',
+                    strokeDashArray: getDashArrayForStyle(properties.lineStyle),
                 });
                 const head = new fabric.Triangle({
                     width: 14,
@@ -233,6 +254,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                     strokeWidth: properties.strokeWidth || 4,
                     strokeLineCap: 'round',
                     strokeLineJoin: 'round',
+                    strokeDashArray: getDashArrayForStyle(properties.lineStyle),
                     objectCaching: false,
                 });
                 if (properties.scaleX) obj.set({ scaleX: properties.scaleX });
@@ -302,6 +324,8 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                     path.geoPosition = { lng: lngLat.lng, lat: lngLat.lat };
 
             setBaseTransform(path, map);
+            const currentLineStyle = useSitacStore.getState().lineStyle;
+            path.set({ strokeDashArray: getDashArrayForStyle(currentLineStyle) });
 
             // Trigger persistence
             canvas.fire('object:modified', { target: path });
@@ -356,6 +380,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
             canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
             canvas.freeDrawingBrush.color = drawingColor;
             canvas.freeDrawingBrush.width = 4;
+            canvas.freeDrawingBrush.strokeDashArray = getDashArrayForStyle(lineStyle);
             canvas.selection = false;
         } else if (mode === 'select') {
             // Fabric default selection
@@ -385,7 +410,11 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                     // Finalize the previous line segment
                     const lastPoint = points[points.length - 2];
                     const line = new fabric.Line([lastPoint.x, lastPoint.y, pointer.x, pointer.y], {
-                        stroke: drawingColor, strokeWidth: 2, selectable: false, evented: false
+                        stroke: drawingColor,
+                        strokeWidth: 2,
+                        strokeDashArray: getDashArrayForStyle(lineStyle),
+                        selectable: false,
+                        evented: false
                     });
                     lines.push(line);
                     canvas.add(line);
@@ -411,7 +440,12 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                 }
 
                 activeLine = new fabric.Line([lastPoint.x, lastPoint.y, pointer.x, pointer.y], {
-                    stroke: drawingColor, strokeWidth: 2, strokeDashArray: [5, 5], selectable: false, evented: false, opacity: 0.7
+                    stroke: drawingColor,
+                    strokeWidth: 2,
+                    strokeDashArray: getDashArrayForStyle(lineStyle),
+                    selectable: false,
+                    evented: false,
+                    opacity: 0.7
                 });
                 canvas.add(activeLine);
                 canvas.requestRenderAll();
@@ -440,6 +474,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                     fill: 'transparent',
                     stroke: drawingColor,
                     strokeWidth: 2,
+                    strokeDashArray: getDashArrayForStyle(lineStyle),
                     objectCaching: false
                 });
 
@@ -470,6 +505,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
             let activeObj: fabric.Object | null = null;
             let arrowHead: fabric.Triangle | null = null;
             const strokeWidth = 4;
+            const dashArray = getDashArrayForStyle(lineStyle);
 
             canvas.on('mouse:down', (o) => {
                 isDown = true;
@@ -480,7 +516,8 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                     activeObj = new fabric.Line([pointer.x, pointer.y, pointer.x, pointer.y], {
                         stroke: drawingColor,
                         strokeWidth,
-                        strokeLineCap: 'round'
+                        strokeLineCap: 'round',
+                        strokeDashArray: dashArray
                     });
                     if (map) setBaseTransform(activeObj, map);
                 } else if (mode === 'draw_arrow') {
@@ -488,6 +525,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                         stroke: drawingColor,
                         strokeWidth,
                         strokeLineCap: 'round',
+                        strokeDashArray: dashArray,
                         selectable: false,
                         evented: false,
                     });
@@ -510,7 +548,9 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                         left: pointer.x, top: pointer.y,
                         width: 0, height: 0,
                         fill: 'transparent',
-                        stroke: drawingColor, strokeWidth: 2,
+                        stroke: drawingColor,
+                        strokeWidth: 2,
+                        strokeDashArray: dashArray,
                     });
                     if (map) setBaseTransform(activeObj, map);
                 } else if (mode === 'draw_circle') {
@@ -518,7 +558,9 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                         left: pointer.x, top: pointer.y,
                         radius: 0, originX: 'center', originY: 'center',
                         fill: drawingColor + '40',
-                        stroke: drawingColor, strokeWidth: 2
+                        stroke: drawingColor,
+                        strokeWidth: 2,
+                        strokeDashArray: dashArray,
                     });
                     if (map) setBaseTransform(activeObj, map);
                 }
@@ -578,6 +620,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                         stroke: drawingColor,
                         strokeWidth,
                         strokeLineCap: 'round',
+                        strokeDashArray: dashArray,
                     });
                     const head = new fabric.Triangle({
                         width: 14,
@@ -673,23 +716,18 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                         setBaseTransform(img, map);
                     }
                     // Attach metadata
-                    const autoColorizable =
-                        activeSymbol.colorizable === true || flagIfMonochrome(img);
-                    (img as any).colorizable = autoColorizable;
+                    flagIfMonochrome(img);
+                    (img as any).colorizable = true;
                     (img as any).iconName = activeSymbol.id;
 
-                    // Tint only B&W assets
-                    if (autoColorizable === true && drawingColor) {
-                        const filter = new fabric.filters.BlendColor({
-                            color: drawingColor,
-                            mode: 'tint',
-                            alpha: 1
-                        });
-                        img.filters = [filter];
-                        img.applyFilters();
-                    } else {
-                        img.filters = [];
-                    }
+                    const symbolColor = drawingColor || '#ef4444';
+                    const filter = new fabric.filters.BlendColor({
+                        color: symbolColor,
+                        mode: 'tint',
+                        alpha: 1
+                    });
+                    img.filters = [filter];
+                    img.applyFilters();
 
                     canvas.add(img);
                     canvas.setActiveObject(img);
@@ -700,7 +738,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                 }
             });
         }
-    }, [mode, drawingColor, map, activeSymbol]);
+    }, [mode, drawingColor, lineStyle, map, activeSymbol]);
 
     // Handle Drop
     const handleDrop = async (e: React.DragEvent) => {
@@ -734,9 +772,8 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
             img.scaleToWidth(50);
 
             // Attach metadata
-            const autoColorizable =
-                asset.colorizable === true || flagIfMonochrome(img);
-            (img as any).colorizable = autoColorizable;
+            flagIfMonochrome(img);
+            (img as any).colorizable = true;
             (img as any).iconName = asset.id;
 
             if (map) {
@@ -745,18 +782,14 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                 setBaseTransform(img, map);
             }
 
-            // Tint only B&W assets
-            if (asset.colorizable === true && drawingColor) {
-                const filter = new fabric.filters.BlendColor({
-                    color: drawingColor,
-                    mode: 'tint',
-                    alpha: 1
-                });
-                img.filters = [filter];
-                img.applyFilters();
-            } else {
-                img.filters = [];
-            }
+            const symbolColor = drawingColor || '#ef4444';
+            const filter = new fabric.filters.BlendColor({
+                color: symbolColor,
+                mode: 'tint',
+                alpha: 1
+            });
+            img.filters = [filter];
+            img.applyFilters();
 
             canvas.add(img);
             canvas.setActiveObject(img);
@@ -811,9 +844,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                     const lineChild = (active as any)._objects?.find((c: any) => c instanceof fabric.Line) as fabric.Line | undefined;
                     dash = lineChild?.strokeDashArray;
                 }
-                let style: any = 'solid';
-                if (dash && dash.length === 2) style = 'dashed';
-                if (dash && dash.length === 4) style = 'dot-dash';
+                const style = getLineStyleFromDash(dash);
 
                 useSitacStore.setState({
                     selectedFabricProperties: {
@@ -893,12 +924,14 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                     properties.type = 'circle';
                     properties.radius = (obj as fabric.Circle).radius! * (obj.scaleX || 1);
                     properties.strokeWidth = obj.strokeWidth;
+                    properties.lineStyle = getLineStyleFromDash(obj.strokeDashArray);
                 } else if (obj instanceof fabric.Rect) {
                     geometry = { type: 'Point', coordinates: [fabricObj.geoPosition.lng, fabricObj.geoPosition.lat] };
                     properties.type = 'polygon'; // maintain compatibility
                     properties.width = (obj as fabric.Rect).width! * (obj.scaleX || 1);
                     properties.height = (obj as fabric.Rect).height! * (obj.scaleY || 1);
                     properties.strokeWidth = obj.strokeWidth;
+                    properties.lineStyle = getLineStyleFromDash(obj.strokeDashArray);
                 } else if (obj instanceof fabric.Line) {
                     properties.type = 'line';
                     properties.strokeWidth = obj.strokeWidth;
@@ -907,6 +940,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                         Math.pow(((obj as fabric.Line).y2 || 0) - ((obj as fabric.Line).y1 || 0), 2)
                     );
                     properties.color = obj.stroke;
+                    properties.lineStyle = getLineStyleFromDash(obj.strokeDashArray);
                     geometry = { type: 'Point', coordinates: [fabricObj.geoPosition.lng, fabricObj.geoPosition.lat] };
                 } else if (obj instanceof fabric.Group && (obj as any).isArrow) {
                     const lineChild = (obj as any)._objects?.find((c: any) => c instanceof fabric.Line) as fabric.Line | undefined;
@@ -917,12 +951,14 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                         : obj.width || 80;
                     properties.length = (obj as any).arrowLength ?? derivedLength;
                     properties.color = (obj as any).strokeColor || lineChild?.stroke;
+                    properties.lineStyle = getLineStyleFromDash(lineChild?.strokeDashArray);
                     geometry = { type: 'Point', coordinates: [fabricObj.geoPosition.lng, fabricObj.geoPosition.lat] };
                 } else if (obj instanceof fabric.Polygon) {
                     properties.type = 'polygon';
                     properties.points = (obj as fabric.Polygon).points;
                     properties.strokeWidth = obj.strokeWidth;
                     properties.color = obj.stroke;
+                    properties.lineStyle = getLineStyleFromDash(obj.strokeDashArray);
                     geometry = { type: 'Point', coordinates: [fabricObj.geoPosition.lng, fabricObj.geoPosition.lat] };
                 } else if (obj instanceof fabric.Path) {
                     properties.type = 'freehand';
@@ -932,6 +968,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                     properties.scaleX = obj.scaleX;
                     properties.scaleY = obj.scaleY;
                     properties.color = obj.stroke;
+                    properties.lineStyle = getLineStyleFromDash(obj.strokeDashArray);
                 }
 
                 // If we have minimal data, push.
@@ -1027,18 +1064,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
 
             // Apply Line Style
             if (selectedFabricProperties.lineStyle) {
-                let dashArray: number[] = [];
-                switch (selectedFabricProperties.lineStyle) {
-                    case 'dashed':
-                        dashArray = [15, 10];
-                        break;
-                    case 'dot-dash':
-                        dashArray = [15, 5, 2, 5];
-                        break;
-                    case 'solid':
-                    default:
-                        dashArray = [];
-                }
+                const dashArray = getDashArrayForStyle(selectedFabricProperties.lineStyle);
                 if (active instanceof fabric.Group && (active as any).isArrow) {
                     active._objects.forEach((child) => {
                         if (child instanceof fabric.Line) {
@@ -1093,8 +1119,13 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
         if (fabricAction.type === 'delete') {
             const active = canvas.getActiveObject();
             if (active && !(active instanceof fabric.IText && (active as fabric.IText).isEditing)) {
-                canvas.remove(active);
-                canvas.discardActiveObject();
+                if (active instanceof fabric.ActiveSelection) {
+                    active.getObjects().forEach((obj) => canvas.remove(obj));
+                    canvas.discardActiveObject();
+                } else {
+                    canvas.remove(active);
+                    canvas.discardActiveObject();
+                }
                 canvas.requestRenderAll();
             }
             // Reset action
@@ -1111,8 +1142,13 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
             if (e.key === 'Delete' || e.key === 'Backspace') {
                 const active = canvas.getActiveObject();
                 if (active && !(active instanceof fabric.IText && (active as fabric.IText).isEditing)) {
-                    canvas.remove(active);
-                    canvas.discardActiveObject();
+                    if (active instanceof fabric.ActiveSelection) {
+                        active.getObjects().forEach((obj) => canvas.remove(obj));
+                        canvas.discardActiveObject();
+                    } else {
+                        canvas.remove(active);
+                        canvas.discardActiveObject();
+                    }
                     canvas.requestRenderAll();
                 }
             }

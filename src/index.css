@@ -2,6 +2,92 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  button,
+  .gyro-glow {
+    position: relative;
+    isolation: isolate;
+    transition-property: filter;
+    transition-duration: 200ms;
+    transition-timing-function: ease;
+  }
+
+  button::before,
+  .gyro-glow::before {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    border-radius: inherit;
+    background: radial-gradient(circle at center, rgba(239, 68, 68, 0) 55%, rgba(239, 68, 68, 0.06) 80%, rgba(239, 68, 68, 0) 100%);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 200ms ease;
+  }
+
+  button:hover::before,
+  button:focus-visible::before,
+  button:active::before,
+  button[aria-pressed="true"]::before,
+  button[aria-checked="true"]::before,
+  button[aria-expanded="true"]::before,
+  button[aria-selected="true"]::before,
+  button[data-active="true"]::before,
+  .gyro-glow:hover::before,
+  .gyro-glow:focus-visible::before,
+  .gyro-glow:active::before,
+  .gyro-glow[aria-pressed="true"]::before,
+  .gyro-glow[aria-checked="true"]::before,
+  .gyro-glow[aria-expanded="true"]::before,
+  .gyro-glow[aria-selected="true"]::before,
+  .gyro-glow[data-active="true"]::before {
+    opacity: 1;
+  }
+
+  button:hover,
+  button:focus-visible,
+  button:active,
+  button[aria-pressed="true"],
+  button[aria-checked="true"],
+  button[aria-expanded="true"],
+  button[aria-selected="true"],
+  button[data-active="true"],
+  .gyro-glow:hover,
+  .gyro-glow:focus-visible,
+  .gyro-glow:active,
+  .gyro-glow[aria-pressed="true"],
+  .gyro-glow[aria-checked="true"],
+  .gyro-glow[aria-expanded="true"],
+  .gyro-glow[aria-selected="true"],
+  .gyro-glow[data-active="true"] {
+    filter: drop-shadow(0 0 3px rgba(239, 68, 68, 0.06))
+      drop-shadow(0 0 6px rgba(239, 68, 68, 0.04));
+  }
+
+  button:disabled,
+  button[aria-disabled="true"] {
+    filter: none;
+  }
+
+  button:disabled::before,
+  button[aria-disabled="true"]::before {
+    opacity: 0;
+  }
+}
+
+@layer utilities {
+  .glossy-blue-icon {
+    color: #1e40af;
+    stroke-width: 1.5;
+    filter: drop-shadow(0 0 2px rgba(59, 130, 246, 0.3));
+  }
+
+  html.dark .glossy-blue-icon {
+    color: #60a5fa;
+    stroke-width: 1.5;
+    filter: drop-shadow(0 0 1px rgba(59, 130, 246, 0.25));
+  }
+}
+
 .prose {
   @apply text-sm leading-relaxed;
 }
@@ -43,7 +129,13 @@
 }
 
 body {
-  @apply bg-[#00051E];
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+html.dark body {
+  background-color: #00051e;
+  color: #ffffff;
 }
 
 .leaflet-container {

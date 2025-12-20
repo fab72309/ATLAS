@@ -3,7 +3,6 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Sparkles } from 'lucide-react';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { saveDictationData, saveCommunicationData } from '../utils/firestore';
-import CommandIcon from '../components/CommandIcon';
 import DominantSelector, { DominanteType } from '../components/DominantSelector';
 import OrdreInitialView from '../components/OrdreInitialView';
 import { OrdreInitial } from '../types/soiec';
@@ -14,6 +13,7 @@ import MeansModal, { MeanItem } from '../components/MeansModal';
 import SitacMap from './SitacMap';
 import { OctDiagram } from './OctDiagram';
 import { resetOctTree } from '../utils/octTreeStore';
+import { useSitacStore } from '../stores/useSitacStore';
 
 const generateMeanId = () => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
@@ -40,6 +40,11 @@ const DictationInput = () => {
   const [octResetKey, setOctResetKey] = useState(0);
   const [meansResetKey, setMeansResetKey] = useState(0);
   const [sitacResetKey, setSitacResetKey] = useState(0);
+  const setExternalSearch = useSitacStore((s) => s.setExternalSearch);
+  const fullAddress = React.useMemo(
+    () => [address, city].filter(Boolean).join(', '),
+    [address, city]
+  );
 
   const normalizeMeans = React.useCallback((items: any[] | undefined): MeanItem[] => {
     if (!Array.isArray(items)) return [];
@@ -65,7 +70,7 @@ const DictationInput = () => {
       return (
         <div className="flex flex-col gap-4 md:gap-5">
           <div className="flex flex-col gap-2 flex-1 min-w-[260px]">
-            <label className="text-sm font-medium text-gray-400 ml-2 mb-1 block">
+            <label className="text-sm font-medium text-slate-600 dark:text-gray-400 ml-2 mb-1 block">
               Séléction du domaine de l'intervention (1er = principal, suivants = secondaires)
             </label>
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -73,25 +78,25 @@ const DictationInput = () => {
               <div className="relative">
                 <button
                   onClick={() => setShowShareMenu((v) => !v)}
-                  className="flex items-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-sm text-gray-200"
+                  className="flex items-center gap-2 px-3 py-2 bg-slate-200 hover:bg-slate-300 border border-slate-300 dark:bg-white/5 dark:hover:bg-white/10 dark:border-white/10 rounded-xl text-sm text-slate-700 dark:text-gray-200"
                 >
                   <Share2 className="w-4 h-4" />
                   Partage & export
                 </button>
                 {showShareMenu && (
-                  <div className="absolute right-0 mt-2 w-64 bg-[#0F121A] border border-white/10 rounded-xl shadow-2xl p-3 space-y-2 z-30">
-                    <div className="text-xs text-gray-400">Texte</div>
+                  <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-[#0F121A] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl p-3 space-y-2 z-30">
+                    <div className="text-xs text-slate-500 dark:text-gray-400">Texte</div>
                     <div className="flex flex-wrap gap-2">
-                      <button onClick={() => handleShareText('sms')} className="px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs text-gray-200">SMS</button>
-                      <button onClick={() => handleShareText('whatsapp')} className="px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs text-gray-200">WhatsApp</button>
-                      <button onClick={() => handleShareText('mail')} className="px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs text-gray-200">Mail</button>
-                      <button onClick={handleCopyDraft} className="px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs text-gray-200 flex items-center gap-1"><ClipboardCopy className="w-4 h-4" />Copier</button>
+                      <button onClick={() => handleShareText('sms')} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200">SMS</button>
+                      <button onClick={() => handleShareText('whatsapp')} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200">WhatsApp</button>
+                      <button onClick={() => handleShareText('mail')} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200">Mail</button>
+                      <button onClick={handleCopyDraft} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200 flex items-center gap-1"><ClipboardCopy className="w-4 h-4" />Copier</button>
                   </div>
-                  <div className="text-xs text-gray-400 pt-1">Téléchargements</div>
+                  <div className="text-xs text-slate-500 dark:text-gray-400 pt-1">Téléchargements</div>
                   <div className="flex flex-wrap gap-2">
-                    <button onClick={handleDownloadImage} className="px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs text-gray-200 flex items-center gap-1"><ImageDown className="w-4 h-4" />Image</button>
-                    <button onClick={() => handleShareFile('pdf')} className="px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs text-gray-200">PDF</button>
-                    <button onClick={() => handleShareFile('word')} className="px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs text-gray-200 flex items-center gap-1"><FileText className="w-4 h-4" />Word</button>
+                    <button onClick={handleDownloadImage} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200 flex items-center gap-1"><ImageDown className="w-4 h-4" />Image</button>
+                    <button onClick={() => handleShareFile('pdf')} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200">PDF</button>
+                    <button onClick={() => handleShareFile('word')} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200 flex items-center gap-1"><FileText className="w-4 h-4" />Word</button>
                   </div>
                   {showShareHint && <div className="text-[11px] text-red-400">Ajoutez au moins un élément avant de partager.</div>}
                 </div>
@@ -102,37 +107,37 @@ const DictationInput = () => {
 
           <div className="space-y-3">
             <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-400 ml-2">Adresse de l'intervention</label>
+              <label className="text-sm font-medium text-slate-600 dark:text-gray-400 ml-2">Adresse de l'intervention</label>
               <input
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
                 placeholder="Ex: 12 rue de la Paix"
-                className="w-full bg-[#151515] border border-white/10 rounded-2xl px-3 py-2.5 text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
+                className="w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
               />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-[1fr,0.6fr] gap-3">
               <div className="space-y-1">
-                <label className="text-sm font-medium text-gray-400 ml-2">Ville</label>
+                <label className="text-sm font-medium text-slate-600 dark:text-gray-400 ml-2">Ville</label>
                 <input
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
                   placeholder="Ville de l'intervention"
-                  className="w-full bg-[#151515] border border-white/10 rounded-2xl px-3 py-2.5 text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
+                  className="w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-sm font-medium text-gray-400 ml-2">Heure de saisie</label>
+                <label className="text-sm font-medium text-slate-600 dark:text-gray-400 ml-2">Heure de saisie</label>
                 <input
                   type="datetime-local"
                   value={orderTime}
                   onChange={(e) => setOrderTime(e.target.value)}
-                  className="w-full bg-[#151515] border border-white/10 rounded-2xl px-3 py-2.5 text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
+                  className="w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
                 />
               </div>
             </div>
           </div>
 
-          <div className="w-full text-xs text-gray-500">
+          <div className="w-full text-xs text-slate-500 dark:text-gray-500">
             Brouillon sauvegardé automatiquement sur cet appareil (adresse, heure, contenu).
           </div>
 
@@ -171,7 +176,7 @@ const DictationInput = () => {
     if (activeTab === 'sitac') {
       return (
         <div className="min-h-[320px]">
-          <SitacMap key={`sitac-${sitacResetKey}`} embedded />
+          <SitacMap key={`sitac-${sitacResetKey}`} embedded interventionAddress={fullAddress} />
         </div>
       );
     }
@@ -179,8 +184,8 @@ const DictationInput = () => {
     return (
       <div className="flex items-center justify-center h-full min-h-[280px]">
         <div className="text-center space-y-1">
-          <div className="text-lg font-semibold text-white">En construction</div>
-          <div className="text-sm text-gray-400">Cette section sera bientôt disponible.</div>
+          <div className="text-lg font-semibold text-slate-900 dark:text-white">En construction</div>
+          <div className="text-sm text-slate-600 dark:text-gray-400">Cette section sera bientôt disponible.</div>
         </div>
       </div>
     );
@@ -233,6 +238,15 @@ const DictationInput = () => {
       setShowShareMenu(false);
     }
   }, [activeTab]);
+
+  React.useEffect(() => {
+    const query = fullAddress.trim();
+    if (!query) return;
+    const timeout = window.setTimeout(() => {
+      setExternalSearch(query);
+    }, 600);
+    return () => window.clearTimeout(timeout);
+  }, [fullAddress, setExternalSearch]);
 
   const handleSubmit = async () => {
     setIsLoading(true);
@@ -427,29 +441,25 @@ const DictationInput = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden bg-[#0A0A0A] text-white">
+    <div className="min-h-screen flex flex-col items-center justify-start relative overflow-hidden bg-slate-50 text-slate-900 dark:bg-[#0A0A0A] dark:text-white">
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-900/10 rounded-full blur-[120px]" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-green-900/10 rounded-full blur-[120px]" />
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-200/70 dark:bg-blue-900/10 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-green-200/60 dark:bg-green-900/10 rounded-full blur-[120px]" />
       </div>
 
-      <div className="relative z-10 w-full max-w-[98%] mx-auto px-4 py-6 flex flex-col items-center h-full">
+      <div className="relative z-10 w-full max-w-[98%] mx-auto px-4 pt-4 pb-6 flex flex-col items-center h-full">
         <div className="flex flex-col items-center mb-6 animate-fade-in-down">
-          <h1 className="text-2xl md:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-400 mb-1">
+          <h1 className="text-2xl md:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-slate-900 to-slate-500 dark:from-white dark:to-gray-400 mb-1">
             A.T.L.A.S
           </h1>
-          <p className="text-gray-400 text-center text-xs md:text-sm font-light tracking-wide">
+          <p className="text-slate-600 dark:text-gray-400 text-center text-xs md:text-sm font-light tracking-wide">
             Aide Tactique et Logique pour l'Action des Secours
           </p>
         </div>
 
-        <div className="w-full max-w-[120px] mb-6 animate-fade-in-down" style={{ animationDelay: '0.1s' }}>
-          <CommandIcon type={type as 'group' | 'column' | 'site' | 'communication'} />
-        </div>
-
         <div className="w-full flex-1 flex flex-col relative animate-fade-in-down" style={{ animationDelay: '0.3s' }}>
-          <div className="w-full flex-1 flex flex-col bg-white/5 border border-white/10 rounded-2xl overflow-visible shadow-lg shadow-black/30 backdrop-blur-sm">
-            <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-white/10 bg-white/5">
+          <div className="w-full flex-1 flex flex-col bg-white/90 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl overflow-visible shadow-lg shadow-black/30 backdrop-blur-sm">
+            <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-slate-200 dark:border-white/10 bg-slate-100/70 dark:bg-white/5">
               <div className="flex flex-wrap gap-2">
                 {tabs.map((tab) => {
                   const isActive = activeTab === tab.id;
@@ -457,7 +467,7 @@ const DictationInput = () => {
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}
-                      className={`px-3 py-2 rounded-xl text-sm font-semibold transition border ${isActive ? 'bg-white/15 border-white/40 text-white shadow-inner shadow-white/10' : 'bg-transparent border-transparent text-gray-400 hover:text-white hover:bg-white/5'}`}
+                      className={`px-3 py-2 rounded-xl text-sm font-semibold transition border ${isActive ? 'bg-slate-900/90 border-slate-300 text-white shadow-inner shadow-black/10 dark:bg-white/15 dark:border-white/40 dark:text-white dark:shadow-white/10' : 'bg-transparent border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-200 dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/5'}`}
                     >
                       {tab.label}
                     </button>
@@ -466,7 +476,7 @@ const DictationInput = () => {
               </div>
               <button
                 onClick={() => setResetDialogOpen(true)}
-                className="ml-auto px-3 py-2 rounded-xl text-sm font-semibold bg-white/10 hover:bg-white/20 border border-white/15 text-gray-200 transition"
+                className="ml-auto px-3 py-2 rounded-xl text-sm font-semibold bg-slate-200 hover:bg-slate-300 border border-slate-300 text-slate-700 dark:bg-white/10 dark:hover:bg-white/20 dark:border-white/15 dark:text-gray-200 transition"
               >
                 Réinitialiser
               </button>
@@ -476,44 +486,48 @@ const DictationInput = () => {
             </div>
           </div>
 
-          <button
-            onClick={handleSubmit}
-            disabled={isLoading}
-            className="group w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 disabled:from-gray-700 disabled:to-gray-800 transition-all duration-300 text-white py-4 rounded-2xl text-lg font-bold shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40 hover:-translate-y-0.5 mt-6 mb-[calc(env(safe-area-inset-bottom,0)+12px)] flex items-center justify-center gap-3"
-          >
-            {isLoading ? (
-              <>
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Sauvegarde en cours...
-              </>
-            ) : (
-              <>
-                Générer
-                <Sparkles className="w-5 h-5 text-blue-200 group-hover:text-white animate-pulse" />
-              </>
-            )}
-          </button>
+          {activeTab !== 'sitac' && (
+            <>
+              <button
+                onClick={handleSubmit}
+                disabled={isLoading}
+                className="group w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 disabled:from-gray-700 disabled:to-gray-800 transition-all duration-300 text-white py-4 rounded-2xl text-lg font-bold shadow-lg shadow-red-500/25 hover:shadow-red-500/40 hover:-translate-y-0.5 mt-6 mb-[calc(env(safe-area-inset-bottom,0)+12px)] flex items-center justify-center gap-3"
+              >
+                {isLoading ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Sauvegarde en cours...
+                  </>
+                ) : (
+                  <>
+                    Générer
+                    <Sparkles className="w-5 h-5 text-blue-200 group-hover:text-white animate-pulse" />
+                  </>
+                )}
+              </button>
 
-          {showShareHint && activeTab === 'soiec' && (
-            <div className="text-xs text-red-400 mt-2 text-right">Ajoutez au moins un élément avant de partager.</div>
+              {showShareHint && activeTab === 'soiec' && (
+                <div className="text-xs text-red-400 mt-2 text-right">Ajoutez au moins un élément avant de partager.</div>
+              )}
+            </>
           )}
         </div>
       </div>
 
       {resetDialogOpen && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-[#0f121a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
-            <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-white">Réinitialiser</h3>
-              <button onClick={() => setResetDialogOpen(false)} className="text-gray-400 hover:text-white">✕</button>
+          <div className="w-full max-w-md bg-white dark:bg-[#0f121a] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Réinitialiser</h3>
+              <button onClick={() => setResetDialogOpen(false)} className="text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white">✕</button>
             </div>
             <div className="p-4 space-y-3">
-              <p className="text-sm text-gray-300">
+              <p className="text-sm text-slate-600 dark:text-gray-300">
                 Choisissez de réinitialiser uniquement l&apos;onglet courant ou toute l&apos;intervention. Une confirmation est demandée à chaque action.
               </p>
               <button
                 onClick={handleResetTab}
-                className="w-full px-3 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/15 text-sm text-gray-100 transition"
+                className="w-full px-3 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 border border-slate-300 text-sm text-slate-700 dark:bg-white/10 dark:hover:bg-white/15 dark:border-white/15 dark:text-gray-100 transition"
               >
                 Réinitialiser l&apos;onglet en cours
               </button>
@@ -524,10 +538,10 @@ const DictationInput = () => {
                 Réinitialiser toute l&apos;intervention
               </button>
             </div>
-            <div className="px-4 py-3 border-t border-white/10 flex justify-end">
+            <div className="px-4 py-3 border-t border-slate-200 dark:border-white/10 flex justify-end">
               <button
                 onClick={() => setResetDialogOpen(false)}
-                className="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm text-gray-200 transition"
+                className="px-3 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-sm text-slate-700 dark:bg-white/5 dark:hover:bg-white/10 dark:text-gray-200 transition"
               >
                 Annuler
               </button>

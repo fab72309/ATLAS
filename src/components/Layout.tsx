@@ -21,13 +21,13 @@ const Layout = () => {
   }, [logout, navigate]);
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-white">
+    <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-[#0A0A0A] dark:text-white">
       <SideMenu open={open} onClose={() => setOpen(false)} />
       <main className="relative min-h-screen">
         <div className="fixed left-4 top-4 z-30 flex gap-3">
           <button
             onClick={() => setOpen(true)}
-            className="p-2.5 bg-black/40 hover:bg-black/60 backdrop-blur-md border border-white/10 rounded-xl text-white transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg"
+            className="p-2.5 bg-white/80 hover:bg-white backdrop-blur-md border border-black/10 dark:bg-black/40 dark:hover:bg-black/60 dark:border-white/10 rounded-xl text-slate-900 dark:text-white transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg"
             aria-label="Menu"
           >
             <Menu className="w-6 h-6" />
@@ -36,7 +36,7 @@ const Layout = () => {
           {location.pathname !== '/' && (
             <button
               onClick={() => navigate('/')}
-              className="p-2.5 bg-black/40 hover:bg-black/60 backdrop-blur-md border border-white/10 rounded-xl text-white transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg"
+              className="p-2.5 bg-white/80 hover:bg-white backdrop-blur-md border border-black/10 dark:bg-black/40 dark:hover:bg-black/60 dark:border-white/10 rounded-xl text-slate-900 dark:text-white transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg"
               aria-label="Accueil"
             >
               <Home className="w-6 h-6" />
@@ -47,14 +47,14 @@ const Layout = () => {
         <div className="fixed right-4 top-4 z-30">
           <button
             onClick={handleLogout}
-            className="p-2.5 bg-black/40 hover:bg-black/60 backdrop-blur-md border border-white/10 rounded-xl text-white transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg flex items-center gap-2"
+            className="p-2.5 bg-white/80 hover:bg-white backdrop-blur-md border border-black/10 dark:bg-black/40 dark:hover:bg-black/60 dark:border-white/10 rounded-xl text-slate-900 dark:text-white transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg flex items-center gap-2"
             aria-label="Déconnexion"
           >
             <LogOut className="w-5 h-5" />
             <span className="hidden sm:inline text-sm font-medium">Déconnexion</span>
           </button>
         </div>
-        <div className="fixed right-4 bottom-4 z-30 text-[11px] text-gray-400 bg-black/50 border border-white/10 px-3 py-2 rounded-xl backdrop-blur-md">
+        <div className="fixed right-4 bottom-4 z-30 text-[11px] text-slate-500 dark:text-gray-400 bg-white/80 dark:bg-black/50 border border-black/10 dark:border-white/10 px-3 py-2 rounded-xl backdrop-blur-md">
           {APP_NAME} — {APP_VERSION}
         </div>
         <Outlet />

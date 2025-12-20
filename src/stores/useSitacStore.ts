@@ -11,6 +11,8 @@ interface SitacState {
     selectedFeatureId: string | null;
     snapshots: Snapshot[];
     locked: boolean;
+    externalSearchQuery: string;
+    externalSearchId: number;
 
     // Actions
     setMode: (mode: DrawingMode) => void;
@@ -26,6 +28,7 @@ interface SitacState {
     clear: () => void;
     toggleLock: () => void;
     addSnapshot: (snapshot: Snapshot) => void;
+    setExternalSearch: (query: string) => void;
     // Fabric Sync
     selectedFabricProperties: SITACFeatureProperties | null;
     fabricAction: { type: 'delete' | 'none' } | null; // Adding missing action
@@ -39,7 +42,7 @@ const SNAPSHOT_LIMIT = 4;
 
 export const useSitacStore = create<SitacState>((set, get) => ({
     mode: 'view',
-    drawingColor: '#111111', // Default black/dark
+    drawingColor: '#ef4444', // Default red
     lineStyle: 'solid',
     geoJSON: EMPTY_FC,
     history: [EMPTY_FC],
@@ -47,6 +50,8 @@ export const useSitacStore = create<SitacState>((set, get) => ({
     selectedFeatureId: null,
     snapshots: [],
     locked: false,
+    externalSearchQuery: '',
+    externalSearchId: 0,
 
     setMode: (mode) => set({ mode }),
     setColor: (color) => set({ drawingColor: color }),
@@ -137,6 +142,12 @@ export const useSitacStore = create<SitacState>((set, get) => ({
     addSnapshot: (snapshot) =>
         set((state) => ({
             snapshots: [snapshot, ...state.snapshots].slice(0, SNAPSHOT_LIMIT)
+        })),
+
+    setExternalSearch: (query) =>
+        set((state) => ({
+            externalSearchQuery: query,
+            externalSearchId: state.externalSearchId + 1
         })),
 
     selectedFabricProperties: null,

@@ -167,20 +167,20 @@ const CommunicationOps = () => {
 
       <div className="flex-1 flex flex-col items-center px-4">
         <div className="flex flex-col items-center">
-          <h1 className="text-xl md:text-2xl font-bold text-white mb-0.5">
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white mb-0.5">
             A.T.L.A.S
           </h1>
-          <p className="text-white text-center text-sm mb-4">
+          <p className="text-slate-600 dark:text-gray-400 text-center text-sm mb-4">
             Aide Tactique et Logique pour l'Action des Secours
           </p>
         </div>
 
         <div className="w-full max-w-[200px] mb-4">
-          <div className="bg-[#1A1A1A] rounded-2xl p-4 w-full max-w-[200px] mx-auto border-2 border-white">
+          <div className="bg-white dark:bg-[#1A1A1A] rounded-2xl p-4 w-full max-w-[200px] mx-auto border border-slate-200 dark:border-white/20">
             <div className="bg-black rounded-xl aspect-[4/3] flex flex-col justify-center items-center p-4">
               <Radio className="w-16 h-16 text-white" />
             </div>
-            <h2 className="text-lg text-white text-center mt-2">
+            <h2 className="text-lg text-slate-900 dark:text-white text-center mt-2">
               Communication OPS
             </h2>
           </div>
@@ -197,10 +197,10 @@ const CommunicationOps = () => {
               <button
                 key={index}
                 onClick={() => goToSlide(index)}
-                className={`px-4 py-2 text-sm rounded-3xl transition-colors ${
-                  index === activeIndex 
-                    ? 'bg-[#FF1801] text-white' 
-                    : 'bg-[#1A1A1A] text-gray-400 hover:bg-[#2A2A2A] hover:text-white'
+                className={`px-4 py-2 text-sm rounded-3xl transition-colors border ${
+                  index === activeIndex
+                    ? 'bg-[#FF1801] text-white border-transparent'
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:bg-[#1A1A1A] dark:border-white/10 dark:text-gray-400 dark:hover:bg-[#2A2A2A] dark:hover:text-white'
                 }`}
               >
                 {section.title}
