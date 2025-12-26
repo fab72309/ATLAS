@@ -91,76 +91,90 @@ const SitacDrawingCanvas: React.FC<SitacDrawingCanvasProps> = ({ width, height, 
 
         // Helper: Screen -> LngLat
         const toLngLat = (p: [number, number]) => {
-            const ll = map.unproject(p);
-            return [ll.lng, ll.lat];
+            try {
+                const ll = map.unproject(p);
+                if (!Number.isFinite(ll.lng) || !Number.isFinite(ll.lat)) return null;
+                return [ll.lng, ll.lat] as [number, number];
+            } catch (err) {
+                console.warn('Map unproject failed', err);
+                return null;
+            }
         };
 
         if (mode === 'draw_freehand' && points.current.length > 2) {
             // 1. Convert all points to LngLat
             const rawCoords = points.current.map(toLngLat);
-            // 2. Simplify (optional but good for performance)
-            const simplified = simplifyLine(rawCoords as [number, number][]);
+            if (!rawCoords.some((coord) => !coord)) {
+                // 2. Simplify (optional but good for performance)
+                const simplified = simplifyLine(rawCoords as [number, number][]);
 
-            feature = {
-                type: 'Feature',
-                id,
-                properties: { id, type: 'freehand', color: drawingColor, strokeWidth: 3, lineStyle },
-                geometry: { type: 'LineString', coordinates: simplified },
-            };
+                feature = {
+                    type: 'Feature',
+                    id,
+                    properties: { id, type: 'freehand', color: drawingColor, strokeWidth: 3, lineStyle },
+                    geometry: { type: 'LineString', coordinates: simplified },
+                };
+            }
         } else if (mode === 'draw_line' && points.current.length >= 2) {
             const coords = points.current.map(toLngLat);
-            feature = {
-                type: 'Feature',
-                id,
-                properties: { id, type: 'line', color: drawingColor, strokeWidth: 3, lineStyle },
-                geometry: { type: 'LineString', coordinates: coords as [number, number][] },
-            };
+            if (!coords.some((coord) => !coord)) {
+                feature = {
+                    type: 'Feature',
+                    id,
+                    properties: { id, type: 'line', color: drawingColor, strokeWidth: 3, lineStyle },
+                    geometry: { type: 'LineString', coordinates: coords as [number, number][] },
+                };
+            }
         } else if ((mode === 'draw_rect' || mode === 'draw_circle') && startPoint.current && points.current.length > 0) {
             const [startX, startY] = startPoint.current;
             const [endX, endY] = points.current[points.current.length - 1];
 
             const startLngLat = toLngLat([startX, startY]);
             const endLngLat = toLngLat([endX, endY]);
-
-            if (mode === 'draw_rect') {
-                feature = {
-                    type: 'Feature',
-                    id,
-                    properties: { id, type: 'polygon', color: drawingColor },
-                    geometry: {
-                        type: 'Polygon',
-                        coordinates: [[
-                            [startLngLat[0], startLngLat[1]],
-                            [endLngLat[0], startLngLat[1]],
-                            [endLngLat[0], endLngLat[1]],
-                            [startLngLat[0], endLngLat[1]],
-                            [startLngLat[0], startLngLat[1]]
-                        ]]
-                    }
-                };
+            if (!startLngLat || !endLngLat) {
+                feature = null;
             } else {
-                // Circle approximation
-                const radiusDeg = Math.sqrt(Math.pow(endLngLat[0] - startLngLat[0], 2) + Math.pow(endLngLat[1] - startLngLat[1], 2));
-                const center = startLngLat;
-                const steps = 64;
-                const circleCoords: [number, number][] = [];
-                for (let i = 0; i <= steps; i++) {
-                    const theta = (i / steps) * 2 * Math.PI;
-                    // Simple approx for visual circle on map (not geodesic perfect but good enough for SITAC)
-                    circleCoords.push([
-                        center[0] + radiusDeg * Math.cos(theta),
-                        center[1] + radiusDeg * Math.sin(theta) * 0.65 // adjust for latitude distortion roughly at 45deg
-                    ]);
-                }
-                feature = {
-                    type: 'Feature',
-                    id,
-                    properties: { id, type: 'polygon', color: drawingColor },
-                    geometry: {
-                        type: 'Polygon',
-                        coordinates: [circleCoords]
+
+                if (mode === 'draw_rect') {
+                    feature = {
+                        type: 'Feature',
+                        id,
+                        properties: { id, type: 'polygon', color: drawingColor },
+                        geometry: {
+                            type: 'Polygon',
+                            coordinates: [[
+                                [startLngLat[0], startLngLat[1]],
+                                [endLngLat[0], startLngLat[1]],
+                                [endLngLat[0], endLngLat[1]],
+                                [startLngLat[0], endLngLat[1]],
+                                [startLngLat[0], startLngLat[1]]
+                            ]]
+                        }
+                    };
+                } else {
+                    // Circle approximation
+                    const radiusDeg = Math.sqrt(Math.pow(endLngLat[0] - startLngLat[0], 2) + Math.pow(endLngLat[1] - startLngLat[1], 2));
+                    const center = startLngLat;
+                    const steps = 64;
+                    const circleCoords: [number, number][] = [];
+                    for (let i = 0; i <= steps; i++) {
+                        const theta = (i / steps) * 2 * Math.PI;
+                        // Simple approx for visual circle on map (not geodesic perfect but good enough for SITAC)
+                        circleCoords.push([
+                            center[0] + radiusDeg * Math.cos(theta),
+                            center[1] + radiusDeg * Math.sin(theta) * 0.65 // adjust for latitude distortion roughly at 45deg
+                        ]);
                     }
-                };
+                    feature = {
+                        type: 'Feature',
+                        id,
+                        properties: { id, type: 'polygon', color: drawingColor },
+                        geometry: {
+                            type: 'Polygon',
+                            coordinates: [circleCoords]
+                        }
+                    };
+                }
             }
         }
 

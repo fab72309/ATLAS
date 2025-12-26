@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import maplibregl, { type GeoJSONSource, type LngLatLike } from 'maplibre-gl';
+import type GeoJSON from 'geojson';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import MapLibreWorker from 'maplibre-gl/dist/maplibre-gl-csp-worker?worker';
 import { jsPDF } from 'jspdf';
 
 import { useSitacStore } from '../stores/useSitacStore';
+import { useInterventionStore } from '../stores/useInterventionStore';
 import { useSitacDraw } from '../hooks/useSitacDraw';
 import {
   BASE_STYLES,
@@ -44,6 +46,9 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
   const locked = useSitacStore((s) => s.locked);
   const externalSearchQuery = useSitacStore((s) => s.externalSearchQuery);
   const externalSearchId = useSitacStore((s) => s.externalSearchId);
+  const interventionLat = useInterventionStore((s) => s.lat);
+  const interventionLng = useInterventionStore((s) => s.lng);
+  const setInterventionLocation = useInterventionStore((s) => s.setLocation);
 
   // Local State
   const [baseLayer, setBaseLayer] = useState<BaseLayerKey>('plan');
@@ -56,6 +61,57 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
   const [fullscreenOffset, setFullscreenOffset] = useState({ top: 0, left: 0 });
   const syncGeoJSONRef = useRef<() => void>(() => undefined);
   const ensureIconsRef = useRef<() => void>(() => undefined);
+  const [isLocating, setIsLocating] = useState(false);
+  const [isMarking, setIsMarking] = useState(false);
+  const [isPlacingIntervention, setIsPlacingIntervention] = useState(false);
+  const [geoError, setGeoError] = useState<string | null>(null);
+  const markerRef = useRef<maplibregl.Marker | null>(null);
+
+  const isValidLngLat = (coord: unknown): coord is [number, number] =>
+    Array.isArray(coord) &&
+    coord.length >= 2 &&
+    typeof coord[0] === 'number' &&
+    Number.isFinite(coord[0]) &&
+    typeof coord[1] === 'number' &&
+    Number.isFinite(coord[1]);
+
+  const isValidGeometry = (geometry: GeoJSON.Geometry): boolean => {
+    switch (geometry.type) {
+      case 'Point':
+        return isValidLngLat(geometry.coordinates);
+      case 'MultiPoint':
+        return Array.isArray(geometry.coordinates) && geometry.coordinates.every(isValidLngLat);
+      case 'LineString':
+        return Array.isArray(geometry.coordinates) && geometry.coordinates.every(isValidLngLat);
+      case 'MultiLineString':
+        return Array.isArray(geometry.coordinates) && geometry.coordinates.every((line) => Array.isArray(line) && line.every(isValidLngLat));
+      case 'Polygon':
+        return Array.isArray(geometry.coordinates) && geometry.coordinates.every((ring) => Array.isArray(ring) && ring.every(isValidLngLat));
+      case 'MultiPolygon':
+        return Array.isArray(geometry.coordinates) &&
+          geometry.coordinates.every((poly) => Array.isArray(poly) && poly.every((ring) => Array.isArray(ring) && ring.every(isValidLngLat)));
+      case 'GeometryCollection':
+        return geometry.geometries.every(isValidGeometry);
+      default:
+        return false;
+    }
+  };
+
+  const sanitizeGeoJSON = (collection: SITACCollection): SITACCollection => {
+    if (!collection || !Array.isArray(collection.features)) {
+      return { type: 'FeatureCollection', features: [] };
+    }
+    const safeFeatures = collection.features.filter((feature) => {
+      if (!feature || !feature.geometry) return false;
+      try {
+        return isValidGeometry(feature.geometry);
+      } catch (err) {
+        console.warn('Invalid SITAC geometry skipped', err);
+        return false;
+      }
+    });
+    return { ...collection, features: safeFeatures };
+  };
 
   // Map Init Helper ---
   const cycleBaseLayer = () => {
@@ -66,7 +122,7 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
   };
 
   // --- Hook Integration ---
-  useSitacDraw({ map: mapInstance, activeSymbol });
+  useSitacDraw({ map: mapInstance, activeSymbol, interactionLock: isPlacingIntervention });
 
   // --- Logic ---
   const isMonochromeImage = useCallback(async (url: string) => {
@@ -165,9 +221,13 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
     ensureLayers(map);
     const source = map.getSource(DRAW_SOURCE_ID) as GeoJSONSource | undefined;
     if (source) {
-      source.setData(geoJSON);
-      // Force repaint to prevent visibility flickering
-      map.triggerRepaint();
+      try {
+        source.setData(sanitizeGeoJSON(geoJSON));
+        // Force repaint to prevent visibility flickering
+        map.triggerRepaint();
+      } catch (err) {
+        console.error('SITAC geoJSON sync failed', err);
+      }
     }
     setSelectionFilter(map, selectedFeatureId);
   }, [selectedFeatureId, geoJSON]);
@@ -369,6 +429,7 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
     if (match) {
       const lat = parseFloat(match[1]);
       const lng = parseFloat(match[2]);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
       map.flyTo({ center: [lng, lat], zoom: 15, speed: 0.9 });
       return;
     }
@@ -379,7 +440,10 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
       );
       const data = await response.json();
       if (data && data[0]) {
-        map.flyTo({ center: [parseFloat(data[0].lon), parseFloat(data[0].lat)], zoom: 15, speed: 0.9 });
+        const lon = parseFloat(data[0].lon);
+        const lat = parseFloat(data[0].lat);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+        map.flyTo({ center: [lon, lat], zoom: 15, speed: 0.9 });
       }
     } catch (err) {
       console.error('Erreur recherche adresse', err);
@@ -397,6 +461,161 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
     setSearchValue(externalSearchQuery);
     void runSearch(externalSearchQuery);
   }, [externalSearchId, externalSearchQuery, mapInstance, runSearch]);
+
+  useEffect(() => {
+    if (!mapInstance) return;
+    const lat = Number.isFinite(interventionLat) ? interventionLat : null;
+    const lng = Number.isFinite(interventionLng) ? interventionLng : null;
+    if (lat == null || lng == null) {
+      if (!isPlacingIntervention && markerRef.current) {
+        markerRef.current.remove();
+        markerRef.current = null;
+      }
+      return;
+    }
+    if (!markerRef.current) {
+      markerRef.current = new maplibregl.Marker({ color: '#ef4444' })
+        .setLngLat([lng, lat])
+        .addTo(mapInstance);
+      return;
+    }
+    markerRef.current.setLngLat([lng, lat]);
+  }, [mapInstance, interventionLat, interventionLng, isPlacingIntervention]);
+
+  const handleLocateUser = useCallback(() => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setGeoError('La géolocalisation n’est pas supportée par ce navigateur.');
+      return;
+    }
+    const map = mapRef.current;
+    if (!map) return;
+    setIsLocating(true);
+    setGeoError(null);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+          setGeoError('Position actuelle non disponible.');
+          setIsLocating(false);
+          return;
+        }
+        map.flyTo({ center: [longitude, latitude], zoom: 15, speed: 0.9 });
+        setIsLocating(false);
+      },
+      (error) => {
+        console.error('Erreur de géolocalisation', error);
+        let message = 'Une erreur est survenue lors de la géolocalisation.';
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            message = 'Accès à la localisation refusé. Vous pouvez saisir l’adresse manuellement.';
+            break;
+          case error.POSITION_UNAVAILABLE:
+            message = 'Position actuelle non disponible.';
+            break;
+          case error.TIMEOUT:
+            message = 'Délai d’attente dépassé. Réessayez.';
+            break;
+        }
+        setGeoError(message);
+        setIsLocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  }, []);
+
+  const applyInterventionLocation = useCallback(async ({ lat, lng }: { lat: number; lng: number }) => {
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      setGeoError('Position actuelle non disponible.');
+      return;
+    }
+    setIsMarking(true);
+    setGeoError(null);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=fr`
+      );
+      const data = await response.json();
+      const address = data?.address || {};
+      const streetNumber = address.house_number || '';
+      const streetName = address.road || '';
+      const streetLine = [streetNumber, streetName].filter(Boolean).join(' ').trim();
+      const cityValue = address.city || address.town || address.village || address.municipality || address.county || '';
+      const addressValue = streetLine || data?.display_name || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      const fullLabel = [addressValue, cityValue].filter(Boolean).join(', ');
+      setInterventionLocation({
+        lat,
+        lng,
+        address: addressValue || undefined,
+        city: cityValue || undefined,
+        streetNumber: streetNumber || undefined,
+        streetName: streetName || undefined
+      });
+      if (fullLabel) {
+        setSearchValue(fullLabel);
+      }
+    } catch (err) {
+      console.error('Erreur de géocodage inverse', err);
+      setGeoError('Impossible de récupérer l’adresse. Réessayez ou saisissez-la manuellement.');
+      const fallback = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      setInterventionLocation({
+        lat,
+        lng,
+        address: fallback
+      });
+      setSearchValue(fallback);
+    } finally {
+      setIsMarking(false);
+    }
+  }, [setInterventionLocation]);
+
+  const handleToggleInterventionPlacement = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (isPlacingIntervention) {
+      setIsPlacingIntervention(false);
+      const marker = markerRef.current;
+      if (!marker) return;
+      const pos = marker.getLngLat?.();
+      if (!pos || !Number.isFinite(pos.lng) || !Number.isFinite(pos.lat)) return;
+      const sameLat = Number.isFinite(interventionLat) && Math.abs((interventionLat as number) - pos.lat) < 1e-8;
+      const sameLng = Number.isFinite(interventionLng) && Math.abs((interventionLng as number) - pos.lng) < 1e-8;
+      if (!sameLat || !sameLng) {
+        void applyInterventionLocation({ lat: pos.lat, lng: pos.lng });
+      }
+      return;
+    }
+    setGeoError(null);
+    setIsPlacingIntervention(true);
+    const hasStored = Number.isFinite(interventionLat) && Number.isFinite(interventionLng);
+    const startLat = hasStored ? (interventionLat as number) : map.getCenter().lat;
+    const startLng = hasStored ? (interventionLng as number) : map.getCenter().lng;
+    if (!Number.isFinite(startLat) || !Number.isFinite(startLng)) return;
+    if (!markerRef.current) {
+      markerRef.current = new maplibregl.Marker({ color: '#ef4444', draggable: true })
+        .setLngLat([startLng, startLat])
+        .addTo(map);
+    } else {
+      markerRef.current.setLngLat([startLng, startLat]);
+    }
+  }, [applyInterventionLocation, interventionLat, interventionLng, isPlacingIntervention]);
+
+  useEffect(() => {
+    const marker = markerRef.current;
+    if (!marker) return;
+    if (typeof marker.setDraggable === 'function') {
+      marker.setDraggable(isPlacingIntervention);
+    }
+    if (!isPlacingIntervention) return;
+    const handleDragEnd = () => {
+      const pos = marker.getLngLat?.();
+      if (!pos || !Number.isFinite(pos.lng) || !Number.isFinite(pos.lat)) return;
+      void applyInterventionLocation({ lat: pos.lat, lng: pos.lng });
+    };
+    marker.on('dragend', handleDragEnd);
+    return () => {
+      marker.off('dragend', handleDragEnd);
+    };
+  }, [applyInterventionLocation, isPlacingIntervention]);
 
   const buildCompositeCanvas = useCallback(async () => {
     const map = mapRef.current;
@@ -651,6 +870,11 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
           searchValue={searchValue}
           setSearchValue={setSearchValue}
           handleSearch={handleSearch}
+          onLocateUser={handleLocateUser}
+          onToggleInterventionPlacement={handleToggleInterventionPlacement}
+          isLocating={isLocating}
+          isMarking={isMarking}
+          isPlacingIntervention={isPlacingIntervention}
         />
 
         <SitacToolsSidebar
@@ -669,6 +893,17 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
           isFullscreen={isFullscreen}
         />
       </div>
+
+      {geoError && (
+        <div className="absolute top-20 left-4 z-30 pointer-events-none rounded-xl bg-black/70 border border-red-400/40 px-3 py-2 text-xs text-red-100 max-w-xs">
+          {geoError}
+        </div>
+      )}
+      {isPlacingIntervention && (
+        <div className="absolute bottom-6 left-1/2 z-30 -translate-x-1/2 pointer-events-none rounded-full bg-black/70 border border-white/20 px-4 py-2 text-xs text-white/90 shadow-[0_8px_20px_rgba(0,0,0,0.35)]">
+          Faites glisser l'indicateur pour positionner l'intervention
+        </div>
+      )}
     </div>
   );
 };

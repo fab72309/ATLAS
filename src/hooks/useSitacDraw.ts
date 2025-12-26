@@ -15,9 +15,10 @@ const FILL_LAYER_ID = 'easy-draw-fill';
 type DrawParams = {
     map: maplibregl.Map | null;
     activeSymbol: SymbolAsset | null;
+    interactionLock?: boolean;
 };
 
-export const useSitacDraw = ({ map, activeSymbol }: DrawParams) => {
+export const useSitacDraw = ({ map, activeSymbol, interactionLock = false }: DrawParams) => {
     // Access store via refs to avoid re-binding listeners
     const mode = useSitacStore((s) => s.mode);
     const drawingColor = useSitacStore((s) => s.drawingColor);
@@ -68,6 +69,7 @@ export const useSitacDraw = ({ map, activeSymbol }: DrawParams) => {
         // --- Interaction Management ---
         // React to mode/lock changes immediately
         const shouldDisableInteractions =
+            interactionLock ||
             locked ||
             ['draw_freehand', 'draw_rect', 'draw_circle', 'draw_line', 'draw_arrow'].includes(mode);
 
@@ -88,6 +90,7 @@ export const useSitacDraw = ({ map, activeSymbol }: DrawParams) => {
 
         const handleClick = (e: MapMouseEvent) => {
             if (!map.isStyleLoaded()) return;
+            if (!e?.lngLat || !Number.isFinite(e.lngLat.lng) || !Number.isFinite(e.lngLat.lat)) return;
             const { mode, drawingColor, activeSymbol, addFeature, setSelectedFeatureId, setMode, deleteFeature } = stateRef.current;
 
             // Text placement is handled by the Fabric overlay to avoid duplicates.
@@ -114,7 +117,9 @@ export const useSitacDraw = ({ map, activeSymbol }: DrawParams) => {
 
             // Handle Selection / Deletion
             if (mode === 'erase') {
-                const hits = map.queryRenderedFeatures(e.point, { layers: [SYMBOL_LAYER_ID, TEXT_LAYER_ID, LINE_LAYER_ID, FILL_LAYER_ID] });
+                const layers = [SYMBOL_LAYER_ID, TEXT_LAYER_ID, LINE_LAYER_ID, FILL_LAYER_ID].filter((id) => map.getLayer(id));
+                if (layers.length === 0) return;
+                const hits = map.queryRenderedFeatures(e.point, { layers });
                 const hit = hits.find((f) => f.properties?.id) as Feature<Geometry, SITACFeatureProperties> | undefined;
                 if (hit?.properties?.id) {
                     deleteFeature(hit.properties.id);
@@ -123,7 +128,12 @@ export const useSitacDraw = ({ map, activeSymbol }: DrawParams) => {
             }
 
             if (mode === 'select' || mode === 'view') {
-                const hits = map.queryRenderedFeatures(e.point, { layers: [SYMBOL_LAYER_ID, TEXT_LAYER_ID, LINE_LAYER_ID, FILL_LAYER_ID] });
+                const layers = [SYMBOL_LAYER_ID, TEXT_LAYER_ID, LINE_LAYER_ID, FILL_LAYER_ID].filter((id) => map.getLayer(id));
+                if (layers.length === 0) {
+                    setSelectedFeatureId(null);
+                    return;
+                }
+                const hits = map.queryRenderedFeatures(e.point, { layers });
                 const hit = hits.find((f) => f.properties?.id) as Feature<Geometry, SITACFeatureProperties> | undefined;
                 setSelectedFeatureId(hit?.properties?.id ?? null);
             }
@@ -137,5 +147,5 @@ export const useSitacDraw = ({ map, activeSymbol }: DrawParams) => {
         return () => {
             map.off('click', handleClick);
         };
-    }, [map, mode, locked]); // Added mode/locked to re-run effect and update interaction state
+    }, [map, mode, locked, interactionLock]); // Added mode/locked to re-run effect and update interaction state
 };
