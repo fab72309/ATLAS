@@ -16,6 +16,7 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import { Download, RefreshCw, RotateCw } from 'lucide-react';
 import { exportBoardDesignPdf } from '../utils/export';
+import { useSessionSettings } from '../utils/sessionSettings';
 import { MeanItem } from '../components/MeansModal';
 import { OctColor, OctNodeType, OctTreeNode, useOctTree, resetOctTree, createInitialOctTree } from '../utils/octTreeStore';
 import { useTheme } from '../contexts/ThemeContext';
@@ -474,6 +475,28 @@ interface OctDiagramProps {
 
 export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availableMeans = [], exportMeta }) => {
   const { resolvedTheme } = useTheme();
+
+  const { settings } = useSessionSettings();
+  const octDefaults = settings.octDefaults;
+
+  const getDefaultFrequencyPair = useCallback(
+    (type: OctNodeType) => {
+      const defaults = octDefaults?.[type];
+      return {
+        up: defaults?.up?.trim() || '',
+        down: defaults?.down?.trim() || ''
+      };
+    },
+    [octDefaults]
+  );
+
+  const getDefaultFrequencies = useCallback(
+    (type: OctNodeType) => {
+      const pair = getDefaultFrequencyPair(type);
+      return [pair.up, pair.down].filter(Boolean);
+    },
+    [getDefaultFrequencyPair]
+  );
   const { tree, setTree } = useOctTree();
   const [selectedId, setSelectedId] = useState<string>(tree.id);
   const [nodes, setNodes, onNodesChange] = useNodesState<OctNodeData>([]);
@@ -572,7 +595,7 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
           id: newId,
           type,
           label: labelMap[type] || 'Nouvelle branche',
-          frequencies: [],
+          frequencies: getDefaultFrequencies(type),
           notes: '',
           color: defaultColor[type],
           chief: '',
@@ -608,23 +631,24 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
         return nextTree;
       });
     },
-    [selectedId, setTree]
+    [selectedId, setTree, getDefaultFrequencies]
   );
 
   const openAddDialog = useCallback(
     (parentId: string) => {
       const parent = findNodeById(tree, parentId);
       const inheritedColor = (parent?.color as OctColor) || 'orange';
+      const defaultFreqs = getDefaultFrequencyPair('engine');
       setManualAdd({
         label: 'Nouvel engin',
         status: 'sur_place',
-        freqUp: '',
-        freqDown: '',
+        freqUp: defaultFreqs.up,
+        freqDown: defaultFreqs.down,
         color: inheritedColor
       });
       setAddDialog({ parentId });
     },
-    [tree]
+    [tree, getDefaultFrequencyPair]
   );
 
   const handleAddEntry = useCallback(

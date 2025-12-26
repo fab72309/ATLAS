@@ -39,6 +39,13 @@ service cloud.firestore {
         && request.resource.data.Conseils_population is string;
     }
 
+    function isValidInterventionShare() {
+      return request.resource.data.createdAt is timestamp
+        && request.resource.data.uid is string
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.payload is map;
+    }
+
     // Chef de groupe collection
     match /Chef_de_groupe/{docId} {
       allow create: if request.auth != null && isValidEmergencyData();
@@ -76,6 +83,12 @@ service cloud.firestore {
     match /Communication_OPS_IA/{docId} {
       allow create: if request.auth != null && isValidCommunicationIAData();
       allow read: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    match /InterventionShares/{docId} {
+      allow create: if request.auth != null && isValidInterventionShare();
+      allow read: if request.auth != null;
       allow update, delete: if false;
     }
 

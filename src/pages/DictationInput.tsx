@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { Sparkles, ClipboardCopy, Share2, FileText, ImageDown, Check } from 'lucide-react';
+import { Sparkles, ClipboardCopy, Share2, FileText, ImageDown, Check, QrCode } from 'lucide-react';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
-import { saveDictationData, saveCommunicationData } from '../utils/firestore';
+import { saveDictationData, saveCommunicationData, saveInterventionShare, type InterventionSharePayload } from '../utils/firestore';
+import * as QRCode from 'qrcode';
 import DominantSelector, { DominanteType } from '../components/DominantSelector';
 import OrdreInitialView from '../components/OrdreInitialView';
 import { OrdreInitial } from '../types/soiec';
@@ -11,8 +12,11 @@ import { exportBoardDesignImage, exportBoardDesignPdf, exportBoardDesignWordEdit
 import MeansModal, { MeanItem } from '../components/MeansModal';
 import SitacMap from './SitacMap';
 import { OctDiagram } from './OctDiagram';
-import { resetOctTree } from '../utils/octTreeStore';
+import { getOctTree, resetOctTree } from '../utils/octTreeStore';
+import { useInterventionStore } from '../stores/useInterventionStore';
 import { useSitacStore } from '../stores/useSitacStore';
+import { INTERVENTION_DRAFT_KEY, INTERVENTION_SHARE_PREFIX } from '../constants/intervention';
+import { useSessionSettings, type MessageCheckboxOption } from '../utils/sessionSettings';
 
 const generateMeanId = () => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
@@ -27,6 +31,50 @@ const getNowStamp = () => {
   };
 };
 
+type MessageSelections = Record<string, boolean>;
+
+type MessageDemandes = {
+  selections: MessageSelections;
+  autresMoyensSp: string;
+  moyensSpFpt: string;
+  moyensSpEpc: string;
+  moyensSpVsav: string;
+  moyensSpCcf: string;
+  moyensSpVsr: string;
+  autres: string;
+};
+
+type MessageSurLesLieux = {
+  selections: MessageSelections;
+  feuEteintHeure: string;
+};
+
+const FEU_ETEINT_ID = 'feuEteint';
+
+const MOYENS_SP_FIELDS: Array<{ key: keyof Pick<MessageDemandes, 'moyensSpFpt' | 'moyensSpEpc' | 'moyensSpVsav' | 'moyensSpCcf' | 'moyensSpVsr'>; label: string }> = [
+  { key: 'moyensSpFpt', label: 'FPT' },
+  { key: 'moyensSpEpc', label: 'EPC' },
+  { key: 'moyensSpVsav', label: 'VSAV' },
+  { key: 'moyensSpCcf', label: 'CCF' },
+  { key: 'moyensSpVsr', label: 'VSR' }
+];
+
+const createMessageDemandes = (): MessageDemandes => ({
+  selections: {},
+  autresMoyensSp: '',
+  moyensSpFpt: '',
+  moyensSpEpc: '',
+  moyensSpVsav: '',
+  moyensSpCcf: '',
+  moyensSpVsr: '',
+  autres: ''
+});
+
+const createMessageSurLesLieux = (): MessageSurLesLieux => ({
+  selections: {},
+  feuEteintHeure: '',
+});
+
 type AmbianceMessage = {
   date: string;
   time: string;
@@ -34,6 +82,8 @@ type AmbianceMessage = {
   jeSuis: string;
   jeVois: string;
   jeDemande: string;
+  demandes: MessageDemandes;
+  surLesLieux: MessageSurLesLieux;
   addressConfirmed: boolean;
 };
 
@@ -46,6 +96,8 @@ type CompteRenduMessage = {
   jePrevois: string;
   jeFais: string;
   jeDemande: string;
+  demandes: MessageDemandes;
+  surLesLieux: MessageSurLesLieux;
   addressConfirmed: boolean;
 };
 
@@ -58,6 +110,8 @@ const createAmbianceMessage = (): AmbianceMessage => {
     jeSuis: '',
     jeVois: '',
     jeDemande: '',
+    demandes: createMessageDemandes(),
+    surLesLieux: createMessageSurLesLieux(),
     addressConfirmed: false
   };
 };
@@ -73,8 +127,209 @@ const createCompteRenduMessage = (): CompteRenduMessage => {
     jePrevois: '',
     jeFais: '',
     jeDemande: '',
+    demandes: createMessageDemandes(),
+    surLesLieux: createMessageSurLesLieux(),
     addressConfirmed: false
   };
+};
+
+const normalizeSelections = (input: unknown): MessageSelections => {
+  if (!input || typeof input !== 'object') return {};
+  const record = input as Record<string, unknown>;
+  return Object.keys(record).reduce<MessageSelections>((acc, key) => {
+    if (typeof record[key] === 'boolean') acc[key] = Boolean(record[key]);
+    return acc;
+  }, {});
+};
+
+const normalizeDemandes = (input: unknown): MessageDemandes => {
+  const base = createMessageDemandes();
+  if (!input || typeof input !== 'object') return base;
+  const record = input as Record<string, unknown>;
+  const selections = record.selections && typeof record.selections === 'object'
+    ? normalizeSelections(record.selections)
+    : normalizeSelections(record);
+  return {
+    ...base,
+    selections,
+    autresMoyensSp: typeof record.autresMoyensSp === 'string' ? record.autresMoyensSp : base.autresMoyensSp,
+    moyensSpFpt: typeof record.moyensSpFpt === 'string' ? record.moyensSpFpt : base.moyensSpFpt,
+    moyensSpEpc: typeof record.moyensSpEpc === 'string' ? record.moyensSpEpc : base.moyensSpEpc,
+    moyensSpVsav: typeof record.moyensSpVsav === 'string' ? record.moyensSpVsav : base.moyensSpVsav,
+    moyensSpCcf: typeof record.moyensSpCcf === 'string' ? record.moyensSpCcf : base.moyensSpCcf,
+    moyensSpVsr: typeof record.moyensSpVsr === 'string' ? record.moyensSpVsr : base.moyensSpVsr,
+    autres: typeof record.autres === 'string' ? record.autres : base.autres
+  };
+};
+
+const normalizeSurLesLieux = (input: unknown): MessageSurLesLieux => {
+  const base = createMessageSurLesLieux();
+  if (!input || typeof input !== 'object') return base;
+  const record = input as Record<string, unknown>;
+  const selections = record.selections && typeof record.selections === 'object'
+    ? normalizeSelections(record.selections)
+    : normalizeSelections(record);
+  return {
+    ...base,
+    selections,
+    feuEteintHeure: typeof record.feuEteintHeure === 'string' ? record.feuEteintHeure : base.feuEteintHeure
+  };
+};
+
+const buildDemandesSummary = (demandes: MessageDemandes | undefined, options: MessageCheckboxOption[]) => {
+  if (!demandes) return [];
+  const selected = options.filter((opt) => demandes.selections[opt.id]).map((opt) => opt.label);
+  const moyensSp = MOYENS_SP_FIELDS
+    .map(({ key, label }) => {
+      const value = demandes[key].trim();
+      return value ? `${label} ${value}` : '';
+    })
+    .filter(Boolean)
+    .join(', ');
+  if (moyensSp) selected.push(`Moyens SP: ${moyensSp}`);
+  if (demandes.autresMoyensSp.trim()) selected.push(`Autres moyens SP: ${demandes.autresMoyensSp.trim()}`);
+  if (demandes.autres.trim()) selected.push(`Autre(s): ${demandes.autres.trim()}`);
+  return selected;
+};
+
+const buildSurLesLieuxSummary = (surLesLieux: MessageSurLesLieux | undefined, options: MessageCheckboxOption[]) => {
+  if (!surLesLieux) return [];
+  const selected = options
+    .filter((opt) => opt.id !== FEU_ETEINT_ID && surLesLieux.selections[opt.id])
+    .map((opt) => opt.label);
+  const feuEteintOption = options.find((opt) => opt.id === FEU_ETEINT_ID);
+  if (feuEteintOption && surLesLieux.selections[FEU_ETEINT_ID]) {
+    const timeLabel = surLesLieux.feuEteintHeure.trim();
+    selected.push(timeLabel ? `${feuEteintOption.label} ${timeLabel}` : feuEteintOption.label);
+  }
+  return selected;
+};
+
+type DemandesSectionProps = {
+  value: MessageDemandes;
+  onChange: (next: MessageDemandes) => void;
+  options: MessageCheckboxOption[];
+};
+
+const DemandesSection: React.FC<DemandesSectionProps> = ({ value, onChange, options }) => {
+  const toggleOption = (id: string) => {
+    onChange({ ...value, selections: { ...value.selections, [id]: !value.selections[id] } });
+  };
+
+  const handleFieldChange = (key: keyof MessageDemandes, nextValue: string) => {
+    onChange({ ...value, [key]: nextValue });
+  };
+
+  return (
+    <div className="space-y-3 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50/80 dark:bg-white/5 p-3">
+      <div className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400">Je demande (cases à cocher)</div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+        {options.map((opt) => (
+          <label key={opt.id} className="inline-flex items-center gap-2 text-sm text-slate-700 dark:text-gray-200">
+            <input
+              type="checkbox"
+              checked={Boolean(value.selections[opt.id])}
+              onChange={() => toggleOption(opt.id)}
+              className="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+            />
+            {opt.label}
+          </label>
+        ))}
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-[1.1fr,1.2fr] gap-3 md:items-end">
+        <div className="space-y-1">
+          <label className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400 md:min-h-[28px] md:flex md:items-end">Autres moyens SP</label>
+          <input
+            value={value.autresMoyensSp}
+            onChange={(e) => handleFieldChange('autresMoyensSp', e.target.value)}
+            placeholder="Précisions"
+            className="w-full bg-white dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400 md:min-h-[28px] md:flex md:items-end">Moyens Sapeurs-Pompiers</label>
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+            {MOYENS_SP_FIELDS.map(({ key, label }) => (
+              <div key={key} className="flex flex-col gap-1">
+                <span className="text-[10px] uppercase text-slate-500 dark:text-gray-400">{label}</span>
+                <input
+                  value={value[key]}
+                  onChange={(e) => handleFieldChange(key, e.target.value)}
+                  inputMode="numeric"
+                  placeholder="0"
+                  className="w-full bg-white dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-lg px-2 py-1.5 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="space-y-1">
+        <label className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400">Autre(s)</label>
+        <input
+          value={value.autres}
+          onChange={(e) => handleFieldChange('autres', e.target.value)}
+          placeholder="Autres demandes"
+          className="w-full bg-white dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30"
+        />
+      </div>
+    </div>
+  );
+};
+
+type SurLesLieuxSectionProps = {
+  value: MessageSurLesLieux;
+  onChange: (next: MessageSurLesLieux) => void;
+  options: MessageCheckboxOption[];
+};
+
+const SurLesLieuxSection: React.FC<SurLesLieuxSectionProps> = ({ value, onChange, options }) => {
+  const toggleOption = (id: string) => {
+    onChange({ ...value, selections: { ...value.selections, [id]: !value.selections[id] } });
+  };
+  const feuEteintOption = options.find((opt) => opt.id === FEU_ETEINT_ID);
+
+  return (
+    <div className="space-y-3 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50/80 dark:bg-white/5 p-3">
+      <div className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400">Sur les lieux</div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {options.filter((opt) => opt.id !== FEU_ETEINT_ID).map((opt) => (
+          <label key={opt.id} className="inline-flex items-center gap-2 text-sm text-slate-700 dark:text-gray-200">
+            <input
+              type="checkbox"
+              checked={Boolean(value.selections[opt.id])}
+              onChange={() => toggleOption(opt.id)}
+              className="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+            />
+            {opt.label}
+          </label>
+        ))}
+        {feuEteintOption && (
+          <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
+            <label className="inline-flex items-center gap-2 text-sm text-slate-700 dark:text-gray-200">
+              <input
+                type="checkbox"
+                checked={Boolean(value.selections[FEU_ETEINT_ID])}
+                onChange={() => toggleOption(FEU_ETEINT_ID)}
+                className="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+              />
+              {feuEteintOption.label}
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="time"
+                value={value.feuEteintHeure}
+                onChange={(e) => onChange({ ...value, feuEteintHeure: e.target.value })}
+                disabled={!value.selections[FEU_ETEINT_ID]}
+                className="w-28 bg-white dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-lg px-2 py-1.5 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 disabled:opacity-60"
+              />
+              <span className="text-xs text-slate-500 dark:text-gray-400">hrs</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };
 
 const ADDITIONAL_INFO_PLACEHOLDER = 'Exemples : type de bâtiment, ETARE, raison sociale';
@@ -83,8 +338,10 @@ const DictationInput = () => {
   const { type } = useParams();
   const [ordreData, setOrdreData] = useState<OrdreInitial | null>(null);
   const [selectedRisks, setSelectedRisks] = useState<DominanteType[]>([]);
-  const [address, setAddress] = useState('');
-  const [city, setCity] = useState('');
+  const address = useInterventionStore((s) => s.address);
+  const city = useInterventionStore((s) => s.city);
+  const setAddress = useInterventionStore((s) => s.setAddress);
+  const setCity = useInterventionStore((s) => s.setCity);
   const [additionalInfo, setAdditionalInfo] = useState('');
   const [soiecAddressValidated, setSoiecAddressValidated] = useState(false);
   const [soiecTimeValidated, setSoiecTimeValidated] = useState(false);
@@ -102,9 +359,14 @@ const DictationInput = () => {
   const [conduiteTimeValidated, setConduiteTimeValidated] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const DRAFT_KEY = 'atlas-ordre-initial-draft';
   const [showShareHint, setShowShareHint] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareStatus, setShareStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [shareCode, setShareCode] = useState<string | null>(null);
+  const [shareQrDataUrl, setShareQrDataUrl] = useState<string | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
   const [selectedMeans, setSelectedMeans] = useState<MeanItem[]>([]);
   const [activeTab, setActiveTab] = useState<'soiec' | 'moyens' | 'oct' | 'message' | 'sitac' | 'aide'>('soiec');
   const [ambianceMessage, setAmbianceMessage] = useState<AmbianceMessage>(() => createAmbianceMessage());
@@ -117,6 +379,7 @@ const DictationInput = () => {
   const [meansResetKey, setMeansResetKey] = useState(0);
   const [sitacResetKey, setSitacResetKey] = useState(0);
   const setExternalSearch = useSitacStore((s) => s.setExternalSearch);
+  const { settings } = useSessionSettings();
   const fullAddress = React.useMemo(
     () => [address, city].filter(Boolean).join(', '),
     [address, city]
@@ -330,6 +593,20 @@ const DictationInput = () => {
     if (activeTab === 'message') {
       const isAddressAvailable = Boolean(fullAddress.trim());
       const hasValidatedMessages = Boolean(validatedAmbiance || validatedCompteRendu);
+      const demandeOptions = settings.messageDemandeOptions || [];
+      const surLesLieuxOptions = settings.messageSurLesLieuxOptions || [];
+      const ambianceDemandesSummary = validatedAmbiance
+        ? buildDemandesSummary(validatedAmbiance.demandes, demandeOptions)
+        : [];
+      const ambianceSurLesLieuxSummary = validatedAmbiance
+        ? buildSurLesLieuxSummary(validatedAmbiance.surLesLieux, surLesLieuxOptions)
+        : [];
+      const compteRenduDemandesSummary = validatedCompteRendu
+        ? buildDemandesSummary(validatedCompteRendu.demandes, demandeOptions)
+        : [];
+      const compteRenduSurLesLieuxSummary = validatedCompteRendu
+        ? buildSurLesLieuxSummary(validatedCompteRendu.surLesLieux, surLesLieuxOptions)
+        : [];
       return (
         <div className="space-y-4">
           <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white/90 dark:bg-white/5 p-4 md:p-5 space-y-4 shadow-sm">
@@ -367,6 +644,18 @@ const DictationInput = () => {
                         <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Je demande</div>
                         <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">
                           {validatedAmbiance.jeDemande || '-'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Demandes</div>
+                        <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">
+                          {ambianceDemandesSummary.length ? ambianceDemandesSummary.join(', ') : '-'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Sur les lieux</div>
+                        <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">
+                          {ambianceSurLesLieuxSummary.length ? ambianceSurLesLieuxSummary.join(', ') : '-'}
                         </div>
                       </div>
                     </div>
@@ -410,6 +699,18 @@ const DictationInput = () => {
                         <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Je demande</div>
                         <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">
                           {validatedCompteRendu.jeDemande || '-'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Demandes</div>
+                        <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">
+                          {compteRenduDemandesSummary.length ? compteRenduDemandesSummary.join(', ') : '-'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Sur les lieux</div>
+                        <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">
+                          {compteRenduSurLesLieuxSummary.length ? compteRenduSurLesLieuxSummary.join(', ') : '-'}
                         </div>
                       </div>
                     </div>
@@ -558,6 +859,16 @@ const DictationInput = () => {
                     className="w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
                   />
                 </div>
+                <DemandesSection
+                  value={ambianceMessage.demandes}
+                  onChange={(next) => setAmbianceMessage((prev) => ({ ...prev, demandes: next }))}
+                  options={demandeOptions}
+                />
+                <SurLesLieuxSection
+                  value={ambianceMessage.surLesLieux}
+                  onChange={(next) => setAmbianceMessage((prev) => ({ ...prev, surLesLieux: next }))}
+                  options={surLesLieuxOptions}
+                />
               </div>
 
               <div className="flex flex-wrap justify-end gap-2 pt-2">
@@ -731,6 +1042,16 @@ const DictationInput = () => {
                     className="w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
                   />
                 </div>
+                <DemandesSection
+                  value={compteRenduMessage.demandes}
+                  onChange={(next) => setCompteRenduMessage((prev) => ({ ...prev, demandes: next }))}
+                  options={demandeOptions}
+                />
+                <SurLesLieuxSection
+                  value={compteRenduMessage.surLesLieux}
+                  onChange={(next) => setCompteRenduMessage((prev) => ({ ...prev, surLesLieux: next }))}
+                  options={surLesLieuxOptions}
+                />
               </div>
 
               <div className="flex flex-wrap justify-end gap-2 pt-2">
@@ -774,7 +1095,7 @@ const DictationInput = () => {
   // Load draft
   React.useEffect(() => {
     try {
-      const raw = localStorage.getItem(DRAFT_KEY);
+      const raw = localStorage.getItem(INTERVENTION_DRAFT_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed.ordreData) setOrdreData(parsed.ordreData);
@@ -787,19 +1108,49 @@ const DictationInput = () => {
         if (parsed.orderTime) setOrderTime(parsed.orderTime);
         if (parsed.selectedMeans) setSelectedMeans(normalizeMeans(parsed.selectedMeans));
         if (parsed.ambianceMessage) {
-          setAmbianceMessage({ ...createAmbianceMessage(), ...parsed.ambianceMessage });
+          const draftAmbiance = parsed.ambianceMessage as Partial<AmbianceMessage>;
+          setAmbianceMessage({
+            ...createAmbianceMessage(),
+            ...draftAmbiance,
+            demandes: normalizeDemandes(draftAmbiance.demandes),
+            surLesLieux: normalizeSurLesLieux(draftAmbiance.surLesLieux)
+          });
         }
         if (parsed.compteRenduMessage) {
-          setCompteRenduMessage({ ...createCompteRenduMessage(), ...parsed.compteRenduMessage });
+          const draftCompteRendu = parsed.compteRenduMessage as Partial<CompteRenduMessage>;
+          setCompteRenduMessage({
+            ...createCompteRenduMessage(),
+            ...draftCompteRendu,
+            demandes: normalizeDemandes(draftCompteRendu.demandes),
+            surLesLieux: normalizeSurLesLieux(draftCompteRendu.surLesLieux)
+          });
         }
         if (parsed.validatedAmbiance) {
-          setValidatedAmbiance(parsed.validatedAmbiance);
+          const validated = parsed.validatedAmbiance as Partial<AmbianceMessage>;
+          setValidatedAmbiance({
+            ...createAmbianceMessage(),
+            ...validated,
+            demandes: normalizeDemandes(validated.demandes),
+            surLesLieux: normalizeSurLesLieux(validated.surLesLieux)
+          });
         }
         if (parsed.validatedCompteRendu) {
-          setValidatedCompteRendu(parsed.validatedCompteRendu);
+          const validated = parsed.validatedCompteRendu as Partial<CompteRenduMessage>;
+          setValidatedCompteRendu({
+            ...createCompteRenduMessage(),
+            ...validated,
+            demandes: normalizeDemandes(validated.demandes),
+            surLesLieux: normalizeSurLesLieux(validated.surLesLieux)
+          });
         }
         if (parsed.ordreValidatedAt) {
           setOrdreValidatedAt(parsed.ordreValidatedAt);
+        }
+        if (parsed.ordreConduite) {
+          setOrdreConduite(parsed.ordreConduite);
+        }
+        if (typeof parsed.showConduite === 'boolean') {
+          setShowConduite(parsed.showConduite);
         }
         if (parsed.conduiteValidatedAt) {
           setConduiteValidatedAt(parsed.conduiteValidatedAt);
@@ -826,6 +1177,8 @@ const DictationInput = () => {
       city,
       additionalInfo,
       orderTime,
+      ordreConduite,
+      showConduite,
       selectedMeans,
       ambianceMessage,
       compteRenduMessage,
@@ -840,14 +1193,14 @@ const DictationInput = () => {
       conduiteOrderTime
     };
     try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
+      localStorage.setItem(INTERVENTION_DRAFT_KEY, JSON.stringify(payload));
     } catch (err) {
       console.error('Erreur sauvegarde brouillon', err);
     }
-  }, [ordreData, selectedRisks, address, city, additionalInfo, orderTime, selectedMeans, ambianceMessage, compteRenduMessage, validatedAmbiance, validatedCompteRendu, ordreValidatedAt, conduiteValidatedAt, conduiteSelectedRisks, conduiteAddress, conduiteCity, conduiteAdditionalInfo, conduiteOrderTime]);
+  }, [ordreData, selectedRisks, address, city, additionalInfo, orderTime, ordreConduite, showConduite, selectedMeans, ambianceMessage, compteRenduMessage, validatedAmbiance, validatedCompteRendu, ordreValidatedAt, conduiteValidatedAt, conduiteSelectedRisks, conduiteAddress, conduiteCity, conduiteAdditionalInfo, conduiteOrderTime]);
 
   React.useEffect(() => {
-    const state = location.state as { meta?: { address?: string; city?: string; date?: string; time?: string } } | null;
+    const state = location.state as { meta?: { address?: string; city?: string; date?: string; time?: string; role?: string } } | null;
     if (state?.meta) {
       const { address: addr, city: c, date, time } = state.meta;
       if (addr) setAddress(addr);
@@ -966,6 +1319,8 @@ const DictationInput = () => {
         throw new Error('Veuillez remplir au moins une section avant de générer.');
       }
 
+      const messageAmbiance = validatedAmbiance ?? ambianceMessage;
+      const messageCompteRendu = validatedCompteRendu ?? compteRenduMessage;
       const dominante = selectedRisks.length > 0 ? selectedRisks[0] : 'Incendie';
 
       if (type === 'communication') {
@@ -979,7 +1334,9 @@ const DictationInput = () => {
           Moyens: '',
           Actions_secours: '',
           Conseils_population: '',
-          dominante
+          dominante,
+          message_ambiance: messageAmbiance,
+          message_compte_rendu: messageCompteRendu
         };
 
         await saveCommunicationData(communicationData);
@@ -1017,7 +1374,9 @@ const DictationInput = () => {
           dominante,
           adresse: address,
           heure_ordre: orderTime,
-          moyens: selectedMeans
+          moyens: selectedMeans,
+          message_ambiance: messageAmbiance,
+          message_compte_rendu: messageCompteRendu
         };
         await saveDictationData(dataToSave);
 
@@ -1106,6 +1465,95 @@ const DictationInput = () => {
     await exportOrdreToClipboard(ordreData, meta);
   };
 
+  const buildSharePayload = (): InterventionSharePayload => {
+    const shareType = type === 'group' || type === 'column' || type === 'site' || type === 'communication' ? type : undefined;
+    const draft = {
+      ordreData,
+      selectedRisks,
+      address,
+      city,
+      additionalInfo,
+      orderTime,
+      ordreConduite,
+      showConduite,
+      selectedMeans,
+      ambianceMessage,
+      compteRenduMessage,
+      validatedAmbiance,
+      validatedCompteRendu,
+      ordreValidatedAt,
+      conduiteValidatedAt,
+      conduiteSelectedRisks,
+      conduiteAddress,
+      conduiteCity,
+      conduiteAdditionalInfo,
+      conduiteOrderTime
+    };
+    const interventionState = useInterventionStore.getState();
+    const sitacState = useSitacStore.getState();
+    return {
+      version: 1,
+      shareType,
+      draft,
+      octTree: getOctTree(),
+      sitacState: {
+        geoJSON: sitacState.geoJSON,
+        snapshots: sitacState.snapshots,
+        drawingColor: sitacState.drawingColor,
+        lineStyle: sitacState.lineStyle,
+        locked: sitacState.locked
+      },
+      interventionMeta: {
+        streetNumber: interventionState.streetNumber,
+        streetName: interventionState.streetName,
+        role: interventionState.role,
+        lat: interventionState.lat,
+        lng: interventionState.lng
+      }
+    };
+  };
+
+  const handleGenerateShare = async () => {
+    setShareStatus('loading');
+    setShareError(null);
+    setShareCode(null);
+    setShareQrDataUrl(null);
+    setShareCopied(false);
+    try {
+      const payload = buildSharePayload();
+      const sanitizedPayload = JSON.parse(JSON.stringify(payload)) as InterventionSharePayload;
+      const shareId = await saveInterventionShare(sanitizedPayload);
+      const qrValue = `${INTERVENTION_SHARE_PREFIX}${shareId}`;
+      const dataUrl = await QRCode.toDataURL(qrValue, { margin: 1, width: 280 });
+      setShareCode(shareId);
+      setShareQrDataUrl(dataUrl);
+      setShareStatus('ready');
+    } catch (error) {
+      console.error('Erreur génération QR Code', error);
+      const message = error instanceof Error ? error.message : 'Impossible de générer le QR code.';
+      setShareError(message);
+      setShareStatus('error');
+    }
+  };
+
+  const handleOpenShareModal = () => {
+    setShareModalOpen(true);
+    setShowShareMenu(false);
+    setShowShareHint(false);
+    void handleGenerateShare();
+  };
+
+  const handleCopyShareCode = async () => {
+    if (!shareCode) return;
+    try {
+      await navigator.clipboard.writeText(shareCode);
+      setShareCopied(true);
+    } catch (error) {
+      console.error('Erreur copie code partage', error);
+      setShareError('Impossible de copier le code. Copiez-le manuellement.');
+    }
+  };
+
   const resetSoiecState = () => {
     setOrdreData(null);
     setSelectedRisks([]);
@@ -1128,7 +1576,7 @@ const DictationInput = () => {
     setShowShareHint(false);
     setShowShareMenu(false);
     try {
-      localStorage.removeItem(DRAFT_KEY);
+      localStorage.removeItem(INTERVENTION_DRAFT_KEY);
     } catch (err) {
       console.error('Erreur réinitialisation brouillon', err);
     }
@@ -1210,12 +1658,21 @@ const DictationInput = () => {
                   );
                 })}
               </div>
-              <button
-                onClick={() => setResetDialogOpen(true)}
-                className="ml-auto px-3 py-2 rounded-xl text-sm font-semibold bg-slate-200 hover:bg-slate-300 border border-slate-300 text-slate-700 dark:bg-white/10 dark:hover:bg-white/20 dark:border-white/15 dark:text-gray-200 transition"
-              >
-                Réinitialiser
-              </button>
+              <div className="ml-auto flex items-center gap-2">
+                <button
+                  onClick={handleOpenShareModal}
+                  className="px-3 py-2 rounded-xl text-sm font-semibold bg-white/70 hover:bg-white border border-slate-200 text-slate-700 dark:bg-white/10 dark:hover:bg-white/20 dark:border-white/15 dark:text-gray-200 transition flex items-center gap-2"
+                >
+                  <QrCode className="w-4 h-4" />
+                  QR Code
+                </button>
+                <button
+                  onClick={() => setResetDialogOpen(true)}
+                  className="px-3 py-2 rounded-xl text-sm font-semibold bg-slate-200 hover:bg-slate-300 border border-slate-300 text-slate-700 dark:bg-white/10 dark:hover:bg-white/20 dark:border-white/15 dark:text-gray-200 transition"
+                >
+                  Réinitialiser
+                </button>
+              </div>
             </div>
             <div className="flex-1 p-3 md:p-5 overflow-visible md:overflow-y-auto md:overflow-x-hidden md:min-h-0">
               {renderTabContent()}
@@ -1403,6 +1860,83 @@ const DictationInput = () => {
           )}
         </div>
       </div>
+
+      {shareModalOpen && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white dark:bg-[#0f121a] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold">Partager par QR Code</h3>
+                <p className="text-xs text-slate-500 dark:text-gray-400">Scannez pour rejoindre l’intervention.</p>
+              </div>
+              <button
+                onClick={() => setShareModalOpen(false)}
+                className="text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
+                aria-label="Fermer la fenêtre"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              {shareStatus === 'loading' && (
+                <div className="flex flex-col items-center gap-3 text-slate-600 dark:text-gray-300">
+                  <div className="w-8 h-8 border-2 border-slate-300 dark:border-white/30 border-t-slate-600 dark:border-t-white rounded-full animate-spin" />
+                  Génération du QR code…
+                </div>
+              )}
+              {shareStatus === 'error' && (
+                <div className="space-y-3">
+                  <p className="text-sm text-red-600 dark:text-red-300">{shareError || 'Une erreur est survenue.'}</p>
+                  <button
+                    onClick={handleGenerateShare}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 border border-slate-300 text-sm text-slate-700 dark:bg-white/10 dark:hover:bg-white/15 dark:border-white/15 dark:text-gray-100 transition"
+                  >
+                    Réessayer
+                  </button>
+                </div>
+              )}
+              {shareStatus === 'ready' && (
+                <div className="flex flex-col items-center gap-4">
+                  <div className="w-52 h-52 rounded-2xl bg-slate-100 dark:bg-white/10 flex items-center justify-center overflow-hidden border border-slate-200 dark:border-white/10">
+                    {shareQrDataUrl ? (
+                      <img src={shareQrDataUrl} alt="QR Code de partage" className="w-full h-full object-contain" />
+                    ) : (
+                      <span className="text-xs text-slate-500 dark:text-gray-400">QR code indisponible</span>
+                    )}
+                  </div>
+                  <div className="text-xs text-slate-600 dark:text-gray-400">
+                    Code : <span className="font-mono text-slate-900 dark:text-white">{shareCode}</span>
+                  </div>
+                  <button
+                    onClick={handleCopyShareCode}
+                    className="px-3 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 border border-slate-300 text-sm text-slate-700 dark:bg-white/10 dark:hover:bg-white/15 dark:border-white/15 dark:text-gray-100 transition flex items-center gap-2"
+                  >
+                    <ClipboardCopy className="w-4 h-4" />
+                    Copier le code
+                  </button>
+                  {shareCopied && <div className="text-xs text-emerald-600 dark:text-emerald-300">Code copié.</div>}
+                  {shareError && <div className="text-xs text-red-500 dark:text-red-300">{shareError}</div>}
+                </div>
+              )}
+            </div>
+            <div className="px-4 py-3 border-t border-slate-200 dark:border-white/10 flex justify-end gap-2">
+              <button
+                onClick={() => setShareModalOpen(false)}
+                className="px-3 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-sm text-slate-700 dark:bg-white/5 dark:hover:bg-white/10 dark:text-gray-200 transition"
+              >
+                Fermer
+              </button>
+              <button
+                onClick={handleGenerateShare}
+                disabled={shareStatus === 'loading'}
+                className="px-3 py-2 rounded-lg bg-slate-900 text-sm text-white hover:bg-slate-800 disabled:opacity-60 transition"
+              >
+                Regénérer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {resetDialogOpen && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Check, ChevronDown, Plus, Trash2, X } from 'lucide-react';
 import { DOCTRINE_CONTEXT } from '../constants/doctrine';
+import { useSessionSettings } from '../utils/sessionSettings';
 import { OctColor, OctTreeNode, useOctTree } from '../utils/octTreeStore';
 
 type Status = 'sur_place' | 'demande';
@@ -122,6 +123,7 @@ const meanExistsInTree = (node: OctTreeNode, meanRef: string): boolean => {
 
 const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, onClose, selected, onChange }) => {
   const { tree: octTree, setTree: setOctTree } = useOctTree();
+  const { settings } = useSessionSettings();
   const [assignSelection, setAssignSelection] = React.useState<Record<string, string>>({});
   const [sectorDrafts, setSectorDrafts] = React.useState<Record<string, string>>({});
   const [subsectorOpen, setSubsectorOpen] = React.useState<Record<string, boolean>>({});
@@ -157,17 +159,48 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
   }, [selected, onChange]);
 
   const meansList = React.useMemo(() => {
-    const data: { name: string; category: string }[] = [];
+    const merged = new Map<string, { name: string; category: string }>();
+    const addItem = (name: string, category: string) => {
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      merged.set(`${category}:${trimmed.toLowerCase()}`, { name: trimmed, category });
+    };
+
     Object.entries(CATEGORIES).forEach(([catKey, meta]) => {
       const ctx = DOCTRINE_CONTEXT[meta.key as keyof typeof DOCTRINE_CONTEXT];
       const moyens = ctx?.moyens_standards_td || [];
       moyens.forEach((m: string) => {
         const title = m.split(':')[0].trim();
-        data.push({ name: title, category: catKey });
+        addItem(title, catKey);
       });
     });
-    return data;
-  }, []);
+
+    settings.meansCatalog.forEach((item) => {
+      addItem(item.name, item.category);
+    });
+
+    return Array.from(merged.values());
+  }, [settings.meansCatalog]);
+
+  const meansByCategory = React.useMemo(() => {
+    const grouped: Record<string, { name: string; category: string }[]> = {};
+    meansList.forEach((item) => {
+      if (!item.name) return;
+      if (!grouped[item.category]) grouped[item.category] = [];
+      grouped[item.category].push(item);
+    });
+    return grouped;
+  }, [meansList]);
+
+  const getDefaultFrequencies = React.useCallback(
+    (type: 'sector' | 'subsector' | 'engine') => {
+      const defaults = settings.octDefaults?.[type];
+      const up = defaults?.up?.trim() || '';
+      const down = defaults?.down?.trim() || '';
+      return [up, down].filter(Boolean);
+    },
+    [settings.octDefaults]
+  );
 
   const updateOctTree = React.useCallback(
     (updater: (tree: OctTreeNode) => OctTreeNode) => setOctTree(updater),
@@ -225,6 +258,7 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
         id: generateId(),
         type: 'sector',
         label: 'Nouveau secteur',
+        frequencies: getDefaultFrequencies('sector'),
         color: 'red',
         children: []
       };
@@ -238,6 +272,7 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
         id: generateId(),
         type: 'subsector',
         label: 'Nouveau sous-secteur',
+        frequencies: getDefaultFrequencies('subsector'),
         color: 'orange',
         children: []
       };
@@ -274,6 +309,7 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
         id: generateId(),
         type: 'engine',
         label: mean.name,
+        frequencies: getDefaultFrequencies('engine'),
         meanSource: 'means',
         meanRef: mean.id,
         meanStatus: mean.status,
@@ -507,8 +543,7 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
             <span className="text-[11px] text-slate-500 dark:text-gray-400">{meansList.length} disponibles</span>
           </div>
           {Object.entries(CATEGORIES).map(([catKey, meta]) => {
-            const ctx = DOCTRINE_CONTEXT[meta.key as keyof typeof DOCTRINE_CONTEXT];
-            const moyens = ctx?.moyens_standards_td || [];
+            const moyens = meansByCategory[catKey] || [];
             if (!moyens.length) return null;
             return (
               <div key={catKey} className="space-y-2">
@@ -516,13 +551,13 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
                   {meta.label}
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-                  {moyens.map((m: string) => {
-                    const title = m.split(':')[0].trim();
+                  {moyens.map((m) => {
+                    const title = m.name;
                     const already = selected.find((s) => s.name === title);
                     const isRequested = already?.status === 'demande';
                     return (
                       <button
-                        key={title}
+                        key={`${catKey}-${title}`}
                         onClick={() => addMean({ name: title, category: catKey })}
                         className={`w-full text-left px-3 py-2 rounded-lg border ${already ? `border-dashed ${meta.dashedClass}` : 'border-slate-200 dark:border-white/15'} ${meta.color} hover:bg-slate-100 dark:hover:bg-white/10 transition`}
                       >
