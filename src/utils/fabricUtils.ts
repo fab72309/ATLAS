@@ -14,6 +14,7 @@ export interface FabricGeoObject extends fabric.Object {
 export const syncObjectPosition = (obj: FabricGeoObject, map: maplibregl.Map) => {
     if (!obj.geoPosition) return;
     const { lng, lat } = obj.geoPosition;
+    if (!Number.isFinite(lng) || !Number.isFinite(lat)) return;
     const point = map.project([lng, lat]);
 
     const currentZoom = map.getZoom();
@@ -45,7 +46,9 @@ export const syncObjectPosition = (obj: FabricGeoObject, map: maplibregl.Map) =>
  */
 export const refreshGeoTransform = (obj: FabricGeoObject, map: maplibregl.Map) => {
     const center = obj.getCenterPoint();
+    if (!Number.isFinite(center.x) || !Number.isFinite(center.y)) return;
     const lngLat = toLngLat(center.x, center.y, map);
+    if (!Number.isFinite(lngLat.lng) || !Number.isFinite(lngLat.lat)) return;
     obj.geoPosition = { lng: lngLat.lng, lat: lngLat.lat };
     obj.baseZoom = map.getZoom();
     obj.baseScaleX = obj.scaleX ?? obj.baseScaleX ?? 1;

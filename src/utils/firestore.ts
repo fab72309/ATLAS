@@ -1,4 +1,4 @@
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { auth, authReady, db } from './firebase';
 
 export interface AIAnalysisData {
@@ -23,6 +23,8 @@ export interface DictationData {
   dominante?: string;
   adresse?: string;
   heure_ordre?: string;
+  message_ambiance?: Record<string, unknown>;
+  message_compte_rendu?: Record<string, unknown>;
 }
 
 export interface CommunicationData {
@@ -35,6 +37,8 @@ export interface CommunicationData {
   Actions_secours: string;
   Conseils_population: string;
   dominante?: string;
+  message_ambiance?: Record<string, unknown>;
+  message_compte_rendu?: Record<string, unknown>;
 }
 
 export interface CommunicationIAData {
@@ -48,7 +52,18 @@ export interface CommunicationIAData {
   Actions_secours: string;
   Conseils_population: string;
   dominante?: string;
+  message_ambiance?: Record<string, unknown>;
+  message_compte_rendu?: Record<string, unknown>;
 }
+
+export type InterventionSharePayload = {
+  version: 1;
+  shareType?: 'group' | 'column' | 'site' | 'communication';
+  draft: Record<string, unknown>;
+  octTree?: unknown;
+  sitacState?: Record<string, unknown>;
+  interventionMeta?: Record<string, unknown>;
+};
 
 export const saveDictationData = async (data: DictationData) => {
   try {
@@ -124,6 +139,41 @@ export const saveCommunicationIAData = async (data: CommunicationIAData) => {
     return docRef.id;
   } catch (error) {
     console.error('Error saving Communication IA analysis to Firestore:', error);
+    throw error;
+  }
+};
+
+export const saveInterventionShare = async (payload: InterventionSharePayload) => {
+  try {
+    await authReady;
+    const user = auth.currentUser;
+    if (!user) throw new Error('Utilisateur non authentifié. Merci de vous connecter.');
+    const collectionRef = collection(db, 'InterventionShares');
+    const docRef = await addDoc(collectionRef, {
+      payload,
+      uid: user.uid,
+      createdAt: serverTimestamp()
+    });
+    console.log('Intervention share created with ID:', docRef.id);
+    return docRef.id;
+  } catch (error) {
+    console.error('Erreur lors de la création du partage d’intervention:', error);
+    throw error;
+  }
+};
+
+export const getInterventionShare = async (shareId: string): Promise<InterventionSharePayload | null> => {
+  try {
+    await authReady;
+    const user = auth.currentUser;
+    if (!user) throw new Error('Utilisateur non authentifié. Merci de vous connecter.');
+    const docRef = doc(db, 'InterventionShares', shareId);
+    const snapshot = await getDoc(docRef);
+    if (!snapshot.exists()) return null;
+    const data = snapshot.data() as { payload?: InterventionSharePayload } | undefined;
+    return data?.payload ?? null;
+  } catch (error) {
+    console.error('Erreur lors de la récupération du partage d’intervention:', error);
     throw error;
   }
 };

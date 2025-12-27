@@ -1,6 +1,6 @@
 import React from 'react';
 import { useSitacStore } from '../../stores/useSitacStore';
-import { Undo2, Redo2, Trash2, Search, Layers, Lock, Unlock, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Undo2, Redo2, Trash2, Search, Layers, Lock, Unlock, ChevronLeft, ChevronRight, LocateFixed, MapPin, Loader2 } from 'lucide-react';
 import type { BaseLayerKey } from '../../types/sitac';
 
 interface SitacToolbarProps {
@@ -9,6 +9,11 @@ interface SitacToolbarProps {
     searchValue: string;
     setSearchValue: (val: string) => void;
     handleSearch: () => void;
+    onLocateUser: () => void;
+    onToggleInterventionPlacement: () => void;
+    isLocating?: boolean;
+    isMarking?: boolean;
+    isPlacingIntervention?: boolean;
 }
 
 const SitacToolbar: React.FC<SitacToolbarProps> = ({
@@ -17,6 +22,11 @@ const SitacToolbar: React.FC<SitacToolbarProps> = ({
     searchValue,
     setSearchValue,
     handleSearch,
+    onLocateUser,
+    onToggleInterventionPlacement,
+    isLocating = false,
+    isMarking = false,
+    isPlacingIntervention = false,
 }) => {
     const undo = useSitacStore((s) => s.undo);
     const redoAction = useSitacStore((s) => s.redoAction);
@@ -68,17 +78,37 @@ const SitacToolbar: React.FC<SitacToolbarProps> = ({
                                 placeholder="Recherche adresse ou lat,lng"
                                 className="bg-black/35 border border-white/25 rounded-xl px-3 py-1.5 text-sm text-white/90 placeholder:text-gray-300 shadow-[0_6px_16px_rgba(0,0,0,0.25)] w-52 md:w-72"
                             />
-                            <button
-                                onClick={handleSearch}
-                                className="px-3 py-2 rounded-xl bg-blue-500/90 hover:bg-blue-500 text-white text-sm font-semibold shadow-[0_6px_16px_rgba(0,0,0,0.35)]"
-                            >
-                                <Search className="w-4 h-4" />
-                            </button>
-                        </div>
                         <button
-                            onClick={cycleBaseLayer}
-                            className="px-3 py-2 rounded-xl bg-black/45 hover:bg-black/55 text-white border border-white/25 text-sm flex items-center gap-2 shadow-[0_6px_16px_rgba(0,0,0,0.35)]"
+                            onClick={handleSearch}
+                            className="px-3 py-2 rounded-xl bg-blue-500/90 hover:bg-blue-500 text-white text-sm font-semibold shadow-[0_6px_16px_rgba(0,0,0,0.35)]"
                         >
+                            <Search className="w-4 h-4" />
+                        </button>
+                        <button
+                            onClick={onLocateUser}
+                            className="p-2 rounded-xl bg-black/45 hover:bg-black/55 text-white border border-white/25 shadow-[0_6px_16px_rgba(0,0,0,0.35)]"
+                            aria-label="Se localiser"
+                            title="Se localiser"
+                        >
+                            {isLocating ? <Loader2 className="w-4 h-4 animate-spin" /> : <LocateFixed className="w-4 h-4" />}
+                        </button>
+                        <button
+                            onClick={onToggleInterventionPlacement}
+                            className={`px-3 py-2 rounded-xl text-white text-sm font-semibold shadow-[0_6px_16px_rgba(0,0,0,0.35)] flex items-center gap-2 ${isPlacingIntervention
+                                ? 'bg-emerald-600/90 hover:bg-emerald-600'
+                                : 'bg-emerald-500/90 hover:bg-emerald-500'
+                                }`}
+                            aria-label={isPlacingIntervention ? "Valider la position d'intervention" : "Positionner l'intervention"}
+                            title={isPlacingIntervention ? "Valider la position d'intervention" : "Positionner l'intervention"}
+                        >
+                            {isMarking ? <Loader2 className="w-4 h-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
+                            {isPlacingIntervention ? 'Valider position' : 'Position intervention'}
+                        </button>
+                    </div>
+                    <button
+                        onClick={cycleBaseLayer}
+                        className="px-3 py-2 rounded-xl bg-black/45 hover:bg-black/55 text-white border border-white/25 text-sm flex items-center gap-2 shadow-[0_6px_16px_rgba(0,0,0,0.35)]"
+                    >
                             <Layers className="w-4 h-4" />
                             {baseLayer === 'plan'
                                 ? 'Plan'
