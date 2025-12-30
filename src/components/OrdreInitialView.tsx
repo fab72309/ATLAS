@@ -60,7 +60,7 @@ const DOCTRINE_DOMINANTE_MAP: Partial<Record<DominanteType, keyof typeof DOCTRIN
   'Risque Radiologique': 'secours_personne_complexe',
 };
 
-const buildColumnsFromOrdre = (ordre: OrdreInitial | null) => {
+const buildColumnsFromOrdre = (ordre: OrdreInitial | null, useExtendedLayout: boolean) => {
   const processItems = (content: unknown, isManeuver = false): CardItem[] => {
     if (!content) return [];
     if (Array.isArray(content)) {
@@ -84,19 +84,23 @@ const buildColumnsFromOrdre = (ordre: OrdreInitial | null) => {
   if (!ordre) {
     return {
       S: { id: 'S', title: 'Situation', letter: 'S', color: 'blue', items: [] },
+      ...(useExtendedLayout ? { A: { id: 'A', title: 'Anticipation', letter: 'A', color: 'teal', items: [] } } : {}),
       O: { id: 'O', title: 'Objectif', letter: 'O', color: 'green', items: [] },
       I: { id: 'I', title: 'Idée de manœuvre', letter: 'I', color: 'yellow', items: [] },
       E: { id: 'E', title: 'Exécution', letter: 'E', color: 'red', items: [] },
-      C: { id: 'C', title: 'Commandement', letter: 'C', color: 'purple', items: [] }
+      C: { id: 'C', title: 'Commandement', letter: 'C', color: 'purple', items: [] },
+      ...(useExtendedLayout ? { L: { id: 'L', title: 'Logistique', letter: 'L', color: 'orange', items: [] } } : {})
     };
   }
 
   return {
     S: { id: 'S', title: 'Situation', letter: 'S', color: 'blue', items: processItems(ordre.S) },
+    ...(useExtendedLayout ? { A: { id: 'A', title: 'Anticipation', letter: 'A', color: 'teal', items: processItems(ordre.A) } } : {}),
     O: { id: 'O', title: 'Objectif', letter: 'O', color: 'green', items: processItems(ordre.O) },
     I: { id: 'I', title: 'Idée de manœuvre', letter: 'I', color: 'yellow', items: processItems(ordre.I, true) },
     E: { id: 'E', title: 'Exécution', letter: 'E', color: 'red', items: processItems(ordre.E, true) },
-    C: { id: 'C', title: 'Commandement', letter: 'C', color: 'purple', items: processItems(ordre.C) }
+    C: { id: 'C', title: 'Commandement', letter: 'C', color: 'purple', items: processItems(ordre.C) },
+    ...(useExtendedLayout ? { L: { id: 'L', title: 'Logistique', letter: 'L', color: 'orange', items: processItems(ordre.L) } } : {})
   };
 };
 
@@ -124,6 +128,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
     [dominante]
   );
   const doctrineData = doctrineKey ? DOCTRINE_CONTEXT[doctrineKey] : null;
+  const useExtendedLayout = type === 'column' || type === 'site';
 
   // Initialisation des données
   useEffect(() => {
@@ -133,8 +138,8 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
       return;
     }
 
-    setColumns(buildColumnsFromOrdre(ordre));
-  }, [ordre]);
+    setColumns(buildColumnsFromOrdre(ordre, useExtendedLayout));
+  }, [ordre, useExtendedLayout]);
 
   // Notify parent of changes
   useEffect(() => {
@@ -142,9 +147,12 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
 
     // Convert columns back to OrdreInitial format
     const situationItems = columns.S?.items?.map(i => i.content) ?? [];
+    const anticipationItems = columns.A?.items?.map(i => i.content) ?? [];
     const commandItems = columns.C?.items?.map(i => i.content) ?? [];
+    const logistiqueItems = columns.L?.items?.map(i => i.content) ?? [];
     const ordreData: OrdreInitial = {
       S: situationItems.join('\n'),
+      ...(useExtendedLayout ? { A: anticipationItems } : {}),
       O: columns.O?.items?.map(i => i.content) || [],
       I: columns.I?.items?.map(i => ({
         mission: i.mission || i.content || '',
@@ -158,12 +166,13 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
         moyen_supp: i.moyen_supp || '',
         details: i.details || ''
       })) || [],
-      C: commandItems.join('\n')
+      C: commandItems.join('\n'),
+      ...(useExtendedLayout ? { L: logistiqueItems } : {})
     };
 
     onChange(ordreData);
     skipPropSyncRef.current = true;
-  }, [columns, onChange]);
+  }, [columns, onChange, useExtendedLayout]);
 
   // Nettoyer la reconnaissance à la fermeture de la modal
   useEffect(() => {
@@ -376,7 +385,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
       );
 
       const parsed = parseOrdreInitial(typeof response === 'string' ? response : JSON.stringify(response));
-      setColumns(buildColumnsFromOrdre(parsed));
+      setColumns(buildColumnsFromOrdre(parsed, useExtendedLayout));
       skipPropSyncRef.current = true;
     } catch (error) {
       console.error('Erreur génération IA:', error);
@@ -429,7 +438,9 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
       green: 'bg-green-50/80 border-green-200/70 hover:bg-green-100/70 dark:bg-green-900/20 dark:border-green-500/30 dark:hover:bg-green-900/30',
       yellow: 'bg-yellow-50/80 border-yellow-200/70 hover:bg-yellow-100/70 dark:bg-yellow-900/20 dark:border-yellow-500/30 dark:hover:bg-yellow-900/30',
       red: 'bg-red-50/80 border-red-200/70 hover:bg-red-100/70 dark:bg-red-900/20 dark:border-red-500/30 dark:hover:bg-red-900/30',
-      purple: 'bg-purple-50/80 border-purple-200/70 hover:bg-purple-100/70 dark:bg-purple-900/20 dark:border-purple-500/30 dark:hover:bg-purple-900/30'
+      purple: 'bg-purple-50/80 border-purple-200/70 hover:bg-purple-100/70 dark:bg-purple-900/20 dark:border-purple-500/30 dark:hover:bg-purple-900/30',
+      teal: 'bg-teal-50/80 border-teal-200/70 hover:bg-teal-100/70 dark:bg-teal-900/20 dark:border-teal-500/30 dark:hover:bg-teal-900/30',
+      orange: 'bg-orange-50/80 border-orange-200/70 hover:bg-orange-100/70 dark:bg-orange-900/20 dark:border-orange-500/30 dark:hover:bg-orange-900/30'
     }[col.color];
 
     return (
@@ -503,14 +514,16 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
       )}
 
       {/* Kanban Board */}
-      <div className="flex-1 grid grid-cols-5 gap-4 min-h-[600px]" ref={boardRef}>
+      <div className={`flex-1 grid ${useExtendedLayout ? 'grid-cols-7' : 'grid-cols-5'} gap-4 min-h-[600px]`} ref={boardRef}>
         {Object.values(columns).map(col => {
           const headerColor = {
             blue: 'text-blue-700 border-blue-200/80 bg-blue-50/80 dark:text-blue-400 dark:border-blue-500/30 dark:bg-blue-900/20',
             green: 'text-green-700 border-green-200/80 bg-green-50/80 dark:text-green-400 dark:border-green-500/30 dark:bg-green-900/20',
             yellow: 'text-yellow-700 border-yellow-200/80 bg-yellow-50/80 dark:text-yellow-400 dark:border-yellow-500/30 dark:bg-yellow-900/20',
             red: 'text-red-700 border-red-200/80 bg-red-50/80 dark:text-red-400 dark:border-red-500/30 dark:bg-red-900/20',
-            purple: 'text-purple-700 border-purple-200/80 bg-purple-50/80 dark:text-purple-400 dark:border-purple-500/30 dark:bg-purple-900/20'
+            purple: 'text-purple-700 border-purple-200/80 bg-purple-50/80 dark:text-purple-400 dark:border-purple-500/30 dark:bg-purple-900/20',
+            teal: 'text-teal-700 border-teal-200/80 bg-teal-50/80 dark:text-teal-400 dark:border-teal-500/30 dark:bg-teal-900/20',
+            orange: 'text-orange-700 border-orange-200/80 bg-orange-50/80 dark:text-orange-400 dark:border-orange-500/30 dark:bg-orange-900/20'
           }[col.color];
 
           return (

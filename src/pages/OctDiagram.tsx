@@ -16,9 +16,13 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import { Download, RefreshCw, RotateCw } from 'lucide-react';
 import { exportBoardDesignPdf } from '../utils/export';
-import { MeanItem } from '../components/MeansModal';
+import { useSessionSettings } from '../utils/sessionSettings';
+import type { MeanItem } from '../types/means';
 import { OctColor, OctNodeType, OctTreeNode, useOctTree, resetOctTree, createInitialOctTree } from '../utils/octTreeStore';
 import { useTheme } from '../contexts/ThemeContext';
+import { useInterventionStore } from '../stores/useInterventionStore';
+import { debounce } from '../utils/debounce';
+import { telemetryBuffer } from '../utils/telemetryBuffer';
 
 type MeanSource = 'manual' | 'means';
 
@@ -474,7 +478,44 @@ interface OctDiagramProps {
 
 export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availableMeans = [], exportMeta }) => {
   const { resolvedTheme } = useTheme();
+  const currentInterventionId = useInterventionStore((s) => s.currentInterventionId);
+  const interventionStartedAtMs = useInterventionStore((s) => s.interventionStartedAtMs);
+
+  const { settings } = useSessionSettings();
+  const octDefaults = settings.octDefaults;
+
+  const getDefaultFrequencyPair = useCallback(
+    (type: OctNodeType) => {
+      const defaults = octDefaults?.[type];
+      return {
+        up: defaults?.up?.trim() || '',
+        down: defaults?.down?.trim() || ''
+      };
+    },
+    [octDefaults]
+  );
+
+  const getDefaultFrequencies = useCallback(
+    (type: OctNodeType) => {
+      const pair = getDefaultFrequencyPair(type);
+      return [pair.up, pair.down].filter(Boolean);
+    },
+    [getDefaultFrequencyPair]
+  );
   const { tree, setTree } = useOctTree();
+  const queueOctTelemetry = useMemo(
+    () =>
+      debounce((patch: Record<string, unknown>) => {
+        telemetryBuffer.addSample({
+          interventionId: currentInterventionId,
+          stream: 'OCT',
+          patch,
+          interventionStartedAtMs,
+          uiContext: 'oct/editor'
+        });
+      }, 2500),
+    [currentInterventionId, interventionStartedAtMs]
+  );
   const [selectedId, setSelectedId] = useState<string>(tree.id);
   const [nodes, setNodes, onNodesChange] = useNodesState<OctNodeData>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -508,6 +549,13 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
   const isDark = resolvedTheme === 'dark';
   const gridDotColor = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(15,23,42,0.12)';
   const reducedZoomFactor = 1.19;
+
+  useEffect(() => {
+    return () => {
+      queueOctTelemetry.flush();
+      queueOctTelemetry.cancel();
+    };
+  }, [queueOctTelemetry]);
 
   const applyReducedZoom = useCallback(() => {
     const instance = flowRef.current;
@@ -572,7 +620,7 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
           id: newId,
           type,
           label: labelMap[type] || 'Nouvelle branche',
-          frequencies: [],
+          frequencies: getDefaultFrequencies(type),
           notes: '',
           color: defaultColor[type],
           chief: '',
@@ -580,51 +628,76 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
         };
       };
 
-      setTree((prev) => {
-        const targetId = parentId || selectedId || prev.id;
-        const targetNode = findNodeById(prev, targetId);
-        const inferredType =
-          forcedType || (targetNode?.type === 'cos' ? 'sector' : 'subsector');
-        const newNode: OctTreeNode = { ...buildDefaultNode(inferredType), ...extra, id: newId, type: inferredType };
+      const targetId = parentId || selectedId || tree.id;
+      const targetNode = findNodeById(tree, targetId);
+      const inferredType = forcedType || (targetNode?.type === 'cos' ? 'sector' : 'subsector');
+      const actualTarget = targetNode ? targetId : tree.id;
+      const newNode: OctTreeNode = { ...buildDefaultNode(inferredType), ...extra, id: newId, type: inferredType };
 
-        const exists = !!targetNode;
-        const actualTarget = exists ? targetId : prev.id;
-        const nextTree = addChildToTree(prev, actualTarget, newNode);
+      queueOctTelemetry({
+        action: 'add',
+        nodeId: newId,
+        parentId: actualTarget,
+        selectedNodeId: newId,
+        type: newNode.type,
+        label: newNode.label,
+        meanSource: newNode.meanSource,
+        meanStatus: newNode.meanStatus,
+        meanCategory: newNode.meanCategory,
+        color: newNode.color
+      });
+
+      setTree((prev) => {
+        const runtimeTargetId = parentId || selectedId || prev.id;
+        const runtimeTargetNode = findNodeById(prev, runtimeTargetId);
+        const runtimeInferredType =
+          forcedType || (runtimeTargetNode?.type === 'cos' ? 'sector' : 'subsector');
+        const runtimeNode: OctTreeNode = {
+          ...buildDefaultNode(runtimeInferredType),
+          ...extra,
+          id: newId,
+          type: runtimeInferredType
+        };
+
+        const exists = !!runtimeTargetNode;
+        const runtimeTarget = exists ? runtimeTargetId : prev.id;
+        const nextTree = addChildToTree(prev, runtimeTarget, runtimeNode);
 
         setSelectedId(newId);
         if (opts?.openEditor !== false) {
           setEditor({
             id: newId,
-            label: newNode.label,
-            type: newNode.type,
-            freqUp: newNode.frequencies?.[0] || '',
-            freqDown: newNode.frequencies?.[1] || '',
-            notes: newNode.notes || '',
-            color: newNode.color,
-            chief: newNode.chief || ''
+            label: runtimeNode.label,
+            type: runtimeNode.type,
+            freqUp: runtimeNode.frequencies?.[0] || '',
+            freqDown: runtimeNode.frequencies?.[1] || '',
+            notes: runtimeNode.notes || '',
+            color: runtimeNode.color,
+            chief: runtimeNode.chief || ''
           });
         }
 
         return nextTree;
       });
     },
-    [selectedId, setTree]
+    [selectedId, setTree, getDefaultFrequencies, queueOctTelemetry, tree]
   );
 
   const openAddDialog = useCallback(
     (parentId: string) => {
       const parent = findNodeById(tree, parentId);
       const inheritedColor = (parent?.color as OctColor) || 'orange';
+      const defaultFreqs = getDefaultFrequencyPair('engine');
       setManualAdd({
         label: 'Nouvel engin',
         status: 'sur_place',
-        freqUp: '',
-        freqDown: '',
+        freqUp: defaultFreqs.up,
+        freqDown: defaultFreqs.down,
         color: inheritedColor
       });
       setAddDialog({ parentId });
     },
-    [tree]
+    [tree, getDefaultFrequencyPair]
   );
 
   const handleAddEntry = useCallback(
@@ -684,6 +757,15 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
 
   const handleDelete = useCallback(
     (id: string) => {
+      if (id === tree.id) return;
+      const parentId = findParentId(tree, id) || tree.id;
+      const removedCount = collectSubtreeIds(tree, id).size;
+      queueOctTelemetry({
+        action: 'delete',
+        nodeId: id,
+        parentId,
+        removedCount
+      });
       setTree((prev) => {
         if (id === prev.id) return prev;
         const parentId = findParentId(prev, id) || prev.id;
@@ -693,12 +775,43 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
         return nextTree;
       });
     },
-    [editor, setTree, setSelectedId]
+    [editor, setTree, setSelectedId, queueOctTelemetry, tree]
   );
 
   const handleSave = useCallback(() => {
     if (!editor) return;
     const freqs = [editor.freqUp, editor.freqDown].map((f) => f.trim()).filter(Boolean);
+    const currentNode = findNodeById(tree, editor.id);
+    if (currentNode) {
+      const fieldsChanged: Record<string, unknown> = {};
+      const nextLabel = editor.label || currentNode.label;
+      if (currentNode.label !== nextLabel) fieldsChanged.label = nextLabel;
+      if (currentNode.type !== editor.type) fieldsChanged.type = editor.type;
+      const previousFreqUp = (currentNode.frequencies || [])[0] || '';
+      const previousFreqDown = (currentNode.frequencies || [])[1] || '';
+      const nextFreqUp = freqs[0] || '';
+      const nextFreqDown = freqs[1] || '';
+      if (previousFreqUp !== nextFreqUp) fieldsChanged.freqUp = nextFreqUp;
+      if (previousFreqDown !== nextFreqDown) fieldsChanged.freqDown = nextFreqDown;
+      const previousNotes = currentNode.notes || '';
+      if (previousNotes !== editor.notes) fieldsChanged.notes = editor.notes;
+      if (canPickColor(editor.type)) {
+        if ((currentNode.color || null) !== (editor.color || null)) {
+          fieldsChanged.color = editor.color;
+        }
+        if ((currentNode.chief || '') !== (editor.chief || '')) {
+          fieldsChanged.chief = editor.chief;
+        }
+      }
+      if (Object.keys(fieldsChanged).length > 0) {
+        queueOctTelemetry({
+          action: 'update',
+          nodeId: editor.id,
+          selectedNodeId: editor.id,
+          fieldsChanged
+        });
+      }
+    }
     setTree((prev) =>
       updateNodeById(prev, editor.id, (n) => ({
         ...n,
@@ -711,9 +824,15 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
       }))
     );
     setEditor(null);
-  }, [editor, setTree]);
+  }, [editor, setTree, queueOctTelemetry, tree]);
 
   const handleReset = () => {
+    const previousCount = collectAllIds(tree, new Set()).size;
+    queueOctTelemetry({
+      action: 'reset',
+      previousCount,
+      selectedNodeId: tree.id
+    });
     const base = createInitialOctTree();
     resetOctTree();
     setSelectedId(base.id);
@@ -731,6 +850,15 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
 
   const handleToggleStatus = useCallback(
     (id: string) => {
+      const currentNode = findNodeById(tree, id);
+      if (currentNode?.type === 'engine' && currentNode.meanStatus) {
+        const nextStatus = currentNode.meanStatus === 'demande' ? 'sur_place' : 'demande';
+        queueOctTelemetry({
+          action: 'toggle_status',
+          nodeId: id,
+          status: nextStatus
+        });
+      }
       setTree((prev) =>
         updateNodeById(prev, id, (n) => {
           if (n.type !== 'engine' || !n.meanStatus) return n;
@@ -738,7 +866,7 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
         })
       );
     },
-    [setTree]
+    [setTree, queueOctTelemetry, tree]
   );
 
   const layout = useMemo(

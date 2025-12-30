@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { readUserScopedJSON, writeUserScopedJSON, removeUserScopedItem } from './userStorage';
 
 export interface HistoryEntry {
   id: string;
@@ -20,18 +21,19 @@ export const addToHistory = (entry: Omit<HistoryEntry, 'id' | 'timestamp'>) => {
   };
   
   const updatedHistory = [newEntry, ...history].slice(0, 50); // Keep last 50 entries
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedHistory));
+  writeUserScopedJSON(STORAGE_KEY, updatedHistory, 'local');
   return newEntry;
 };
 
 export const getHistory = (): HistoryEntry[] => {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    const parsed = readUserScopedJSON<HistoryEntry[]>(STORAGE_KEY, 'local');
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
 };
 
 export const clearHistory = () => {
-  localStorage.removeItem(STORAGE_KEY);
+  removeUserScopedItem(STORAGE_KEY, 'local');
 };

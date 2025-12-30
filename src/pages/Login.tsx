@@ -1,24 +1,23 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { APP_NAME, APP_VERSION } from '../constants/appInfo';
 
 type Mode = 'login' | 'signup';
 
-const errorMessageFromCode = (code?: string) => {
-  switch (code) {
-    case 'auth/invalid-email':
-      return 'Email invalide.';
-    case 'auth/user-not-found':
-    case 'auth/wrong-password':
+const errorMessageFromCode = (error?: { code?: string; message?: string }) => {
+  switch (error?.code) {
+    case 'invalid_credentials':
       return 'Email ou mot de passe incorrect.';
-    case 'auth/too-many-requests':
-      return 'Trop de tentatives. Réessayez plus tard.';
-    case 'auth/email-already-in-use':
+    case 'email_not_confirmed':
+      return 'Merci de confirmer votre email avant de vous connecter.';
+    case 'user_already_exists':
       return 'Un compte existe déjà avec cet email.';
-    case 'auth/weak-password':
+    case 'weak_password':
+    case 'password_too_short':
       return 'Le mot de passe doit contenir au moins 6 caractères.';
     default:
-      return 'Connexion impossible. Merci de réessayer.';
+      return error?.message || 'Connexion impossible. Merci de réessayer.';
   }
 };
 
@@ -52,8 +51,7 @@ const LoginPage = () => {
       }
       navigate(from, { replace: true });
     } catch (err) {
-      const code = (err as { code?: string }).code;
-      setError(errorMessageFromCode(code));
+      setError(errorMessageFromCode(err as { code?: string; message?: string }));
     } finally {
       setLoading(false);
     }
@@ -131,6 +129,9 @@ const LoginPage = () => {
             {loading ? 'En cours...' : mode === 'login' ? 'Se connecter' : 'Créer un compte'}
           </button>
         </form>
+      </div>
+      <div className="fixed right-4 bottom-4 z-30 text-[11px] text-slate-500 dark:text-gray-400 bg-white/80 dark:bg-black/50 border border-black/10 dark:border-white/10 px-3 py-2 rounded-xl backdrop-blur-md">
+        {APP_NAME} — {APP_VERSION}
       </div>
     </div>
   );

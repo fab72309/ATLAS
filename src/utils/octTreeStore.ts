@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { buildUserScopedKey, readUserScopedJSON, writeUserScopedJSON } from './userStorage';
 
 export type OctNodeType = 'codis' | 'cos' | 'sector' | 'subsector' | 'engine';
 export type OctColor = 'red' | 'green' | 'orange' | 'blue' | 'violet';
@@ -82,10 +83,9 @@ let currentTree: OctTreeNode = createInitialOctTree();
 
 const listeners = new Set<() => void>();
 
-const persistTree = (tree: OctTreeNode) => {
-  if (typeof window === 'undefined') return;
+const persistTree = (tree: OctTreeNode, userId?: string) => {
   try {
-    localStorage.setItem(OCT_STORAGE_KEY, JSON.stringify(tree));
+    writeUserScopedJSON(OCT_STORAGE_KEY, tree, 'local', userId);
   } catch (err) {
     console.error('OCT storage write error', err);
   }
@@ -93,14 +93,10 @@ const persistTree = (tree: OctTreeNode) => {
 
 const notify = () => listeners.forEach((l) => l());
 
-const loadFromStorage = (): OctTreeNode => {
-  if (typeof window === 'undefined') return createInitialOctTree();
+const loadFromStorage = (userId?: string): OctTreeNode => {
   try {
-    const raw = localStorage.getItem(OCT_STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed?.id) return parsed;
-    }
+    const parsed = readUserScopedJSON<OctTreeNode>(OCT_STORAGE_KEY, 'local', userId);
+    if (parsed?.id) return parsed;
   } catch (err) {
     console.error('OCT storage read error', err);
   }
@@ -125,6 +121,11 @@ export const setOctTree = (updater: OctTreeNode | ((prev: OctTreeNode) => OctTre
 
 export const resetOctTree = () => setOctTree(createInitialOctTree());
 
+export const hydrateOctTree = (userId: string) => {
+  currentTree = loadFromStorage(userId);
+  notify();
+};
+
 export const useOctTree = () => {
   const tree = useSyncExternalStore(subscribeOctTree, getOctTree, getOctTree);
   return { tree, setTree: setOctTree };
@@ -132,7 +133,8 @@ export const useOctTree = () => {
 
 if (typeof window !== 'undefined') {
   window.addEventListener('storage', (event) => {
-    if (event.key !== OCT_STORAGE_KEY) return;
+    const scopedKey = buildUserScopedKey(OCT_STORAGE_KEY);
+    if (!scopedKey || event.key !== scopedKey) return;
     try {
       const parsed = event.newValue ? JSON.parse(event.newValue) : createInitialOctTree();
       currentTree = parsed?.id ? parsed : createInitialOctTree();

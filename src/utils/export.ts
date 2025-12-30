@@ -2,12 +2,15 @@ import { Share } from '@capacitor/share';
 import { Clipboard } from '@capacitor/clipboard';
 import { jsPDF } from 'jspdf';
 import { OrdreInitial } from '../types/soiec';
-import { generateOrdreInitialText, generateOrdreInitialShortText } from './soiec';
+import { buildOrdreTitle, generateOrdreInitialText, generateOrdreInitialShortText } from './soiec';
 
-const buildMeta = (opts?: { adresse?: string; heure?: string }) => ({
+const buildMeta = (opts?: { adresse?: string; heure?: string; role?: string }) => ({
     adresse: opts?.adresse,
-    heure: opts?.heure
+    heure: opts?.heure,
+    role: opts?.role
 });
+
+const isExtendedRole = (role?: string) => role === 'Chef de colonne' || role === 'Chef de site';
 
 const slugify = (input: string) =>
     input
@@ -27,7 +30,7 @@ const formatDatePart = (heure?: string) => {
     return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
 };
 
-const buildFilename = (ext: string, opts?: { adresse?: string; heure?: string }) => {
+const buildFilename = (ext: string, opts?: { adresse?: string; heure?: string; role?: string }) => {
     const base = opts?.adresse ? slugify(opts.adresse) || 'ordre-initial' : 'ordre-initial';
     const datePart = formatDatePart(opts?.heure);
     return `${base}-${datePart}.${ext}`;
@@ -50,7 +53,7 @@ const formatExportTimestamp = (heure?: string) => {
     };
 };
 
-const applyBoardExportMeta = (canvas: HTMLCanvasElement, opts?: { adresse?: string; heure?: string }) => {
+const applyBoardExportMeta = (canvas: HTMLCanvasElement, opts?: { adresse?: string; heure?: string; role?: string }) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     const { dateLabel, timeLabel } = formatExportTimestamp(opts?.heure);
@@ -103,14 +106,14 @@ const applyBoardExportMeta = (canvas: HTMLCanvasElement, opts?: { adresse?: stri
     });
 };
 
-export const exportOrdreToClipboard = async (ordre: OrdreInitial, opts?: { adresse?: string; heure?: string }): Promise<void> => {
+export const exportOrdreToClipboard = async (ordre: OrdreInitial, opts?: { adresse?: string; heure?: string; role?: string }): Promise<void> => {
     const text = generateOrdreInitialText(ordre, buildMeta(opts));
     await Clipboard.write({
         string: text
     });
 };
 
-export const exportOrdreToShare = async (ordre: OrdreInitial, opts?: { adresse?: string; heure?: string }): Promise<void> => {
+export const exportOrdreToShare = async (ordre: OrdreInitial, opts?: { adresse?: string; heure?: string; role?: string }): Promise<void> => {
     const text = generateOrdreInitialText(ordre, buildMeta(opts));
 
     const canShare = await Share.canShare();
@@ -126,18 +129,22 @@ export const exportOrdreToShare = async (ordre: OrdreInitial, opts?: { adresse?:
     }
 };
 
-export const exportOrdreToPdf = (ordre: OrdreInitial, opts?: { adresse?: string; heure?: string }): void => {
+export const exportOrdreToPdf = (ordre: OrdreInitial, opts?: { adresse?: string; heure?: string; role?: string }): void => {
     const doc = new jsPDF();
     const date = new Date().toLocaleDateString('fr-FR');
     const time = new Date().toLocaleTimeString('fr-FR');
     const filename = buildFilename('pdf', opts);
+    const includeAnticipation = isExtendedRole(opts?.role) || (Array.isArray(ordre.A) && ordre.A.length > 0);
+    const includeLogistique = isExtendedRole(opts?.role) || (Array.isArray(ordre.L) && ordre.L.length > 0);
+    const anticipationItems = Array.isArray(ordre.A) ? ordre.A : [];
+    const logistiqueItems = Array.isArray(ordre.L) ? ordre.L : [];
 
     // Configuration de la police
     doc.setFont("helvetica");
 
     // En-tête
     doc.setFontSize(20);
-    doc.text('ORDRE INITIAL – Chef de groupe', 20, 20);
+    doc.text(buildOrdreTitle(opts?.role), 20, 20);
 
     doc.setFontSize(10);
     doc.text(`Généré le ${date} à ${time} via A.T.L.A.S`, 20, 30);
@@ -178,6 +185,18 @@ export const exportOrdreToPdf = (ordre: OrdreInitial, opts?: { adresse?: string;
     addText(ordre.S);
     yPos += 5;
 
+    if (includeAnticipation) {
+        addText('A – ANTICIPATION', 14, 'bold');
+        if (anticipationItems.length > 0) {
+            anticipationItems.forEach((item, i) => {
+                addText(`${i + 1}. ${item}`);
+            });
+        } else {
+            addText('Aucune anticipation spécifiée.');
+        }
+        yPos += 5;
+    }
+
     // O - OBJECTIFS
     addText('O – OBJECTIFS', 14, 'bold');
     if (ordre.O.length > 0) {
@@ -213,10 +232,22 @@ export const exportOrdreToPdf = (ordre: OrdreInitial, opts?: { adresse?: string;
     addText('C – COMMANDEMENT', 14, 'bold');
     addText(ordre.C);
 
+    if (includeLogistique) {
+        yPos += 5;
+        addText('L – LOGISTIQUE', 14, 'bold');
+        if (logistiqueItems.length > 0) {
+            logistiqueItems.forEach((item, i) => {
+                addText(`${i + 1}. ${item}`);
+            });
+        } else {
+            addText('Aucune logistique spécifiée.');
+        }
+    }
+
     doc.save(filename);
 };
 
-export const exportOrdreToWord = async (ordre: OrdreInitial, opts?: { adresse?: string; heure?: string }) => {
+export const exportOrdreToWord = async (ordre: OrdreInitial, opts?: { adresse?: string; heure?: string; role?: string }) => {
     const text = generateOrdreInitialText(ordre, buildMeta(opts));
     const blob = new Blob([text], { type: 'application/msword' });
     const fileName = buildFilename('doc', opts);
@@ -239,7 +270,7 @@ export const exportOrdreToWord = async (ordre: OrdreInitial, opts?: { adresse?: 
     URL.revokeObjectURL(url);
 };
 
-export const shareOrdreAsText = (ordre: OrdreInitial, channel: 'sms' | 'whatsapp' | 'mail', opts?: { adresse?: string; heure?: string }) => {
+export const shareOrdreAsText = (ordre: OrdreInitial, channel: 'sms' | 'whatsapp' | 'mail', opts?: { adresse?: string; heure?: string; role?: string }) => {
     const text = generateOrdreInitialText(ordre, buildMeta(opts));
     const shortText = generateOrdreInitialShortText(ordre);
     const body = encodeURIComponent(text);
@@ -263,7 +294,7 @@ export const shareOrdreAsFile = async (
     ordre: OrdreInitial,
     format: 'pdf' | 'word',
     channel: 'mail' | 'whatsapp' | 'sms',
-    opts?: { adresse?: string; heure?: string }
+    opts?: { adresse?: string; heure?: string; role?: string }
 ) => {
     const isPdf = format === 'pdf';
     if (isPdf) {
@@ -286,7 +317,7 @@ export const shareOrdreAsFile = async (
     await exportOrdreToWord(ordre, opts);
 };
 
-export const exportOrdreToImage = async (ordre: OrdreInitial, opts?: { adresse?: string; heure?: string }) => {
+export const exportOrdreToImage = async (ordre: OrdreInitial, opts?: { adresse?: string; heure?: string; role?: string }) => {
     const text = generateOrdreInitialText(ordre, buildMeta(opts));
     const lines = text.split('\n');
 
@@ -339,7 +370,7 @@ const captureBoardCanvas = async (el: HTMLElement) => {
     });
 };
 
-export const exportBoardDesignImage = async (el: HTMLElement, opts?: { adresse?: string; heure?: string }) => {
+export const exportBoardDesignImage = async (el: HTMLElement, opts?: { adresse?: string; heure?: string; role?: string }) => {
     const canvas = await captureBoardCanvas(el);
     const dataUrl = canvas.toDataURL('image/png');
     const link = document.createElement('a');
@@ -350,7 +381,7 @@ export const exportBoardDesignImage = async (el: HTMLElement, opts?: { adresse?:
     document.body.removeChild(link);
 };
 
-export const exportBoardDesignPdf = async (el: HTMLElement, opts?: { adresse?: string; heure?: string }) => {
+export const exportBoardDesignPdf = async (el: HTMLElement, opts?: { adresse?: string; heure?: string; role?: string }) => {
     const canvas = await captureBoardCanvas(el);
     applyBoardExportMeta(canvas, opts);
     const imgData = canvas.toDataURL('image/jpeg', 0.75);
@@ -364,7 +395,7 @@ export const exportBoardDesignPdf = async (el: HTMLElement, opts?: { adresse?: s
     pdf.save(buildFilename('pdf', opts));
 };
 
-export const exportBoardDesignWord = async (el: HTMLElement, opts?: { adresse?: string; heure?: string }) => {
+export const exportBoardDesignWord = async (el: HTMLElement, opts?: { adresse?: string; heure?: string; role?: string }) => {
     const canvas = await captureBoardCanvas(el);
     const dataUrl = canvas.toDataURL('image/png');
     const html = `
@@ -387,10 +418,14 @@ export const exportBoardDesignWord = async (el: HTMLElement, opts?: { adresse?: 
     URL.revokeObjectURL(url);
 };
 
-const buildBoardHtmlTemplate = (ordre: OrdreInitial, opts?: { adresse?: string; heure?: string }) => {
+const buildBoardHtmlTemplate = (ordre: OrdreInitial, opts?: { adresse?: string; heure?: string; role?: string }) => {
     const metaLines = [];
     if (opts?.adresse) metaLines.push(`<div class="meta">Adresse : ${escapeHtml(opts.adresse)}</div>`);
     if (opts?.heure) metaLines.push(`<div class="meta">Heure : ${escapeHtml(opts.heure)}</div>`);
+    const includeAnticipation = isExtendedRole(opts?.role) || (Array.isArray(ordre.A) && ordre.A.length > 0);
+    const includeLogistique = isExtendedRole(opts?.role) || (Array.isArray(ordre.L) && ordre.L.length > 0);
+    const anticipationItems = Array.isArray(ordre.A) ? ordre.A : [];
+    const logistiqueItems = Array.isArray(ordre.L) ? ordre.L : [];
 
     const executionData = Array.isArray(ordre.E)
         ? ordre.E.map((entry) => {
@@ -404,10 +439,12 @@ const buildBoardHtmlTemplate = (ordre: OrdreInitial, opts?: { adresse?: string; 
 
     const columns = [
         { title: 'Situation', color: '#1e3a8a', data: typeof ordre.S === 'string' ? ordre.S.split('\n').filter(Boolean) : [] },
+        ...(includeAnticipation ? [{ title: 'Anticipation', color: '#0f766e', data: anticipationItems }] : []),
         { title: 'Objectif', color: '#065f46', data: ordre.O || [] },
         { title: 'Idée de manœuvre', color: '#92400e', data: (ordre.I || []).map(i => i.mission || '') },
         { title: 'Exécution', color: '#7f1d1d', data: executionData },
         { title: 'Commandement', color: '#6b21a8', data: typeof ordre.C === 'string' ? ordre.C.split('\n').filter(Boolean) : [] },
+        ...(includeLogistique ? [{ title: 'Logistique', color: '#c2410c', data: logistiqueItems }] : []),
     ];
 
     const cardsHtml = columns.map(col => `
@@ -446,7 +483,7 @@ const buildBoardHtmlTemplate = (ordre: OrdreInitial, opts?: { adresse?: string; 
     `;
 };
 
-export const exportBoardDesignWordEditable = async (ordre: OrdreInitial, opts?: { adresse?: string; heure?: string }) => {
+export const exportBoardDesignWordEditable = async (ordre: OrdreInitial, opts?: { adresse?: string; heure?: string; role?: string }) => {
     const html = buildBoardHtmlTemplate(ordre, opts);
     const blob = new Blob([html], { type: 'application/msword' });
     const fileName = buildFilename('doc', opts);

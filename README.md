@@ -15,7 +15,7 @@ Aide Tactique et Logique pour l'Action des Secours
 ## 🚀 Prérequis
 
 - Node.js 18+
-- Compte Firebase (Firestore, Authentication, Functions)
+- Compte Supabase (Auth + DB)
 - Clé API OpenAI (côté serveur)
 - Compte GitHub
 
@@ -34,15 +34,10 @@ Aide Tactique et Logique pour l'Action des Secours
 
 3. Configurer les variables d'environnement (client) :
    - Créer `.env` et définir au minimum :
-     - `VITE_FIREBASE_API_KEY=...`
-     - `VITE_FIREBASE_AUTH_DOMAIN=...`
-     - `VITE_FIREBASE_PROJECT_ID=...`
-     - `VITE_FIREBASE_STORAGE_BUCKET=...`
-     - `VITE_FIREBASE_MESSAGING_SENDER_ID=...`
-     - `VITE_FIREBASE_APP_ID=...`
-     - `VITE_FIREBASE_MEASUREMENT_ID=...` (optionnel)
+     - `VITE_SUPABASE_URL=...`
+     - `VITE_SUPABASE_ANON_KEY=...`
      - `VITE_WEATHER_API_KEY=...`
-     - `VITE_OPENAI_PROXY_URL=https://<REGION>-<PROJECT>.cloudfunctions.net/analyze` (recommandé en prod)
+     - `VITE_OPENAI_PROXY_URL=https://<votre-proxy>/analyze` (recommandé en prod)
 
 4. Lancer en mode développement :
    ```bash
@@ -51,9 +46,9 @@ Aide Tactique et Logique pour l'Action des Secours
 
 ## 🔒 Sécurité
 
-- OpenAI est appelé via un proxy serveur (Firebase Functions) avec vérification du token Firebase côté serveur.
-- Les règles Firestore exigent un utilisateur authentifié (email/mot de passe) et l’accès est limité par `uid`.
-- Les écritures ajoutent automatiquement `uid` et `createdAt`.
+- OpenAI est appelé via un proxy serveur avec vérification d'un token utilisateur côté serveur.
+- Supabase Auth protège les routes de l'application.
+- Les accès aux données opérationnelles sont contrôlés par RLS côté Supabase.
 - Les tuiles cartographiques utilisent des sources CORS-friendly (plus de tuiles Google non conformes).
 
 ## 📦 Build pour production
@@ -77,24 +72,22 @@ npx cap sync
 npx cap open android  # ou 'npx cap open ios'
 ```
 
-## 🔁 Proxy OpenAI (Firebase Functions)
+## 🔁 Proxy OpenAI (serveur)
 
 ### Flux IA actuel (recommandé)
-- Le client appelle uniquement la Function `analyze` (Firebase Functions) via `VITE_OPENAI_PROXY_URL`.
-- La Function utilise **Chat Completions** et un **prompt côté serveur** (voir `functions/src/prompts.ts`).
+- Le client appelle uniquement le proxy `analyze` via `VITE_OPENAI_PROXY_URL`.
+- Le proxy utilise **Chat Completions** et un **prompt côté serveur**.
 - Le schéma JSON attendu est défini côté serveur et impose le format SOIEC.
 - Le client envoie `doctrine_context` (calculé depuis la dominante) pour guider les formulations doctrinales.
 
 ### Configuration
-- Définissez la clé OpenAI côté Functions (`OPENAI_API_KEY`).
-- Exposez l’URL HTTPS de la Function et renseignez `VITE_OPENAI_PROXY_URL` côté client.
+- Définissez la clé OpenAI côté serveur (`OPENAI_API_KEY`).
+- Exposez l’URL HTTPS du proxy et renseignez `VITE_OPENAI_PROXY_URL` côté client.
 
 ## 🧩 Modifications notables (branche: optimisation-diverse-par-cursor)
 
 - Sécurité & données
-  - OpenAI via proxy serveur (token Firebase côté client → serveur) avec parsing JSON prioritaire
-  - Firestore: règles durcies (auth requise, `uid`/`createdAt` requis, lecture limitée par `uid`)
-  - Écritures Firestore enrichies avec `uid` et `serverTimestamp()`
+  - OpenAI via proxy serveur avec parsing JSON prioritaire
 - Performance & UX
   - Lazy-load des routes (React.lazy) et lazy imports pour `html2canvas`/`jspdf`
   - Safe-area bottom pour les boutons fixes; meta `viewport-fit=cover`

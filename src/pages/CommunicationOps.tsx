@@ -8,7 +8,7 @@ import 'swiper/css';
 import 'swiper/css/pagination';
 import DictationCard from '../components/DictationCard';
 import DominantSelector, { DominanteType } from '../components/DominantSelector';
-import { saveCommunicationData, saveCommunicationIAData } from '../utils/firestore';
+import { saveCommunicationData, saveCommunicationIAData } from '../utils/dataStore';
 import { analyzeEmergency } from '../utils/openai';
 import { addToHistory } from '../utils/history';
 
@@ -89,7 +89,7 @@ const CommunicationOps = () => {
         .map(section => `${section.title}:\n${section.content}`)
         .join('\n\n');
 
-      // Save to Firestore
+      // Save locally
       await saveCommunicationData({
         groupe_horaire: new Date(),
         Engagement_secours: sections.engagement_secours || '',
@@ -139,10 +139,10 @@ const CommunicationOps = () => {
       });
     } catch (error) {
       console.error('Error processing data:', error);
-      const errorMessage = error.code === 'permission-denied' 
-        ? 'Erreur de permission lors de la sauvegarde. Veuillez réessayer.'
+      const message = error instanceof Error
+        ? error.message
         : 'Une erreur est survenue lors de la sauvegarde. Veuillez réessayer.';
-      alert(errorMessage);
+      alert(message);
     } finally {
       setIsLoading(false);
     }

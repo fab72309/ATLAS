@@ -1,3 +1,5 @@
+import { readUserScopedJSON, writeUserScopedJSON } from './userStorage';
+
 export type DominanteType =
   | 'Incendie'
   | 'Explosion'
@@ -50,9 +52,8 @@ export const sanitizeOrder = (order: unknown): DominanteType[] => {
 
 export const getDominantesOrder = (): DominanteType[] => {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [...DEFAULT_DOMINANTES];
-    const parsed = JSON.parse(raw);
+    const parsed = readUserScopedJSON<DominanteType[]>(STORAGE_KEY, 'local');
+    if (!parsed) return [...DEFAULT_DOMINANTES];
     return sanitizeOrder(parsed);
   } catch {
     return [...DEFAULT_DOMINANTES];
@@ -61,7 +62,7 @@ export const getDominantesOrder = (): DominanteType[] => {
 
 export const setDominantesOrder = (order: DominanteType[]) => {
   const cleaned = sanitizeOrder(order);
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(cleaned));
+  writeUserScopedJSON(STORAGE_KEY, cleaned, 'local');
   try {
     window.dispatchEvent(new CustomEvent('atlas:dominantes-order-changed'));
   } catch (err) {

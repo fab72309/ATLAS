@@ -18,7 +18,8 @@ const RequireAuth = ({ children }: { children: React.ReactElement }) => {
   }
 
   if (!user) {
-    return <Navigate to="/login" state={{ from: location.pathname }} replace />;
+    const nextPath = `${location.pathname}${location.search || ''}`;
+    return <Navigate to="/login" state={{ from: nextPath }} replace />;
   }
 
   return children;

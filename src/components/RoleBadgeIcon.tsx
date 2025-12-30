@@ -9,14 +9,16 @@ interface RoleBadgeIconProps {
 
 const RoleBadgeIcon: React.FC<RoleBadgeIconProps> = ({ role, className = '' }) => {
   const [error, setError] = React.useState(false);
+  const iconBase = import.meta.env.BASE_URL || '/';
 
   const getIconPath = (r: Role) => {
+    const base = iconBase.endsWith('/') ? iconBase : `${iconBase}/`;
     switch (r) {
-      case 'group': return '/icons/group.png';
-      case 'column': return '/icons/column.png';
-      case 'site': return '/icons/site.png';
-      case 'security': return '/icons/Officier_securite.png';
-      case 'supply': return '/icons/Officier_alimentation.png';
+      case 'group': return `${base}icons/group.png`;
+      case 'column': return `${base}icons/column.png`;
+      case 'site': return `${base}icons/site.png`;
+      case 'security': return `${base}icons/Officier_securite.png`;
+      case 'supply': return `${base}icons/Officier_alimentation.png`;
       default: return '';
     }
   };
@@ -60,5 +62,4 @@ const RoleBadgeIcon: React.FC<RoleBadgeIconProps> = ({ role, className = '' }) =
 };
 
 export default RoleBadgeIcon;
-
 

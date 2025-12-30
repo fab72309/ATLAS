@@ -20,9 +20,16 @@ const Results = () => {
   const [showDebug, setShowDebug] = useState(false);
   const sections: DisplaySection[] = Array.isArray(displaySections) ? displaySections : [];
   const showDictationSections = !!fromDictation && sections.length > 0;
-  const meta = { adresse, heure: heure_ordre };
+  const roleLabel = type === 'column'
+    ? 'Chef de colonne'
+    : type === 'site'
+      ? 'Chef de site'
+      : type === 'group'
+        ? 'Chef de groupe'
+        : undefined;
+  const meta = { adresse, heure: heure_ordre, role: roleLabel };
 
-  const isGroup = type === 'group';
+  const isOperational = type === 'group' || type === 'column' || type === 'site';
 
   const stringifyAnalysis = () => {
     const text = typeof analysis === 'string'
@@ -32,19 +39,19 @@ const Results = () => {
   };
 
   const handleWord = async () => {
-    if (isGroup && ordreInitial) {
+    if (isOperational && ordreInitial) {
       await exportOrdreToWord(ordreInitial, meta);
     }
   };
 
   const handleShareTextChannels = (channel: 'sms' | 'whatsapp' | 'mail') => {
-    if (isGroup && ordreInitial) {
+    if (isOperational && ordreInitial) {
       shareOrdreAsText(ordreInitial, channel, meta);
     }
   };
 
   const handleShareFileChannel = async (format: 'pdf' | 'word', channel: 'mail' | 'whatsapp' | 'sms') => {
-    if (isGroup && ordreInitial) {
+    if (isOperational && ordreInitial) {
       await shareOrdreAsFile(ordreInitial, format, channel, meta);
     }
   };
@@ -54,14 +61,14 @@ const Results = () => {
       setOrdreInitial(ordre);
       return;
     }
-    if (isGroup && typeof analysis === 'string' && !fromDictation) {
+    if (isOperational && typeof analysis === 'string' && !fromDictation) {
       setOrdreInitial(parseOrdreInitial(analysis));
     }
-  }, [analysis, isGroup, fromDictation, ordre]);
+  }, [analysis, isOperational, fromDictation, ordre]);
 
   const handleCopy = async () => {
     try {
-      if (isGroup && ordreInitial && !showDebug) {
+      if (isOperational && ordreInitial && !showDebug) {
         await exportOrdreToClipboard(ordreInitial, meta);
       } else {
         let textToCopy = '';
@@ -84,7 +91,7 @@ const Results = () => {
 
   const handleShare = async () => {
     try {
-      if (isGroup && ordreInitial && !showDebug) {
+      if (isOperational && ordreInitial && !showDebug) {
         await exportOrdreToShare(ordreInitial, meta);
       } else {
         const textToShare = showDictationSections
@@ -106,7 +113,7 @@ const Results = () => {
   };
 
   const handleDownloadPDF = () => {
-    if (isGroup && ordreInitial && !showDebug) {
+    if (isOperational && ordreInitial && !showDebug) {
       exportOrdreToPdf(ordreInitial, meta);
       return;
     }
@@ -174,7 +181,7 @@ const Results = () => {
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-200/60 dark:bg-purple-900/10 rounded-full blur-[120px]" />
       </div>
 
-      <div className={`relative z-10 w-full ${isGroup ? 'max-w-[98%]' : 'max-w-4xl'} mx-auto px-4 py-6 flex flex-col items-center h-full`}>
+      <div className={`relative z-10 w-full ${isOperational ? 'max-w-[98%]' : 'max-w-4xl'} mx-auto px-4 py-6 flex flex-col items-center h-full`}>
         <div className="flex flex-col items-center mb-6 animate-fade-in-down">
           <h1 className="text-2xl md:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-slate-900 to-slate-500 dark:from-white dark:to-gray-400 mb-1">
             A.T.L.A.S
@@ -188,8 +195,8 @@ const Results = () => {
           <CommandIcon type={type} />
         </div>
 
-        <div className={`w-full ${isGroup ? 'max-w-full' : 'max-w-4xl'} flex justify-end gap-3 mb-4 animate-fade-in-down`} style={{ animationDelay: '0.2s' }}>
-          {isGroup && (
+        <div className={`w-full ${isOperational ? 'max-w-full' : 'max-w-4xl'} flex justify-end gap-3 mb-4 animate-fade-in-down`} style={{ animationDelay: '0.2s' }}>
+          {isOperational && (
             <button
               onClick={() => setShowDebug(!showDebug)}
               className={`p-2.5 border rounded-xl transition-all duration-200 ${showDebug
@@ -201,7 +208,7 @@ const Results = () => {
               <Bug className="w-5 h-5" />
             </button>
           )}
-          {isGroup && ordreInitial && (
+          {isOperational && ordreInitial && (
             <>
               <button
                 onClick={() => handleShareTextChannels('sms')}
@@ -270,7 +277,7 @@ const Results = () => {
           </button>
         </div>
 
-        {isGroup && ordreInitial && (
+        {isOperational && ordreInitial && (
           <div className="w-full max-w-full bg-white/90 border border-slate-200 dark:bg-white/5 dark:border-white/10 rounded-2xl p-4 mb-4 animate-fade-in-down" style={{ animationDelay: '0.22s' }}>
             <div className="flex flex-wrap items-center gap-2 mb-3">
               <span className="text-sm text-slate-700 dark:text-gray-300 font-semibold">Partage & Export</span>
@@ -321,7 +328,7 @@ const Results = () => {
           </div>
         )}
 
-        <div className={`w-full ${isGroup ? 'max-w-full' : 'max-w-4xl'} flex-1 bg-white/90 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-3xl p-6 md:p-8 shadow-2xl overflow-y-auto animate-fade-in-down`} style={{ animationDelay: '0.3s' }}>
+        <div className={`w-full ${isOperational ? 'max-w-full' : 'max-w-4xl'} flex-1 bg-white/90 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-3xl p-6 md:p-8 shadow-2xl overflow-y-auto animate-fade-in-down`} style={{ animationDelay: '0.3s' }}>
           {showDictationSections ? (
             sections.length > 0 ? (
               <div className="space-y-8">
@@ -342,8 +349,8 @@ const Results = () => {
             )
           ) : (
             <>
-              {isGroup && ordreInitial && !showDebug ? (
-                <OrdreInitialView ordre={ordreInitial} />
+              {isOperational && ordreInitial && !showDebug ? (
+                <OrdreInitialView ordre={ordreInitial} type={type} />
               ) : (
                 <div className="prose max-w-none dark:prose-invert prose-headings:text-blue-700 dark:prose-headings:text-blue-400 prose-a:text-blue-600 dark:prose-a:text-blue-400 hover:prose-a:text-blue-500 dark:hover:prose-a:text-blue-300 prose-strong:text-slate-900 dark:prose-strong:text-white prose-code:text-blue-600 dark:prose-code:text-blue-300 prose-code:bg-blue-100 dark:prose-code:bg-blue-900/20 prose-code:px-1 prose-code:rounded">
                   <ReactMarkdown>{stringifyAnalysis()}</ReactMarkdown>
@@ -353,7 +360,7 @@ const Results = () => {
           )}
         </div>
 
-        <div className={`w-full ${isGroup ? 'max-w-full' : 'max-w-4xl'} mt-6 mb-[calc(env(safe-area-inset-bottom,0)+12px)] animate-fade-in-down`} style={{ animationDelay: '0.4s' }}>
+        <div className={`w-full ${isOperational ? 'max-w-full' : 'max-w-4xl'} mt-6 mb-[calc(env(safe-area-inset-bottom,0)+12px)] animate-fade-in-down`} style={{ animationDelay: '0.4s' }}>
           <button
             onClick={() => navigate('/')}
             className="w-full bg-white/80 hover:bg-slate-100 border border-slate-200 text-slate-700 hover:text-slate-900 dark:bg-white/5 dark:hover:bg-white/10 dark:border-white/10 dark:text-gray-300 dark:hover:text-white py-4 rounded-2xl text-lg font-medium transition-all duration-200"

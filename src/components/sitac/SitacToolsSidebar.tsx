@@ -167,7 +167,9 @@ const SitacToolsSidebar: React.FC<SitacToolsSidebarProps> = ({
                                         key={asset.id}
                                         draggable
                                         onDragStart={(e) => {
-                                            e.dataTransfer.setData('sitac/symbol', JSON.stringify(asset));
+                                            const payload = JSON.stringify(asset);
+                                            e.dataTransfer.setData('sitac/symbol', payload);
+                                            e.dataTransfer.setData('text/plain', payload);
                                             e.dataTransfer.effectAllowed = 'copy';
                                             setActiveSymbol(asset);
                                             setMode('draw_symbol'); // Auto-lock map for drop
@@ -181,7 +183,7 @@ const SitacToolsSidebar: React.FC<SitacToolsSidebarProps> = ({
                                             : 'border-white/25 bg-black/35 text-white/90 shadow-[0_6px_16px_rgba(0,0,0,0.25)] hover:bg-black/45'
                                             } cursor-grab active:cursor-grabbing transition-colors`}
                                     >
-                                        <div className="w-12 h-12 rounded-lg bg-white/5 overflow-hidden flex items-center justify-center pointer-events-none">
+                                        <div className="w-12 h-12 rounded-lg bg-white/90 overflow-hidden flex items-center justify-center pointer-events-none">
                                             <img
                                                 src={asset.url}
                                                 alt={asset.label}
