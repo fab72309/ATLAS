@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import maplibregl, { type GeoJSONSource, type LngLatLike } from 'maplibre-gl';
 import type GeoJSON from 'geojson';
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -17,18 +17,174 @@ import {
   ensureLayers,
   setSelectionFilter
 } from '../utils/sitacLayers';
-import type { BaseLayerKey, SymbolAsset } from '../types/sitac';
+import { normalizeSymbolProps } from '../utils/sitacSymbolPersistence';
+import type { BaseLayerKey, SymbolAsset, SITACCollection, SITACFeature, SITACFeatureProperties } from '../types/sitac';
+import { debounce } from '../utils/debounce';
 
 // Components
 import SitacToolbar from '../components/sitac/SitacToolbar';
 import SitacToolsSidebar from '../components/sitac/SitacToolsSidebar';
 import SitacEditControls from '../components/sitac/SitacEditControls';
 import SitacFabricCanvas from '../components/sitac/SitacFabricCanvas';
+import { logInterventionEvent } from '../utils/atlasTelemetry';
+import { telemetryBuffer } from '../utils/telemetryBuffer';
+import { supabase } from '../utils/supabaseClient';
 
 const maplibreWithWorker = maplibregl as typeof maplibregl & { workerClass?: typeof MapLibreWorker };
 maplibreWithWorker.workerClass = MapLibreWorker;
 
 const DEFAULT_VIEW = { center: [2.3522, 48.8566] as [number, number], zoom: 13 };
+
+const summarizeSitac = (collection: SITACCollection) => {
+  const features = Array.isArray(collection?.features) ? collection.features : [];
+  const countsByType: Record<string, number> = {};
+  features.forEach((feature) => {
+    const type =
+      feature?.properties?.type ||
+      feature?.geometry?.type ||
+      'unknown';
+    countsByType[type] = (countsByType[type] ?? 0) + 1;
+  });
+  return {
+    feature_count: features.length,
+    counts_by_type: countsByType
+  };
+};
+
+const collectFeatureIds = (features: SITACFeature[]) => {
+  const ids = new Set<string>();
+  features.forEach((feature) => {
+    const rawId = feature.id ?? feature.properties?.id;
+    if (rawId === undefined || rawId === null) return;
+    ids.add(String(rawId));
+  });
+  return ids;
+};
+
+const stableStringify = (value: unknown): string => {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableStringify(item)).join(',')}]`;
+  }
+  if (value && typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) =>
+      a.localeCompare(b)
+    );
+    const content = entries
+      .map(([key, entryValue]) => `${JSON.stringify(key)}:${stableStringify(entryValue)}`)
+      .join(',');
+    return `{${content}}`;
+  }
+  return JSON.stringify(value);
+};
+
+type SitacStateSnapshot = {
+  featureId: string;
+  symbolType: string;
+  lat: number;
+  lng: number;
+  props: Record<string, unknown>;
+  hash: string;
+};
+
+type SitacRow = {
+  feature_id: string;
+  symbol_type: string;
+  lat: number;
+  lng: number;
+  props: Record<string, unknown> | null;
+};
+
+const buildSitacSnapshot = (feature: SITACFeature): SitacStateSnapshot | null => {
+  if (!feature || !feature.geometry || feature.geometry.type !== 'Point') return null;
+  const coords = feature.geometry.coordinates as unknown;
+  if (!Array.isArray(coords) || coords.length < 2) return null;
+  const lng = Number(coords[0]);
+  const lat = Number(coords[1]);
+  if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null;
+  const rawProps = (feature.properties ?? {}) as Record<string, unknown>;
+  const featureId = typeof feature.id === 'string'
+    ? feature.id
+    : typeof rawProps.id === 'string'
+      ? rawProps.id
+      : '';
+  if (!featureId) return null;
+  const { type: symbolType, props } = normalizeSymbolProps(
+    typeof rawProps.type === 'string' ? rawProps.type : 'symbol',
+    rawProps
+  );
+  const hash = stableStringify({ symbolType, lat, lng, props });
+  return { featureId, symbolType, lat, lng, props, hash };
+};
+
+const buildSitacSnapshotMap = (collection: SITACCollection) => {
+  const next = new Map<string, SitacStateSnapshot>();
+  const features = Array.isArray(collection?.features) ? collection.features : [];
+  features.forEach((feature) => {
+    const snapshot = buildSitacSnapshot(feature);
+    if (snapshot) next.set(snapshot.featureId, snapshot);
+  });
+  return next;
+};
+
+const buildSitacFeatureFromRow = (row: SitacRow): SITACFeature => {
+  const baseProps = row.props ?? {};
+  const symbolTypeRaw = typeof row.symbol_type === 'string' ? row.symbol_type : 'symbol';
+  const { type: symbolType, props } = normalizeSymbolProps(symbolTypeRaw, baseProps);
+  const color = typeof (props as Record<string, unknown>).color === 'string'
+    ? (props as Record<string, unknown>).color as string
+    : '#3b82f6';
+  const properties: SITACFeatureProperties = {
+    id: row.feature_id,
+    type: symbolType as SITACFeatureProperties['type'],
+    color,
+    ...(props as Record<string, unknown>)
+  } as SITACFeatureProperties;
+  return {
+    type: 'Feature',
+    id: row.feature_id,
+    properties,
+    geometry: {
+      type: 'Point',
+      coordinates: [row.lng, row.lat]
+    }
+  };
+};
+
+const hashString = async (value: string): Promise<string | null> => {
+  if (typeof crypto === 'undefined' || !crypto.subtle) return null;
+  const data = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+};
+
+const buildSitacHash = async (collection: SITACCollection): Promise<string | null> => {
+  const features = Array.isArray(collection?.features) ? collection.features : [];
+  const normalized = features.map((feature, index) => {
+    const rawId = feature.id ?? feature.properties?.id;
+    const id = rawId === undefined || rawId === null ? '' : String(rawId);
+    const type = feature?.properties?.type || feature?.geometry?.type || 'unknown';
+    return {
+      id,
+      type,
+      geometry: feature.geometry,
+      properties: feature.properties,
+      sortKey: id || `${type}-${index}`
+    };
+  });
+  normalized.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+  const hashInput = {
+    type: collection?.type || 'FeatureCollection',
+    features: normalized.map(({ sortKey, ...rest }) => rest)
+  };
+  try {
+    return await hashString(stableStringify(hashInput));
+  } catch (error) {
+    console.warn('[telemetry] Failed to compute SITAC hash', error);
+    return null;
+  }
+};
 
 interface SitacMapProps {
   embedded?: boolean;
@@ -46,8 +202,12 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
   const locked = useSitacStore((s) => s.locked);
   const externalSearchQuery = useSitacStore((s) => s.externalSearchQuery);
   const externalSearchId = useSitacStore((s) => s.externalSearchId);
+  const sitacHydrationId = useSitacStore((s) => s.hydrationId);
+  const setFromHydration = useSitacStore((s) => s.setFromHydration);
   const interventionLat = useInterventionStore((s) => s.lat);
   const interventionLng = useInterventionStore((s) => s.lng);
+  const currentInterventionId = useInterventionStore((s) => s.currentInterventionId);
+  const interventionStartedAtMs = useInterventionStore((s) => s.interventionStartedAtMs);
   const setInterventionLocation = useInterventionStore((s) => s.setLocation);
 
   // Local State
@@ -66,6 +226,261 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
   const [isPlacingIntervention, setIsPlacingIntervention] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
   const markerRef = useRef<maplibregl.Marker | null>(null);
+  const previousFeatureIdsRef = useRef<Set<string>>(new Set());
+  const previousSitacSnapshotRef = useRef<Map<string, SitacStateSnapshot>>(new Map());
+  const skipSitacSyncRef = useRef<number>(sitacHydrationId);
+  const userIdRef = useRef<string | null>(null);
+  const sitacTelemetry = useMemo(
+    () =>
+      debounce((collection: SITACCollection) => {
+        const summary = summarizeSitac(collection);
+        const features = Array.isArray(collection?.features) ? collection.features : [];
+        const currentIds = collectFeatureIds(features);
+        const previousIds = previousFeatureIdsRef.current;
+        const addedIds = Array.from(currentIds).filter((id) => !previousIds.has(id));
+        const removedIds = Array.from(previousIds).filter((id) => !currentIds.has(id));
+        previousFeatureIdsRef.current = currentIds;
+
+        void (async () => {
+          const hash = await buildSitacHash(collection);
+          const patch: Record<string, unknown> = {
+            ...summary
+          };
+          if (hash) patch.hash = hash;
+          if (addedIds.length) patch.ids_added = addedIds.slice(0, 50);
+          if (removedIds.length) patch.ids_removed = removedIds.slice(0, 50);
+          telemetryBuffer.addSample({
+            interventionId: currentInterventionId,
+            stream: 'SITAC',
+            patch,
+            interventionStartedAtMs,
+            uiContext: 'sitac/map'
+          });
+        })();
+      }, 3000),
+    [currentInterventionId, interventionStartedAtMs]
+  );
+
+  useEffect(() => {
+    sitacTelemetry(geoJSON);
+  }, [geoJSON, sitacTelemetry]);
+
+  useEffect(() => {
+    if (!currentInterventionId) return;
+    let active = true;
+    const loadSitacState = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('sitac_features')
+          .select('feature_id, symbol_type, lat, lng, props')
+          .eq('intervention_id', currentInterventionId);
+        if (error) throw error;
+        if (!active) return;
+        const features = (data ?? []).map((row) => buildSitacFeatureFromRow(row as SitacRow));
+        setFromHydration({ type: 'FeatureCollection', features });
+      } catch (error) {
+        console.error('Chargement SITAC partagé échoué', error);
+      }
+    };
+    void loadSitacState();
+    return () => {
+      active = false;
+    };
+  }, [currentInterventionId, setFromHydration]);
+
+  const getUserId = useCallback(async () => {
+    if (userIdRef.current) return userIdRef.current;
+    const { data, error } = await supabase.auth.getUser();
+    if (error) throw error;
+    const userId = data.user?.id;
+    if (!userId) throw new Error('Not authenticated');
+    userIdRef.current = userId;
+    return userId;
+  }, []);
+
+  const buildSitacMetrics = useCallback(
+    (uiContext: string, editCount = 1) => ({
+      duration_ms: 0,
+      edit_count: editCount,
+      source: 'keyboard' as const,
+      ui_context: uiContext,
+      ...(interventionStartedAtMs
+        ? { elapsed_ms_since_intervention_start: Date.now() - interventionStartedAtMs }
+        : {})
+    }),
+    [interventionStartedAtMs]
+  );
+
+  const buildSitacEventPayload = useCallback(
+    (snapshot: SitacStateSnapshot) => ({
+      feature_id: snapshot.featureId,
+      symbol_type: snapshot.symbolType,
+      lat: snapshot.lat,
+      lng: snapshot.lng,
+      props: snapshot.props,
+      action_meta: { source: 'sitac' }
+    }),
+    []
+  );
+
+  const sitacStateSync = useMemo(
+    () =>
+      debounce(async (collection: SITACCollection) => {
+        if (!currentInterventionId) return;
+        const currentMap = buildSitacSnapshotMap(collection);
+        const previousMap = previousSitacSnapshotRef.current;
+        const added: SitacStateSnapshot[] = [];
+        const updated: SitacStateSnapshot[] = [];
+        const removed: SitacStateSnapshot[] = [];
+
+        currentMap.forEach((snapshot, id) => {
+          const previous = previousMap.get(id);
+          if (!previous) {
+            added.push(snapshot);
+            return;
+          }
+          if (previous.hash !== snapshot.hash) {
+            updated.push(snapshot);
+          }
+        });
+
+        previousMap.forEach((snapshot, id) => {
+          if (!currentMap.has(id)) {
+            removed.push(snapshot);
+          }
+        });
+
+        previousSitacSnapshotRef.current = currentMap;
+
+        if (!added.length && !updated.length && !removed.length) return;
+
+        try {
+          const userId = await getUserId();
+          const upsertRows = [...added, ...updated].map((snapshot) => ({
+            intervention_id: currentInterventionId,
+            feature_id: snapshot.featureId,
+            symbol_type: snapshot.symbolType,
+            lat: snapshot.lat,
+            lng: snapshot.lng,
+            props: snapshot.props,
+            updated_by: userId
+          }));
+
+          if (upsertRows.length) {
+            const { error } = await supabase
+              .from('sitac_features')
+              .upsert(upsertRows, { onConflict: 'intervention_id,feature_id' });
+            if (error) throw error;
+          }
+
+          if (removed.length) {
+            const removedIds = removed.map((snapshot) => snapshot.featureId);
+            const { error } = await supabase
+              .from('sitac_features')
+              .delete()
+              .eq('intervention_id', currentInterventionId)
+              .in('feature_id', removedIds);
+            if (error) throw error;
+          }
+
+          const logPromises: Promise<unknown>[] = [];
+          added.forEach((snapshot) => {
+            logPromises.push(
+              logInterventionEvent(
+                currentInterventionId,
+                'SITAC_FEATURE_ADDED_VALIDATED',
+                buildSitacEventPayload(snapshot),
+                buildSitacMetrics('sitac.map', 1)
+              ).catch((error) => {
+                console.error('SITAC add log failed', error);
+              })
+            );
+          });
+          updated.forEach((snapshot) => {
+            logPromises.push(
+              logInterventionEvent(
+                currentInterventionId,
+                'SITAC_FEATURE_UPDATED_VALIDATED',
+                buildSitacEventPayload(snapshot),
+                buildSitacMetrics('sitac.map', 1)
+              ).catch((error) => {
+                console.error('SITAC update log failed', error);
+              })
+            );
+          });
+          removed.forEach((snapshot) => {
+            logPromises.push(
+              logInterventionEvent(
+                currentInterventionId,
+                'SITAC_FEATURE_DELETED_VALIDATED',
+                buildSitacEventPayload(snapshot),
+                buildSitacMetrics('sitac.map', 1)
+              ).catch((error) => {
+                console.error('SITAC delete log failed', error);
+              })
+            );
+          });
+          if (logPromises.length) {
+            await Promise.all(logPromises);
+          }
+        } catch (error) {
+          console.error('SITAC state sync failed', error);
+        }
+      }, 600),
+    [buildSitacEventPayload, buildSitacMetrics, currentInterventionId, getUserId]
+  );
+
+  useEffect(() => {
+    if (skipSitacSyncRef.current !== sitacHydrationId) {
+      skipSitacSyncRef.current = sitacHydrationId;
+      previousSitacSnapshotRef.current = buildSitacSnapshotMap(geoJSON);
+      return;
+    }
+    sitacStateSync(geoJSON);
+  }, [geoJSON, sitacHydrationId, sitacStateSync]);
+
+  useEffect(() => {
+    previousFeatureIdsRef.current = new Set();
+    previousSitacSnapshotRef.current = new Map();
+    skipSitacSyncRef.current = sitacHydrationId;
+  }, [currentInterventionId, sitacHydrationId]);
+
+  useEffect(() => {
+    return () => {
+      sitacTelemetry.flush();
+      sitacTelemetry.cancel();
+      sitacStateSync.flush();
+      sitacStateSync.cancel();
+    };
+  }, [sitacTelemetry, sitacStateSync]);
+
+  const logSitacExport = useCallback(
+    (format: string) => {
+      if (!currentInterventionId) {
+        console.error('[telemetry] Missing interventionId for SITAC_EXPORT_VALIDATED');
+        return;
+      }
+      const featureCount = Array.isArray(geoJSON.features) ? geoJSON.features.length : 0;
+      const metrics = {
+        duration_ms: 0,
+        edit_count: featureCount,
+        source: 'keyboard' as const,
+        ui_context: 'sitac.export',
+        ...(interventionStartedAtMs
+          ? { elapsed_ms_since_intervention_start: Date.now() - interventionStartedAtMs }
+          : {})
+      };
+      void logInterventionEvent(
+        currentInterventionId,
+        'SITAC_EXPORT_VALIDATED',
+        { format, feature_count: featureCount },
+        metrics
+      ).catch((error) => {
+        console.error('[telemetry] Failed to log SITAC_EXPORT_VALIDATED', error);
+      });
+    },
+    [currentInterventionId, geoJSON.features, interventionStartedAtMs]
+  );
 
   const isValidLngLat = (coord: unknown): coord is [number, number] =>
     Array.isArray(coord) &&
@@ -745,6 +1160,7 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
       link.href = fallbackCanvas.toDataURL('image/png');
     }
     link.click();
+    logSitacExport('png');
   };
 
   const handleSnapshot = async () => {
@@ -782,6 +1198,7 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
     try {
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: 'SITAC Snapshot' });
+        logSitacExport('snapshot');
         return;
       }
     } catch (err) {
@@ -796,6 +1213,7 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+    logSitacExport('snapshot');
   };
 
   const handleExportPDF = async () => {
@@ -832,6 +1250,7 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
     });
     pdf.addImage(imgData, imgFormat, 0, 0, exportWidth, exportHeight);
     pdf.save(`sitac-atlas-${Date.now()}.pdf`);
+    logSitacExport('pdf');
   };
 
   const containerHeightClass = isFullscreen ? 'h-full' : embedded ? 'h-[80vh]' : 'h-screen';

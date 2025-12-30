@@ -71,7 +71,7 @@ export const useSitacDraw = ({ map, activeSymbol, interactionLock = false }: Dra
         const shouldDisableInteractions =
             interactionLock ||
             locked ||
-            ['draw_freehand', 'draw_rect', 'draw_circle', 'draw_line', 'draw_arrow'].includes(mode);
+            mode.startsWith('draw_');
 
         if (shouldDisableInteractions) {
             // Disable immediately

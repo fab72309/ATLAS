@@ -4,6 +4,7 @@ import type { Geometry } from 'geojson';
 import type maplibregl from 'maplibre-gl';
 import { useSitacStore } from '../../stores/useSitacStore';
 import { refreshGeoTransform, syncObjectPosition, type FabricGeoObject, toLngLat } from '../../utils/fabricUtils';
+import { createId } from '../../utils/sitacUtils';
 import type { SITACCollection, SITACFeatureProperties, SymbolAsset } from '../../types/sitac';
 
 interface SitacFabricCanvasProps {
@@ -20,7 +21,7 @@ type LooseFeatureProperties = Partial<SITACFeatureProperties> & {
     scaleY?: number;
 };
 
-type FabricMetaObject = fabric.Object & { [key: string]: unknown };
+type FabricMetaObject = fabric.Object & { [key: string]: unknown; featureId?: string };
 type FabricMetaImage = fabric.FabricImage & {
     [key: string]: unknown;
     getElement?: () => HTMLImageElement | undefined;
@@ -330,6 +331,10 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
             }
 
             if (obj) {
+                const objMeta = obj as FabricMetaObject;
+                if (typeof properties.id === 'string') {
+                    objMeta.featureId = properties.id;
+                }
                 (obj as FabricGeoObject).geoPosition = { lng, lat };
                 canvas.add(obj);
             }
@@ -381,7 +386,8 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
             'iconName',
             'isArrow',
             'strokeColor',
-            'arrowLength'
+            'arrowLength',
+            'featureId'
         ];
         const existingCustomProps = Array.isArray(fabric.Object.prototype.customProperties)
             ? fabric.Object.prototype.customProperties
@@ -828,11 +834,15 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
     // Handle Drop
     const handleDrop = async (e: React.DragEvent) => {
         e.preventDefault();
-        const json = e.dataTransfer.getData('sitac/symbol');
-        if (!json) return;
+        const raw =
+            e.dataTransfer.getData('sitac/symbol') ||
+            e.dataTransfer.getData('application/json') ||
+            e.dataTransfer.getData('text/plain');
+        if (!raw) return;
 
         try {
-            const asset: SymbolAsset = JSON.parse(json);
+            const asset: SymbolAsset = JSON.parse(raw);
+            if (!asset?.url) return;
             const canvas = fabricCanvas.current;
             if (!canvas) return;
 
@@ -963,7 +973,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
             if (map && evt?.target) {
                 refreshGeoTransform(evt.target as FabricGeoObject, map);
             }
-            const features: Array<{ type: 'Feature'; geometry: Geometry; properties: LooseFeatureProperties }> = [];
+            const features: Array<{ type: 'Feature'; id: string; geometry: Geometry; properties: LooseFeatureProperties }> = [];
             canvas.getObjects().forEach((obj) => {
                 const fabricObj = obj as FabricGeoObject;
                 if (!fabricObj.geoPosition && map) {
@@ -975,8 +985,12 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
 
                 let geometry: Geometry | null = null;
                 const objMeta = obj as FabricMetaObject;
+                if (typeof objMeta.featureId !== 'string') {
+                    objMeta.featureId = createId();
+                }
+                const featureId = objMeta.featureId;
                 const properties: LooseFeatureProperties = {
-                    id: fabricObj.names?.[0] || Date.now().toString(), // Simple ID
+                    id: featureId,
                     // color: (obj.fill as string) !== 'transparent' ? obj.fill : obj.stroke, // Don't default indiscriminately
                     rotation: obj.angle || 0,
                     baseZoom: typeof objMeta.baseZoom === 'number' ? objMeta.baseZoom : undefined,
@@ -1074,6 +1088,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                 if (obj instanceof fabric.Object && geometry) { // Ensure generic object push
                     features.push({
                         type: 'Feature',
+                        id: featureId,
                         properties: properties,
                         geometry: geometry
                     });
@@ -1273,6 +1288,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                 const top = (obj.top ?? 0) + offset.y;
                 next.set({ left, top });
                 copyFabricMeta(obj, next);
+                (next as FabricMetaObject).featureId = createId();
                 if (mapInstance) {
                     refreshGeoTransform(next as FabricGeoObject, mapInstance);
                     setBaseTransform(next, mapInstance);
@@ -1375,9 +1391,11 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
     }, [map]);
 
 
+    const allowPointerEvents = locked || mode.startsWith('draw_');
+
     return (
         <div
-            className={`absolute inset-0 z-10 ${locked ? 'pointer-events-auto' : 'pointer-events-none'}`}
+            className={`absolute inset-0 z-10 ${allowPointerEvents ? 'pointer-events-auto' : 'pointer-events-none'}`}
             onDrop={handleDrop}
             onDragOver={(e) => e.preventDefault()}
         >

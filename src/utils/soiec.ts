@@ -1,5 +1,10 @@
 import { OrdreInitial } from '../types/soiec';
 
+const resolveRoleLabel = (role?: string) => role || 'Chef de groupe';
+const isExtendedRole = (role?: string) => role === 'Chef de colonne' || role === 'Chef de site';
+
+export const buildOrdreTitle = (role?: string) => `ORDRE INITIAL – ${resolveRoleLabel(role)}`;
+
 export const parseOrdreInitial = (jsonString: string): OrdreInitial => {
     try {
         // Nettoyage basique si le JSON est entouré de balises markdown
@@ -9,6 +14,7 @@ export const parseOrdreInitial = (jsonString: string): OrdreInitial => {
         // Structure par défaut pour éviter les crashs
         const defaultOrdre: OrdreInitial = {
             S: "Situation non renseignée",
+            A: [],
             O: [],
             I: [],
             E: "Exécution non renseignée",
@@ -95,16 +101,22 @@ export const parseOrdreInitial = (jsonString: string): OrdreInitial => {
             O: [],
             I: [],
             E: jsonString, // On met le texte brut dans E pour qu'il soit au moins visible
-            C: ""
+            C: "",
+            A: [],
+            L: []
         };
     }
 };
 
 export const generateOrdreInitialText = (
     ordre: OrdreInitial,
-    meta?: { adresse?: string; heure?: string }
+    meta?: { adresse?: string; heure?: string; role?: string }
 ): string => {
-    let text = "ORDRE INITIAL – Chef de groupe\n\n";
+    let text = `${buildOrdreTitle(meta?.role)}\n\n`;
+    const includeAnticipation = isExtendedRole(meta?.role) || (Array.isArray(ordre.A) && ordre.A.length > 0);
+    const includeLogistique = isExtendedRole(meta?.role) || (Array.isArray(ordre.L) && ordre.L.length > 0);
+    const anticipationItems = Array.isArray(ordre.A) ? ordre.A : [];
+    const logistiqueItems = Array.isArray(ordre.L) ? ordre.L : [];
 
     if (meta?.adresse) text += `Adresse: ${meta.adresse}\n`;
     if (meta?.heure) text += `Heure de saisie: ${meta.heure}\n`;
@@ -112,6 +124,18 @@ export const generateOrdreInitialText = (
 
     text += "S – SITUATION\n";
     text += `${ordre.S}\n\n`;
+
+    if (includeAnticipation) {
+        text += "A – ANTICIPATION\n";
+        if (anticipationItems.length > 0) {
+            anticipationItems.forEach((item, index) => {
+                text += `${index + 1}. ${item}\n`;
+            });
+        } else {
+            text += "Aucune anticipation spécifiée.\n";
+        }
+        text += "\n";
+    }
 
     text += "O – OBJECTIFS\n";
     if (ordre.O.length > 0) {
@@ -142,6 +166,17 @@ export const generateOrdreInitialText = (
     text += "C – COMMANDEMENT\n";
     text += `${ordre.C}\n`;
 
+    if (includeLogistique) {
+        text += "\nL – LOGISTIQUE\n";
+        if (logistiqueItems.length > 0) {
+            logistiqueItems.forEach((item, index) => {
+                text += `${index + 1}. ${item}\n`;
+            });
+        } else {
+            text += "Aucune logistique spécifiée.\n";
+        }
+    }
+
     return text;
 };
 
@@ -150,12 +185,23 @@ export const generateOrdreInitialShortText = (ordre: OrdreInitial): string => {
     let text = "ORDRE INITIAL\n\n";
     text += `S: ${ordre.S.substring(0, 100)}${ordre.S.length > 100 ? '...' : ''}\n\n`;
 
+    if (Array.isArray(ordre.A) && ordre.A.length > 0) {
+        text += "A:\n";
+        ordre.A.forEach((item, i) => text += `${i + 1}. ${item}\n`);
+        text += "\n";
+    }
+
     text += "O:\n";
     ordre.O.forEach((obj, i) => text += `${i + 1}. ${obj}\n`);
     text += "\n";
 
     text += "I:\n";
     ordre.I.forEach((im, i) => text += `${i + 1}. ${im.mission} (${im.moyen})\n`);
+
+    if (Array.isArray(ordre.L) && ordre.L.length > 0) {
+        text += "\nL:\n";
+        ordre.L.forEach((item, i) => text += `${i + 1}. ${item}\n`);
+    }
 
     return text;
 };

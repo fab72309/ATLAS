@@ -4,12 +4,22 @@ import SideMenu from './SideMenu';
 import { Menu, Home, LogOut } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { APP_NAME, APP_VERSION } from '../constants/appInfo';
+import { telemetryBuffer } from '../utils/telemetryBuffer';
 
 const Layout = () => {
   const [open, setOpen] = React.useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { logout } = useAuth();
+
+  React.useEffect(() => {
+    const cleanup = telemetryBuffer.bindLifecycleHandlers();
+    return () => cleanup();
+  }, []);
+
+  React.useEffect(() => {
+    telemetryBuffer.flushAll();
+  }, [location.pathname, location.search, location.hash]);
 
   const handleLogout = React.useCallback(async () => {
     try {

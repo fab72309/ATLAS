@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Mic, Sparkles } from 'lucide-react';
 import { SpeechRecognitionService } from '../utils/speechRecognition';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
-import { saveCommunicationIAData } from '../utils/firestore';
+import { saveCommunicationIAData } from '../utils/dataStore';
 import CommandIcon from '../components/CommandIcon';
 import { analyzeEmergency } from '../utils/openai';
 import DominantSelector, { DominanteType } from '../components/DominantSelector';

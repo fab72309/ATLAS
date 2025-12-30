@@ -1,3 +1,5 @@
+import { readUserScopedJSON, writeUserScopedJSON } from './userStorage';
+
 export type FavoriteKey =
   | 'functions'
   | 'communication'
@@ -12,8 +14,7 @@ const STORAGE_KEY = 'atlas-favorites';
 
 export const getFavorites = (): FavoriteKey[] => {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY) || '[]';
-    const parsed = JSON.parse(raw);
+    const parsed = readUserScopedJSON<FavoriteKey[]>(STORAGE_KEY, 'local') || [];
     const allowed = NAV_ITEMS.map((n) => n.key);
     return Array.isArray(parsed)
       ? (parsed as FavoriteKey[]).filter((k) => allowed.includes(k as FavoriteKey))
@@ -24,7 +25,7 @@ export const getFavorites = (): FavoriteKey[] => {
 };
 
 export const setFavorites = (keys: FavoriteKey[]) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(keys));
+  writeUserScopedJSON(STORAGE_KEY, keys, 'local');
 };
 
 export const toggleFavorite = (key: FavoriteKey): FavoriteKey[] => {

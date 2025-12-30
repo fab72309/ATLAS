@@ -870,7 +870,7 @@ const Settings = () => {
 
         <div className="mt-8 text-center text-slate-500 dark:text-gray-600 text-xs animate-fade-in-down" style={{ animationDelay: '0.3s' }}>
           <p>{APP_NAME} v{APP_VERSION}</p>
-          <p className="mt-1">© 2024 Brigade de Sapeurs-Pompiers de Paris</p>
+          <p className="mt-1">© Fabien - 2025</p>
         </div>
       </div>
     </div>

@@ -2,34 +2,43 @@ import React, { useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Sparkles, ClipboardCopy, Share2, FileText, ImageDown, Check, QrCode } from 'lucide-react';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
-import { saveDictationData, saveCommunicationData, saveInterventionShare, type InterventionSharePayload } from '../utils/firestore';
-import * as QRCode from 'qrcode';
+import { saveDictationData, saveCommunicationData } from '../utils/dataStore';
+import QRCode from 'react-qr-code';
 import DominantSelector, { DominanteType } from '../components/DominantSelector';
 import OrdreInitialView from '../components/OrdreInitialView';
 import { OrdreInitial } from '../types/soiec';
 import { addToHistory } from '../utils/history';
 import { exportBoardDesignImage, exportBoardDesignPdf, exportBoardDesignWordEditable, exportOrdreToClipboard, exportOrdreToImage, exportOrdreToPdf, shareOrdreAsText } from '../utils/export';
-import MeansModal, { MeanItem } from '../components/MeansModal';
+import MeansModal from '../components/MeansModal';
+import type { MeanItem } from '../types/means';
 import SitacMap from './SitacMap';
 import { OctDiagram } from './OctDiagram';
-import { getOctTree, resetOctTree } from '../utils/octTreeStore';
-import { useInterventionStore } from '../stores/useInterventionStore';
+import { resetOctTree, useOctTree, type OctTreeNode } from '../utils/octTreeStore';
+import { useInterventionStore, type HydratedOrdreInitial } from '../stores/useInterventionStore';
 import { useSitacStore } from '../stores/useSitacStore';
-import { INTERVENTION_DRAFT_KEY, INTERVENTION_SHARE_PREFIX } from '../constants/intervention';
+import { useMeansStore } from '../stores/useMeansStore';
+import { INTERVENTION_DRAFT_KEY } from '../constants/intervention';
 import { useSessionSettings, type MessageCheckboxOption } from '../utils/sessionSettings';
-
-const generateMeanId = () => {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
-  return `mean-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-};
+import { getLocalDate, getLocalDateTime, getLocalTime } from '../utils/dateTime';
+import { logInterventionEvent, type TelemetryMetrics } from '../utils/atlasTelemetry';
+import { telemetryBuffer } from '../utils/telemetryBuffer';
+import { debounce } from '../utils/debounce';
+import { readUserScopedJSON, writeUserScopedJSON, removeUserScopedItem } from '../utils/userStorage';
+import { supabase } from '../utils/supabaseClient';
+import { normalizeMeanItems } from '../utils/means';
+import { hydrateIntervention } from '../utils/interventionHydration';
 
 const getNowStamp = () => {
   const now = new Date();
   return {
-    date: now.toISOString().slice(0, 10),
-    time: now.toISOString().slice(11, 16)
+    date: getLocalDate(now),
+    time: getLocalTime(now)
   };
 };
+
+const buildJoinUrl = (token: string) => (
+  `${window.location.origin}${window.location.pathname}#/join?token=${encodeURIComponent(token)}`
+);
 
 type MessageSelections = Record<string, boolean>;
 
@@ -336,19 +345,34 @@ const ADDITIONAL_INFO_PLACEHOLDER = 'Exemples : type de bâtiment, ETARE, raison
 
 const DictationInput = () => {
   const { type } = useParams();
+  const isExtendedOps = type === 'column' || type === 'site';
+  const roleLabel = type === 'column'
+    ? 'Chef de colonne'
+    : type === 'site'
+      ? 'Chef de site'
+      : type === 'group'
+        ? 'Chef de groupe'
+        : undefined;
   const [ordreData, setOrdreData] = useState<OrdreInitial | null>(null);
   const [selectedRisks, setSelectedRisks] = useState<DominanteType[]>([]);
   const address = useInterventionStore((s) => s.address);
+  const streetNumber = useInterventionStore((s) => s.streetNumber);
+  const streetName = useInterventionStore((s) => s.streetName);
   const city = useInterventionStore((s) => s.city);
   const setAddress = useInterventionStore((s) => s.setAddress);
   const setCity = useInterventionStore((s) => s.setCity);
+  const currentInterventionId = useInterventionStore((s) => s.currentInterventionId);
+  const interventionStartedAtMs = useInterventionStore((s) => s.interventionStartedAtMs);
+  const setCurrentIntervention = useInterventionStore((s) => s.setCurrentIntervention);
+  const clearCurrentIntervention = useInterventionStore((s) => s.clearCurrentIntervention);
   const [additionalInfo, setAdditionalInfo] = useState('');
   const [soiecAddressValidated, setSoiecAddressValidated] = useState(false);
   const [soiecTimeValidated, setSoiecTimeValidated] = useState(false);
-  const [orderTime, setOrderTime] = useState<string>(() => new Date().toISOString().slice(0, 16));
+  const [orderTime, setOrderTime] = useState<string>(() => getLocalDateTime(new Date()));
   const [isLoading, setIsLoading] = useState(false);
   const [ordreValidatedAt, setOrdreValidatedAt] = useState<string | null>(null);
   const [conduiteValidatedAt, setConduiteValidatedAt] = useState<string | null>(null);
+  const isOiLocked = Boolean(ordreValidatedAt && !isExtendedOps);
   const [ordreConduite, setOrdreConduite] = useState<OrdreInitial | null>(null);
   const [showConduite, setShowConduite] = useState(false);
   const [conduiteSelectedRisks, setConduiteSelectedRisks] = useState<DominanteType[]>([]);
@@ -362,18 +386,37 @@ const DictationInput = () => {
   const [showShareHint, setShowShareHint] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [shareStatus, setShareStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [shareError, setShareError] = useState<string | null>(null);
-  const [shareCode, setShareCode] = useState<string | null>(null);
-  const [shareQrDataUrl, setShareQrDataUrl] = useState<string | null>(null);
-  const [shareCopied, setShareCopied] = useState(false);
-  const [selectedMeans, setSelectedMeans] = useState<MeanItem[]>([]);
+  const [shareLink, setShareLink] = useState<string | null>(null);
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [lastOiValidatedAt, setLastOiValidatedAt] = useState<string | null>(null);
+  const hydratedOrdreInitial = useInterventionStore((s) => s.hydratedOrdreInitial);
+  const hydratedOrdreConduite = useInterventionStore((s) => s.hydratedOrdreConduite);
+  const ordreInitialHistory = useInterventionStore((s) => s.ordreInitialHistory);
+  const ordreConduiteHistory = useInterventionStore((s) => s.ordreConduiteHistory);
+  const oiLogicalId = useInterventionStore((s) => s.oiLogicalId);
+  const conduiteLogicalId = useInterventionStore((s) => s.conduiteLogicalId);
+  const lastHydratedInterventionId = useInterventionStore((s) => s.lastHydratedInterventionId);
+  const selectedMeans = useMeansStore((s) => s.selectedMeans);
+  const setSelectedMeans = useMeansStore((s) => s.setSelectedMeans);
+  const meansHydrationId = useMeansStore((s) => s.hydrationId);
+  const { tree: octTree } = useOctTree();
   const [activeTab, setActiveTab] = useState<'soiec' | 'moyens' | 'oct' | 'message' | 'sitac' | 'aide'>('soiec');
   const [ambianceMessage, setAmbianceMessage] = useState<AmbianceMessage>(() => createAmbianceMessage());
   const [compteRenduMessage, setCompteRenduMessage] = useState<CompteRenduMessage>(() => createCompteRenduMessage());
   const [validatedAmbiance, setValidatedAmbiance] = useState<AmbianceMessage | null>(null);
   const [validatedCompteRendu, setValidatedCompteRendu] = useState<CompteRenduMessage | null>(null);
   const boardRef = React.useRef<HTMLDivElement>(null);
+  const previousTabRef = React.useRef(activeTab);
+  const lastAppliedHydrationRef = React.useRef<string | null>(null);
+  const lastAppliedConduiteRef = React.useRef<string | null>(null);
+  const lastMeansStateRef = React.useRef<string>('');
+  const skipMeansSyncRef = React.useRef<{ interventionId: string | null; hydrationId: number }>({
+    interventionId: currentInterventionId,
+    hydrationId: meansHydrationId
+  });
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [octResetKey, setOctResetKey] = useState(0);
   const [meansResetKey, setMeansResetKey] = useState(0);
@@ -384,22 +427,234 @@ const DictationInput = () => {
     () => [address, city].filter(Boolean).join(', '),
     [address, city]
   );
-
-  const normalizeMeans = React.useCallback((items: unknown[] | undefined): MeanItem[] => {
-    if (!Array.isArray(items)) return [];
-    return items.map((m) => {
-      const record = (m ?? {}) as Record<string, unknown>;
-      return {
-        id: typeof record.id === 'string' ? record.id : generateMeanId(),
-        name: typeof record.name === 'string' ? record.name : 'Moyen',
-        status: record.status === 'demande' ? 'demande' : 'sur_place',
-        category: typeof record.category === 'string' ? record.category : undefined
-      };
-    });
+  const hasHistory = ordreInitialHistory.length > 0 || ordreConduiteHistory.length > 0;
+  const formatHistoryTimestamp = React.useCallback((value: string) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  }, []);
+  const formatList = React.useCallback((items: string[] | undefined) => {
+    if (!items || items.length === 0) return '-';
+    return items.map((item, index) => `${index + 1}. ${item}`).join('\n');
+  }, []);
+  const formatIdeeManoeuvre = React.useCallback((items: OrdreInitial['I']) => {
+    if (!Array.isArray(items) || items.length === 0) return '-';
+    return items.map((idea, index) => {
+      if (!idea) return `${index + 1}. -`;
+      const mission = idea.mission || '';
+      const moyen = idea.moyen ? ` (${idea.moyen})` : '';
+      const moyenSupp = idea.moyen_supp ? ` + ${idea.moyen_supp}` : '';
+      const details = idea.details ? ` — ${idea.details}` : '';
+      return `${index + 1}. ${mission}${moyen}${moyenSupp}${details}`.trim();
+    }).join('\n');
+  }, []);
+  const formatExecution = React.useCallback((value: OrdreInitial['E']) => {
+    if (!value) return '-';
+    if (Array.isArray(value)) {
+      return value.map((entry, index) => {
+        if (typeof entry === 'string') return `${index + 1}. ${entry}`;
+        if (entry && typeof entry === 'object') {
+          const record = entry as Record<string, unknown>;
+          const mission = typeof record.mission === 'string' ? record.mission : '';
+          const moyen = typeof record.moyen === 'string' ? ` (${record.moyen})` : '';
+          const moyenSupp = typeof record.moyen_supp === 'string' ? ` + ${record.moyen_supp}` : '';
+          const details = typeof record.details === 'string' ? ` — ${record.details}` : '';
+          return `${index + 1}. ${mission}${moyen}${moyenSupp}${details}`.trim();
+        }
+        return `${index + 1}. ${String(entry)}`;
+      }).join('\n');
+    }
+    return String(value);
   }, []);
 
+  const prepareOrdreData = React.useCallback((source: OrdreInitial): OrdreInitial => {
+    const next = JSON.parse(JSON.stringify(source)) as OrdreInitial;
+    if (isExtendedOps) {
+      next.A = [];
+      next.L = [];
+    }
+    return next;
+  }, [isExtendedOps]);
+
+  const applyOrdreInitialPayload = React.useCallback(
+    (payload: HydratedOrdreInitial, options?: { resetValidation?: boolean }) => {
+      const nextOrdre = prepareOrdreData(payload.ordreData);
+      setOrdreData(nextOrdre);
+      setSelectedRisks(payload.selectedRisks ?? []);
+      setAdditionalInfo(payload.additionalInfo ?? '');
+      if (payload.address) setAddress(payload.address);
+      if (payload.city) setCity(payload.city);
+      if (payload.orderTime) setOrderTime(payload.orderTime);
+      if (options?.resetValidation) {
+        setOrdreValidatedAt(null);
+      } else if (!isExtendedOps && payload.validatedAtLabel) {
+        setOrdreValidatedAt(payload.validatedAtLabel);
+      }
+      if (payload.validatedAtLabel) setLastOiValidatedAt(payload.validatedAtLabel);
+    },
+    [
+      isExtendedOps,
+      prepareOrdreData,
+      setAddress,
+      setCity,
+      setOrdreData,
+      setSelectedRisks,
+      setAdditionalInfo,
+      setOrderTime,
+      setOrdreValidatedAt,
+      setLastOiValidatedAt
+    ]
+  );
+
+  const handleLoadOrdreInitialHistory = React.useCallback((entry: HydratedOrdreInitial) => {
+    applyOrdreInitialPayload(entry, { resetValidation: true });
+    setHistoryModalOpen(false);
+  }, [applyOrdreInitialPayload]);
+
+  React.useEffect(() => {
+    setShareStatus('idle');
+    setShareError(null);
+    setShareLink(null);
+    setHistoryModalOpen(false);
+  }, [currentInterventionId]);
+
+  React.useEffect(() => {
+    if (currentInterventionId) return;
+    setSyncStatus('idle');
+    setLastOiValidatedAt(null);
+  }, [currentInterventionId]);
+
+  React.useEffect(() => {
+    if (!currentInterventionId) return;
+    if (lastHydratedInterventionId === currentInterventionId) {
+      setSyncStatus('ready');
+      return;
+    }
+    setSyncStatus('loading');
+    hydrateIntervention(currentInterventionId)
+      .then((result) => {
+        setSyncStatus('ready');
+        if (result.ordreInitial?.validatedAtLabel) {
+          setLastOiValidatedAt(result.ordreInitial.validatedAtLabel);
+        } else {
+          setLastOiValidatedAt(null);
+        }
+      })
+      .catch((error) => {
+        console.error('Erreur de synchronisation intervention', error);
+        setSyncStatus('error');
+      });
+  }, [currentInterventionId, lastHydratedInterventionId]);
+
+  React.useEffect(() => {
+    if (!currentInterventionId) return;
+    if (lastHydratedInterventionId !== currentInterventionId) return;
+    if (!hydratedOrdreInitial) return;
+    if (lastAppliedHydrationRef.current === currentInterventionId) return;
+    if (ordreData) return;
+    lastAppliedHydrationRef.current = currentInterventionId;
+
+    applyOrdreInitialPayload(hydratedOrdreInitial, { resetValidation: isExtendedOps });
+  }, [applyOrdreInitialPayload, currentInterventionId, hydratedOrdreInitial, isExtendedOps, lastHydratedInterventionId, ordreData]);
+
+  React.useEffect(() => {
+    if (!currentInterventionId) return;
+    if (lastHydratedInterventionId !== currentInterventionId) return;
+    if (!hydratedOrdreConduite) return;
+    if (lastAppliedConduiteRef.current === currentInterventionId) return;
+    if (ordreConduite || conduiteValidatedAt) return;
+    lastAppliedConduiteRef.current = currentInterventionId;
+
+    setShowConduite(true);
+    if (hydratedOrdreConduite.conduiteSelectedRisks?.length) {
+      setConduiteSelectedRisks(hydratedOrdreConduite.conduiteSelectedRisks);
+    }
+    if (hydratedOrdreConduite.conduiteAddress) setConduiteAddress(hydratedOrdreConduite.conduiteAddress);
+    if (hydratedOrdreConduite.conduiteCity) setConduiteCity(hydratedOrdreConduite.conduiteCity);
+    if (hydratedOrdreConduite.conduiteAdditionalInfo !== undefined) {
+      setConduiteAdditionalInfo(hydratedOrdreConduite.conduiteAdditionalInfo ?? '');
+    }
+    if (hydratedOrdreConduite.conduiteOrderTime) setConduiteOrderTime(hydratedOrdreConduite.conduiteOrderTime);
+    if (hydratedOrdreConduite.ordreConduite) setOrdreConduite(hydratedOrdreConduite.ordreConduite);
+    if (hydratedOrdreConduite.validatedAtLabel) {
+      setConduiteValidatedAt(hydratedOrdreConduite.validatedAtLabel);
+    }
+  }, [conduiteValidatedAt, currentInterventionId, hydratedOrdreConduite, lastHydratedInterventionId, ordreConduite]);
+
+  const buildInterventionMetrics = React.useCallback(
+    (uiContext: string, overrides?: Partial<TelemetryMetrics>): TelemetryMetrics => {
+      const elapsed = interventionStartedAtMs ? Date.now() - interventionStartedAtMs : undefined;
+      const base: TelemetryMetrics = {
+        duration_ms: 0,
+        edit_count: 0,
+        source: 'keyboard',
+        ui_context: uiContext
+      };
+      if (typeof elapsed === 'number' && Number.isFinite(elapsed)) {
+        base.elapsed_ms_since_intervention_start = elapsed;
+      }
+      return { ...base, ...overrides };
+    },
+    [interventionStartedAtMs]
+  );
+
+  const logInterventionEventSafe = React.useCallback(
+    <TData,>(
+      eventType: string,
+      data: TData,
+      metrics?: Partial<TelemetryMetrics>,
+      context?: Record<string, unknown>,
+      options?: { logical_id?: string }
+    ) => {
+      if (!currentInterventionId) {
+        console.error(`[telemetry] Missing interventionId for ${eventType}`);
+        return;
+      }
+      void logInterventionEvent(currentInterventionId, eventType, data, metrics, context, options).catch((error) => {
+        console.error(`[telemetry] Failed to log ${eventType}`, error);
+      });
+    },
+    [currentInterventionId]
+  );
+
+  const normalizeMeans = React.useCallback((items: unknown[] | undefined): MeanItem[] => (
+    normalizeMeanItems(items)
+  ), []);
+
+  const soiecLabel = isExtendedOps ? 'SAOIECL' : 'SOIEC';
+  const buildOiPayloadData = React.useCallback(() => {
+    if (!ordreData) return null;
+    const commandLevel = type === 'group' ? 'CDG' : type === 'column' ? 'CDC' : type === 'site' ? 'CDS' : 'CDG';
+    return {
+      schema_version: 1,
+      command_level: commandLevel,
+      command_level_key: type,
+      address: {
+        address,
+        city,
+        street_number: streetNumber || undefined,
+        street_name: streetName || undefined
+      },
+      soiec: {
+        situation: ordreData.S || '',
+        objectifs: ordreData.O || [],
+        idee_manoeuvre: ordreData.I || [],
+        execution: ordreData.E ?? '',
+        commandement: ordreData.C || '',
+        anticipation: ordreData.A ?? [],
+        logistique: ordreData.L ?? []
+      },
+      meta: {
+        soiec_type: soiecLabel,
+        selected_risks: selectedRisks,
+        additional_info: additionalInfo,
+        order_time: orderTime,
+        author_role: roleLabel
+      }
+    };
+  }, [ordreData, type, address, city, streetNumber, streetName, soiecLabel, selectedRisks, additionalInfo, orderTime, roleLabel]);
   const tabs = [
-    { id: 'soiec' as const, label: 'SOIEC' },
+    { id: 'soiec' as const, label: soiecLabel },
     { id: 'moyens' as const, label: 'Moyens' },
     { id: 'oct' as const, label: 'OCT' },
     { id: 'message' as const, label: 'Message' },
@@ -420,33 +675,43 @@ const DictationInput = () => {
                 selectedRisks={selectedRisks}
                 onChange={setSelectedRisks}
                 className="justify-start flex-1"
-                disabled={Boolean(ordreValidatedAt)}
+                disabled={isOiLocked}
               />
-              <div className="relative">
-                <button
-                  onClick={() => setShowShareMenu((v) => !v)}
-                  className="flex items-center gap-2 px-3 py-2 bg-slate-200 hover:bg-slate-300 border border-slate-300 dark:bg-white/5 dark:hover:bg-white/10 dark:border-white/10 rounded-xl text-sm text-slate-700 dark:text-gray-200"
-                >
-                  <Share2 className="w-4 h-4" />
-                  Partage & export
-                </button>
-                {showShareMenu && (
-                  <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-[#0F121A] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl p-3 space-y-2 z-30">
-                    <div className="text-xs text-slate-500 dark:text-gray-400">Texte</div>
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <button
+                    onClick={() => setShowShareMenu((v) => !v)}
+                    className="flex items-center gap-2 px-3 py-2 bg-slate-200 hover:bg-slate-300 border border-slate-300 dark:bg-white/5 dark:hover:bg-white/10 dark:border-white/10 rounded-xl text-sm text-slate-700 dark:text-gray-200"
+                  >
+                    <Share2 className="w-4 h-4" />
+                    Partage & export
+                  </button>
+                  {showShareMenu && (
+                    <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-[#0F121A] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl p-3 space-y-2 z-30">
+                      <div className="text-xs text-slate-500 dark:text-gray-400">Texte</div>
+                      <div className="flex flex-wrap gap-2">
+                        <button onClick={() => handleShareText('sms')} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200">SMS</button>
+                        <button onClick={() => handleShareText('whatsapp')} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200">WhatsApp</button>
+                        <button onClick={() => handleShareText('mail')} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200">Mail</button>
+                        <button onClick={handleCopyDraft} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200 flex items-center gap-1"><ClipboardCopy className="w-4 h-4" />Copier</button>
+                    </div>
+                    <div className="text-xs text-slate-500 dark:text-gray-400 pt-1">Téléchargements</div>
                     <div className="flex flex-wrap gap-2">
-                      <button onClick={() => handleShareText('sms')} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200">SMS</button>
-                      <button onClick={() => handleShareText('whatsapp')} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200">WhatsApp</button>
-                      <button onClick={() => handleShareText('mail')} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200">Mail</button>
-                      <button onClick={handleCopyDraft} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200 flex items-center gap-1"><ClipboardCopy className="w-4 h-4" />Copier</button>
+                      <button onClick={handleDownloadImage} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200 flex items-center gap-1"><ImageDown className="w-4 h-4" />Image</button>
+                      <button onClick={() => handleShareFile('pdf')} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200">PDF</button>
+                      <button onClick={() => handleShareFile('word')} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200 flex items-center gap-1"><FileText className="w-4 h-4" />Word</button>
+                    </div>
+                    {showShareHint && <div className="text-[11px] text-red-400">Ajoutez au moins un élément avant de partager.</div>}
                   </div>
-                  <div className="text-xs text-slate-500 dark:text-gray-400 pt-1">Téléchargements</div>
-                  <div className="flex flex-wrap gap-2">
-                    <button onClick={handleDownloadImage} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200 flex items-center gap-1"><ImageDown className="w-4 h-4" />Image</button>
-                    <button onClick={() => handleShareFile('pdf')} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200">PDF</button>
-                    <button onClick={() => handleShareFile('word')} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200 flex items-center gap-1"><FileText className="w-4 h-4" />Word</button>
-                  </div>
-                  {showShareHint && <div className="text-[11px] text-red-400">Ajoutez au moins un élément avant de partager.</div>}
-                </div>
+                )}
+              </div>
+              {hasHistory && (
+                <button
+                  onClick={() => setHistoryModalOpen(true)}
+                  className="px-3 py-2 rounded-xl text-sm font-semibold bg-white/70 hover:bg-white border border-slate-200 text-slate-700 dark:bg-white/10 dark:hover:bg-white/20 dark:border-white/15 dark:text-gray-200 transition"
+                >
+                  Historique
+                </button>
               )}
             </div>
             </div>
@@ -463,7 +728,7 @@ const DictationInput = () => {
                     setSoiecAddressValidated(false);
                   }}
                   placeholder="Ex: 12 rue de la Paix"
-                  disabled={Boolean(ordreValidatedAt)}
+                  disabled={isOiLocked}
                   className="w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
                 />
               </div>
@@ -477,13 +742,13 @@ const DictationInput = () => {
                       setSoiecAddressValidated(false);
                     }}
                     placeholder="Ville de l'intervention"
-                    disabled={Boolean(ordreValidatedAt)}
+                    disabled={isOiLocked}
                     className="flex-1 bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                   <button
                     type="button"
                     onClick={() => setSoiecAddressValidated(true)}
-                    disabled={!fullAddress.trim() || Boolean(ordreValidatedAt)}
+                    disabled={!fullAddress.trim() || isOiLocked}
                     className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold transition ${
                       soiecAddressValidated
                         ? 'bg-emerald-600/15 text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-500/40'
@@ -506,7 +771,7 @@ const DictationInput = () => {
                   value={additionalInfo}
                   onChange={(e) => setAdditionalInfo(e.target.value)}
                   placeholder={ADDITIONAL_INFO_PLACEHOLDER}
-                  disabled={Boolean(ordreValidatedAt)}
+                  disabled={isOiLocked}
                   className="w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
                 />
               </div>
@@ -520,17 +785,17 @@ const DictationInput = () => {
                       setOrderTime(e.target.value);
                       setSoiecTimeValidated(false);
                     }}
-                    disabled={Boolean(ordreValidatedAt)}
+                    disabled={isOiLocked}
                     className="flex-1 bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
                   />
                   <button
                     type="button"
                     onClick={() => {
-                      const nowValue = new Date().toISOString().slice(0, 16);
+                      const nowValue = getLocalDateTime(new Date());
                       setOrderTime((prev) => prev || nowValue);
                       setSoiecTimeValidated(true);
                     }}
-                    disabled={Boolean(ordreValidatedAt)}
+                    disabled={isOiLocked}
                     className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold transition ${
                       soiecTimeValidated
                         ? 'bg-emerald-600/15 text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-500/40'
@@ -560,7 +825,7 @@ const DictationInput = () => {
             means={selectedMeans}
             type={type as 'group' | 'column' | 'site' | 'communication'}
             boardRef={boardRef}
-            readOnly={Boolean(ordreValidatedAt)}
+            readOnly={isOiLocked}
           />
         </div>
       );
@@ -730,7 +995,7 @@ const DictationInput = () => {
                 <div>
                   <h3 className="text-xl font-semibold">Message d&apos;ambiance</h3>
                 </div>
-                <span className="text-xs text-slate-500 dark:text-gray-400">Chef de groupe</span>
+                <span className="text-xs text-slate-500 dark:text-gray-400">{roleLabel || 'Chef de groupe'}</span>
               </div>
 
               <div className="space-y-2">
@@ -892,7 +1157,7 @@ const DictationInput = () => {
                 <div>
                   <h3 className="text-xl font-semibold">Message de compte rendu</h3>
                 </div>
-                <span className="text-xs text-slate-500 dark:text-gray-400">Chef de groupe</span>
+                <span className="text-xs text-slate-500 dark:text-gray-400">{roleLabel || 'Chef de groupe'}</span>
               </div>
 
               <div className="space-y-2">
@@ -1095,9 +1360,8 @@ const DictationInput = () => {
   // Load draft
   React.useEffect(() => {
     try {
-      const raw = localStorage.getItem(INTERVENTION_DRAFT_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
+      const parsed = readUserScopedJSON<Record<string, unknown>>(INTERVENTION_DRAFT_KEY, 'local');
+      if (parsed) {
         if (parsed.ordreData) setOrdreData(parsed.ordreData);
         if (parsed.selectedRisks) setSelectedRisks(parsed.selectedRisks);
         if (parsed.address) setAddress(parsed.address);
@@ -1193,25 +1457,35 @@ const DictationInput = () => {
       conduiteOrderTime
     };
     try {
-      localStorage.setItem(INTERVENTION_DRAFT_KEY, JSON.stringify(payload));
+      writeUserScopedJSON(INTERVENTION_DRAFT_KEY, payload, 'local');
     } catch (err) {
       console.error('Erreur sauvegarde brouillon', err);
     }
   }, [ordreData, selectedRisks, address, city, additionalInfo, orderTime, ordreConduite, showConduite, selectedMeans, ambianceMessage, compteRenduMessage, validatedAmbiance, validatedCompteRendu, ordreValidatedAt, conduiteValidatedAt, conduiteSelectedRisks, conduiteAddress, conduiteCity, conduiteAdditionalInfo, conduiteOrderTime]);
 
   React.useEffect(() => {
-    const state = location.state as { meta?: { address?: string; city?: string; date?: string; time?: string; role?: string } } | null;
+    const state = location.state as {
+      meta?: { address?: string; city?: string; date?: string; time?: string; role?: string };
+      interventionId?: string;
+      startedAtMs?: number;
+      mode?: 'create' | 'resume';
+    } | null;
     if (state?.meta) {
       const { address: addr, city: c, date, time } = state.meta;
       if (addr) setAddress(addr);
       if (c) setCity(c);
       if (date || time) {
-        const defaultDate = date || new Date().toISOString().slice(0, 10);
+        const defaultDate = date || getLocalDate(new Date());
         const defaultTime = time || '00:00';
         setOrderTime(`${defaultDate}T${defaultTime}`);
       }
     }
-  }, [location.state]);
+    if (state?.interventionId) {
+      setCurrentIntervention(state.interventionId, state.startedAtMs);
+    } else if (state?.mode === 'resume' || state?.mode === 'create') {
+      clearCurrentIntervention();
+    }
+  }, [clearCurrentIntervention, location.state, setAddress, setCity, setCurrentIntervention]);
 
   React.useEffect(() => {
     if (!fullAddress) return;
@@ -1230,10 +1504,25 @@ const DictationInput = () => {
   }, [fullAddress]);
 
   React.useEffect(() => {
+    if (address && !conduiteAddress) setConduiteAddress(address);
+    if (city && !conduiteCity) setConduiteCity(city);
+  }, [address, city, conduiteAddress, conduiteCity]);
+
+  React.useEffect(() => {
     if (activeTab !== 'soiec') {
       setShowShareMenu(false);
     }
   }, [activeTab]);
+
+  React.useEffect(() => {
+    if (activeTab !== 'moyens') return;
+    if (!currentInterventionId) return;
+    if (selectedMeans.length > 0) return;
+    if (lastHydratedInterventionId === currentInterventionId) return;
+    hydrateIntervention(currentInterventionId).catch((error) => {
+      console.error('Erreur hydratation moyens', error);
+    });
+  }, [activeTab, currentInterventionId, lastHydratedInterventionId, selectedMeans.length]);
 
   React.useEffect(() => {
     const query = fullAddress.trim();
@@ -1243,6 +1532,89 @@ const DictationInput = () => {
     }, 600);
     return () => window.clearTimeout(timeout);
   }, [fullAddress, setExternalSearch]);
+
+  const persistMeansState = React.useMemo(
+    () =>
+      debounce(async (means: MeanItem[], tree: OctTreeNode | null) => {
+        if (!currentInterventionId) return;
+        const payload = { selectedMeans: means, octTree: tree };
+        const serialized = JSON.stringify({ interventionId: currentInterventionId, payload });
+        if (serialized === lastMeansStateRef.current) return;
+        lastMeansStateRef.current = serialized;
+        try {
+          const { data, error } = await supabase.auth.getUser();
+          if (error) throw error;
+          const userId = data.user?.id;
+          if (!userId) throw new Error('Utilisateur non authentifié');
+          const { error: upsertError } = await supabase.from('intervention_means_state').upsert({
+            intervention_id: currentInterventionId,
+            data: payload,
+            updated_by: userId
+          });
+          if (upsertError) throw upsertError;
+          await logInterventionEvent(
+            currentInterventionId,
+            'MEANS_STATE_VALIDATED',
+            payload,
+            buildInterventionMetrics('dictation.moyens', { edit_count: means.length })
+          );
+        } catch (error) {
+          console.error('Erreur sauvegarde moyens', error);
+        }
+      }, 2500),
+    [buildInterventionMetrics, currentInterventionId]
+  );
+
+  const meansTelemetry = React.useMemo(
+    () =>
+      debounce((means: MeanItem[]) => {
+        telemetryBuffer.addSample({
+          interventionId: currentInterventionId,
+          stream: 'MEANS',
+          patch: { selectedMeansIds: means.map((mean) => mean.id) },
+          interventionStartedAtMs,
+          uiContext: 'dictation.moyens'
+        });
+      }, 2000),
+    [currentInterventionId, interventionStartedAtMs]
+  );
+
+  React.useEffect(() => {
+    meansTelemetry(selectedMeans);
+  }, [meansTelemetry, selectedMeans]);
+
+  React.useEffect(() => {
+    if (!currentInterventionId) return;
+    const skipState = skipMeansSyncRef.current;
+    if (skipState.interventionId !== currentInterventionId || skipState.hydrationId !== meansHydrationId) {
+      skipMeansSyncRef.current = { interventionId: currentInterventionId, hydrationId: meansHydrationId };
+      lastMeansStateRef.current = JSON.stringify({
+        interventionId: currentInterventionId,
+        payload: { selectedMeans, octTree }
+      });
+      return;
+    }
+    persistMeansState(selectedMeans, octTree);
+  }, [currentInterventionId, meansHydrationId, octTree, persistMeansState, selectedMeans]);
+
+  React.useEffect(() => {
+    return () => {
+      meansTelemetry.flush();
+      meansTelemetry.cancel();
+      persistMeansState.flush();
+      persistMeansState.cancel();
+    };
+  }, [meansTelemetry, persistMeansState]);
+
+  React.useEffect(() => {
+    const wasMeans = previousTabRef.current === 'moyens';
+    if (wasMeans && activeTab !== 'moyens') {
+      meansTelemetry.flush();
+      persistMeansState.flush();
+    }
+    telemetryBuffer.flushAll();
+    previousTabRef.current = activeTab;
+  }, [activeTab, meansTelemetry, persistMeansState]);
 
   const handleValidateAmbiance = () => {
     const nowStamp = getNowStamp();
@@ -1254,6 +1626,11 @@ const DictationInput = () => {
     };
     setAmbianceMessage(stampedMessage);
     setValidatedAmbiance(stampedMessage);
+    logInterventionEventSafe(
+      'MESSAGE_AMBIANCE_VALIDATED',
+      stampedMessage,
+      buildInterventionMetrics('dictation.message.ambiance')
+    );
   };
 
   const handleValidateCompteRendu = () => {
@@ -1266,6 +1643,11 @@ const DictationInput = () => {
     };
     setCompteRenduMessage(stampedMessage);
     setValidatedCompteRendu(stampedMessage);
+    logInterventionEventSafe(
+      'MESSAGE_COMPTE_RENDU_VALIDATED',
+      stampedMessage,
+      buildInterventionMetrics('dictation.message.compte_rendu')
+    );
   };
 
   const handleValidateOrdreInitial = () => {
@@ -1273,9 +1655,21 @@ const DictationInput = () => {
       alert('Veuillez remplir au moins une section avant de valider.');
       return;
     }
-    if (ordreValidatedAt) return;
-    setOrdreValidatedAt(
-      new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    if (ordreValidatedAt && !isExtendedOps) return;
+    const payload = buildOiPayloadData();
+    if (!payload) {
+      alert('Impossible de préparer les données de validation.');
+      return;
+    }
+    const validatedLabel = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    setOrdreValidatedAt(validatedLabel);
+    setLastOiValidatedAt(validatedLabel);
+    logInterventionEventSafe(
+      'OI_VALIDATED',
+      payload,
+      buildInterventionMetrics('dictation.soiec', { edit_count: selectedRisks.length }),
+      undefined,
+      oiLogicalId ? { logical_id: oiLogicalId } : undefined
     );
   };
 
@@ -1285,8 +1679,26 @@ const DictationInput = () => {
       return;
     }
     if (conduiteValidatedAt) return;
+    const resolvedConduiteAddress = conduiteAddress || address;
+    const resolvedConduiteCity = conduiteCity || city;
+    const resolvedConduiteOrderTime = conduiteOrderTime || orderTime;
     setConduiteValidatedAt(
       new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    );
+    logInterventionEventSafe(
+      'ORDRE_CONDUITE_VALIDATED',
+      {
+        soiecType: soiecLabel,
+        conduiteSelectedRisks,
+        conduiteAdditionalInfo,
+        conduiteAddress: resolvedConduiteAddress,
+        conduiteCity: resolvedConduiteCity,
+        conduiteOrderTime: resolvedConduiteOrderTime,
+        ordreConduite
+      },
+      buildInterventionMetrics('dictation.ordre_conduite', { edit_count: conduiteSelectedRisks.length }),
+      undefined,
+      conduiteLogicalId ? { logical_id: conduiteLogicalId } : undefined
     );
   };
 
@@ -1355,6 +1767,8 @@ const DictationInput = () => {
           }
         });
       } else {
+        const anticipation = Array.isArray(ordreData.A) ? ordreData.A.join('\\n') : undefined;
+        const logistique = Array.isArray(ordreData.L) ? ordreData.L.join('\\n') : undefined;
         const dataToSave = {
           type: type as 'group' | 'column' | 'site',
           situation: ordreData.S || '',
@@ -1370,6 +1784,8 @@ const DictationInput = () => {
               }).join('\\n')
             : ordreData.E || '',
           commandement: ordreData.C || '',
+          ...(anticipation !== undefined ? { anticipation } : {}),
+          ...(logistique !== undefined ? { logistique } : {}),
           groupe_horaire: new Date(),
           dominante,
           adresse: address,
@@ -1381,10 +1797,18 @@ const DictationInput = () => {
         await saveDictationData(dataToSave);
 
         if (type === 'group' || type === 'column' || type === 'site') {
+          const analysisParts = [
+            dataToSave.anticipation,
+            dataToSave.objectifs,
+            dataToSave.idees,
+            dataToSave.execution,
+            dataToSave.commandement,
+            dataToSave.logistique
+          ].filter((part) => typeof part === 'string' && part.trim());
           addToHistory({
             type,
             situation: dataToSave.situation,
-            analysis: `${dataToSave.objectifs}\\n${dataToSave.idees}\\n${dataToSave.execution}\\n${dataToSave.commandement}`
+            analysis: analysisParts.join('\\n')
           });
         }
 
@@ -1400,32 +1824,21 @@ const DictationInput = () => {
         });
       }
     } catch (error) {
-      console.error('Error saving to Firestore:', error);
+      console.error('Error saving data:', error);
       const message = error instanceof Error ? error.message : 'Une erreur est survenue lors de la sauvegarde. Veuillez réessayer.';
       alert(message);
     }
     setIsLoading(false);
   };
 
-  const meta = { adresse: address, heure: orderTime, moyens: selectedMeans };
+  const meta = { adresse: address, heure: orderTime, role: roleLabel, moyens: selectedMeans };
 
   const handleShareText = (channel: 'sms' | 'whatsapp' | 'mail') => {
     if (!ordreData) {
       setShowShareHint(true);
       return;
     }
-    const ordre = ordreData;
-    shareOrdreAsText(
-      {
-        S: ordre.S,
-        O: ordre.O,
-        I: ordre.I,
-        E: ordre.E,
-        C: ordre.C
-      },
-      channel,
-      meta
-    );
+    shareOrdreAsText(ordreData, channel, meta);
   };
 
   const handleShareFile = async (format: 'pdf' | 'word') => {
@@ -1465,68 +1878,25 @@ const DictationInput = () => {
     await exportOrdreToClipboard(ordreData, meta);
   };
 
-  const buildSharePayload = (): InterventionSharePayload => {
-    const shareType = type === 'group' || type === 'column' || type === 'site' || type === 'communication' ? type : undefined;
-    const draft = {
-      ordreData,
-      selectedRisks,
-      address,
-      city,
-      additionalInfo,
-      orderTime,
-      ordreConduite,
-      showConduite,
-      selectedMeans,
-      ambianceMessage,
-      compteRenduMessage,
-      validatedAmbiance,
-      validatedCompteRendu,
-      ordreValidatedAt,
-      conduiteValidatedAt,
-      conduiteSelectedRisks,
-      conduiteAddress,
-      conduiteCity,
-      conduiteAdditionalInfo,
-      conduiteOrderTime
-    };
-    const interventionState = useInterventionStore.getState();
-    const sitacState = useSitacStore.getState();
-    return {
-      version: 1,
-      shareType,
-      draft,
-      octTree: getOctTree(),
-      sitacState: {
-        geoJSON: sitacState.geoJSON,
-        snapshots: sitacState.snapshots,
-        drawingColor: sitacState.drawingColor,
-        lineStyle: sitacState.lineStyle,
-        locked: sitacState.locked
-      },
-      interventionMeta: {
-        streetNumber: interventionState.streetNumber,
-        streetName: interventionState.streetName,
-        role: interventionState.role,
-        lat: interventionState.lat,
-        lng: interventionState.lng
-      }
-    };
-  };
-
   const handleGenerateShare = async () => {
     setShareStatus('loading');
     setShareError(null);
-    setShareCode(null);
-    setShareQrDataUrl(null);
-    setShareCopied(false);
+    setShareLink(null);
     try {
-      const payload = buildSharePayload();
-      const sanitizedPayload = JSON.parse(JSON.stringify(payload)) as InterventionSharePayload;
-      const shareId = await saveInterventionShare(sanitizedPayload);
-      const qrValue = `${INTERVENTION_SHARE_PREFIX}${shareId}`;
-      const dataUrl = await QRCode.toDataURL(qrValue, { margin: 1, width: 280 });
-      setShareCode(shareId);
-      setShareQrDataUrl(dataUrl);
+      if (!currentInterventionId) {
+        throw new Error('Intervention active manquante pour partager.');
+      }
+      const { data, error } = await supabase.rpc('create_invite', {
+        p_intervention_id: currentInterventionId
+      });
+      if (error) throw error;
+      const payload = Array.isArray(data) ? data[0] : data;
+      const token = payload && typeof payload.token === 'string' ? payload.token : null;
+      if (!token) {
+        throw new Error('Token manquant dans la reponse.');
+      }
+      const joinUrl = buildJoinUrl(token);
+      setShareLink(joinUrl);
       setShareStatus('ready');
     } catch (error) {
       console.error('Erreur génération QR Code', error);
@@ -1543,14 +1913,43 @@ const DictationInput = () => {
     void handleGenerateShare();
   };
 
-  const handleCopyShareCode = async () => {
-    if (!shareCode) return;
+  const canNativeShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+
+  const buildShareMessage = (url: string) => `Rejoins mon intervention ATLAS : ${url}`;
+
+  const handleShareInvite = async () => {
+    if (!shareLink) return;
+    if (!canNativeShare) {
+      setShareError('Partage natif indisponible sur cet appareil.');
+      return;
+    }
     try {
-      await navigator.clipboard.writeText(shareCode);
-      setShareCopied(true);
+      await navigator.share({
+        title: 'Invitation ATLAS',
+        text: 'Rejoins mon intervention ATLAS',
+        url: shareLink
+      });
     } catch (error) {
-      console.error('Erreur copie code partage', error);
-      setShareError('Impossible de copier le code. Copiez-le manuellement.');
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      console.warn('Partage natif échoué', error);
+      setShareError('Impossible de partager via le menu natif.');
+    }
+  };
+
+  const handleShareFallback = (channel: 'mail' | 'sms' | 'whatsapp') => {
+    if (!shareLink) return;
+    const message = buildShareMessage(shareLink);
+    const encoded = encodeURIComponent(message);
+    if (channel === 'mail') {
+      window.location.href = `mailto:?subject=Invitation%20ATLAS&body=${encoded}`;
+      return;
+    }
+    if (channel === 'sms') {
+      window.location.href = `sms:?body=${encoded}`;
+      return;
+    }
+    if (channel === 'whatsapp') {
+      window.open(`https://wa.me/?text=${encoded}`, '_blank', 'noopener,noreferrer');
     }
   };
 
@@ -1563,6 +1962,7 @@ const DictationInput = () => {
     setSoiecAddressValidated(false);
     setSoiecTimeValidated(false);
     setOrdreValidatedAt(null);
+    setLastOiValidatedAt(null);
     setConduiteValidatedAt(null);
     setOrdreConduite(null);
     setShowConduite(false);
@@ -1572,11 +1972,11 @@ const DictationInput = () => {
     setConduiteAdditionalInfo('');
     setConduiteOrderTime('');
     setConduiteTimeValidated(false);
-    setOrderTime(new Date().toISOString().slice(0, 16));
+    setOrderTime(getLocalDateTime(new Date()));
     setShowShareHint(false);
     setShowShareMenu(false);
     try {
-      localStorage.removeItem(INTERVENTION_DRAFT_KEY);
+      removeUserScopedItem(INTERVENTION_DRAFT_KEY, 'local');
     } catch (err) {
       console.error('Erreur réinitialisation brouillon', err);
     }
@@ -1658,7 +2058,25 @@ const DictationInput = () => {
                   );
                 })}
               </div>
-              <div className="ml-auto flex items-center gap-2">
+              <div className="ml-auto flex items-center gap-3">
+                {syncStatus !== 'idle' && (
+                  <div
+                    className={`text-[11px] leading-tight ${
+                      syncStatus === 'error'
+                        ? 'text-red-500 dark:text-red-300'
+                        : syncStatus === 'loading'
+                          ? 'text-slate-500 dark:text-gray-400'
+                          : 'text-emerald-600 dark:text-emerald-300'
+                    }`}
+                  >
+                    <div>{syncStatus === 'loading' ? 'Synchronisation…' : syncStatus === 'error' ? 'Sync échouée' : 'Synchronisé'}</div>
+                    {lastOiValidatedAt && syncStatus === 'ready' && (
+                      <div className="text-[10px] text-slate-500 dark:text-gray-400">
+                        OI validé à {lastOiValidatedAt}
+                      </div>
+                    )}
+                  </div>
+                )}
                 <button
                   onClick={handleOpenShareModal}
                   className="px-3 py-2 rounded-xl text-sm font-semibold bg-white/70 hover:bg-white border border-slate-200 text-slate-700 dark:bg-white/10 dark:hover:bg-white/20 dark:border-white/15 dark:text-gray-200 transition flex items-center gap-2"
@@ -1791,7 +2209,7 @@ const DictationInput = () => {
                             <button
                               type="button"
                               onClick={() => {
-                                const nowValue = new Date().toISOString().slice(0, 16);
+                                const nowValue = getLocalDateTime(new Date());
                                 setConduiteOrderTime((prev) => prev || nowValue);
                                 setConduiteTimeValidated(true);
                               }}
@@ -1866,7 +2284,7 @@ const DictationInput = () => {
           <div className="w-full max-w-md bg-white dark:bg-[#0f121a] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-semibold">Partager par QR Code</h3>
+                <h3 className="text-lg font-semibold">Inviter par QR Code</h3>
                 <p className="text-xs text-slate-500 dark:text-gray-400">Scannez pour rejoindre l’intervention.</p>
               </div>
               <button
@@ -1898,23 +2316,41 @@ const DictationInput = () => {
               {shareStatus === 'ready' && (
                 <div className="flex flex-col items-center gap-4">
                   <div className="w-52 h-52 rounded-2xl bg-slate-100 dark:bg-white/10 flex items-center justify-center overflow-hidden border border-slate-200 dark:border-white/10">
-                    {shareQrDataUrl ? (
-                      <img src={shareQrDataUrl} alt="QR Code de partage" className="w-full h-full object-contain" />
+                    {shareLink ? (
+                      <QRCode value={shareLink} size={192} bgColor="#FFFFFF" fgColor="#0F172A" className="w-full h-full" />
                     ) : (
                       <span className="text-xs text-slate-500 dark:text-gray-400">QR code indisponible</span>
                     )}
                   </div>
-                  <div className="text-xs text-slate-600 dark:text-gray-400">
-                    Code : <span className="font-mono text-slate-900 dark:text-white">{shareCode}</span>
-                  </div>
                   <button
-                    onClick={handleCopyShareCode}
-                    className="px-3 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 border border-slate-300 text-sm text-slate-700 dark:bg-white/10 dark:hover:bg-white/15 dark:border-white/15 dark:text-gray-100 transition flex items-center gap-2"
+                    onClick={handleShareInvite}
+                    className="px-3 py-2 rounded-xl bg-slate-900 text-sm text-white hover:bg-slate-800 transition flex items-center gap-2"
                   >
-                    <ClipboardCopy className="w-4 h-4" />
-                    Copier le code
+                    <Share2 className="w-4 h-4" />
+                    Partager
                   </button>
-                  {shareCopied && <div className="text-xs text-emerald-600 dark:text-emerald-300">Code copié.</div>}
+                  {!canNativeShare && (
+                    <div className="flex flex-wrap items-center justify-center gap-2">
+                      <button
+                        onClick={() => handleShareFallback('mail')}
+                        className="px-3 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 border border-slate-300 text-[11px] text-slate-700 dark:bg-white/10 dark:hover:bg-white/15 dark:border-white/15 dark:text-gray-100 transition"
+                      >
+                        Email
+                      </button>
+                      <button
+                        onClick={() => handleShareFallback('sms')}
+                        className="px-3 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 border border-slate-300 text-[11px] text-slate-700 dark:bg-white/10 dark:hover:bg-white/15 dark:border-white/15 dark:text-gray-100 transition"
+                      >
+                        SMS
+                      </button>
+                      <button
+                        onClick={() => handleShareFallback('whatsapp')}
+                        className="px-3 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 border border-slate-300 text-[11px] text-slate-700 dark:bg-white/10 dark:hover:bg-white/15 dark:border-white/15 dark:text-gray-100 transition"
+                      >
+                        WhatsApp
+                      </button>
+                    </div>
+                  )}
                   {shareError && <div className="text-xs text-red-500 dark:text-red-300">{shareError}</div>}
                 </div>
               )}
@@ -1931,7 +2367,120 @@ const DictationInput = () => {
                 disabled={shareStatus === 'loading'}
                 className="px-3 py-2 rounded-lg bg-slate-900 text-sm text-white hover:bg-slate-800 disabled:opacity-60 transition"
               >
-                Regénérer
+                Régénérer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {historyModalOpen && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl bg-white dark:bg-[#0f121a] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold">Historique de l’intervention</h3>
+                <p className="text-xs text-slate-500 dark:text-gray-400">Versions validées disponibles.</p>
+              </div>
+              <button
+                onClick={() => setHistoryModalOpen(false)}
+                className="text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
+                aria-label="Fermer l'historique"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4 space-y-5 max-h-[70vh] overflow-y-auto">
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold text-slate-800 dark:text-gray-100">Ordre initial</h4>
+                {ordreInitialHistory.length ? (
+                  <div className="space-y-2">
+                    {ordreInitialHistory.map((entry) => (
+                      <div key={entry.id} className="rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 px-3 py-2">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <div className="text-sm font-semibold text-slate-900 dark:text-white">
+                              Validé le {formatHistoryTimestamp(entry.createdAt)}
+                            </div>
+                            <div className="text-xs text-slate-500 dark:text-gray-400">
+                              {entry.payload.soiecType ? `${entry.payload.soiecType} • ` : ''}Risques: {entry.payload.selectedRisks?.length ?? 0}
+                              {entry.userId ? ` • Auteur: ${entry.userId.slice(0, 8)}` : ''}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleLoadOrdreInitialHistory(entry.payload)}
+                            className="px-3 py-1.5 rounded-lg bg-slate-900 text-xs text-white hover:bg-slate-800 transition"
+                          >
+                            Charger cette version
+                          </button>
+                        </div>
+                        <div className="mt-3 grid gap-3 text-xs">
+                          <div>
+                            <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Situation</div>
+                            <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">{entry.payload.ordreData?.S || '-'}</div>
+                          </div>
+                          <div>
+                            <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Objectifs</div>
+                            <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">{formatList(entry.payload.ordreData?.O)}</div>
+                          </div>
+                          <div>
+                            <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Idée de manœuvre</div>
+                            <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">{formatIdeeManoeuvre(entry.payload.ordreData?.I || [])}</div>
+                          </div>
+                          <div>
+                            <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Exécution</div>
+                            <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">{formatExecution(entry.payload.ordreData?.E)}</div>
+                          </div>
+                          <div>
+                            <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Commandement</div>
+                            <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">{entry.payload.ordreData?.C || '-'}</div>
+                          </div>
+                          {Array.isArray(entry.payload.ordreData?.A) && entry.payload.ordreData.A.length > 0 && (
+                            <div>
+                              <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Anticipation</div>
+                              <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">{formatList(entry.payload.ordreData?.A)}</div>
+                            </div>
+                          )}
+                          {Array.isArray(entry.payload.ordreData?.L) && entry.payload.ordreData.L.length > 0 && (
+                            <div>
+                              <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Logistique</div>
+                              <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">{formatList(entry.payload.ordreData?.L)}</div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-xs text-slate-500 dark:text-gray-400">Aucun ordre initial validé.</div>
+                )}
+              </div>
+              <div className="space-y-2">
+                <h4 className="text-sm font-semibold text-slate-800 dark:text-gray-100">Ordre de conduite</h4>
+                {ordreConduiteHistory.length ? (
+                  <div className="space-y-2">
+                    {ordreConduiteHistory.map((entry) => (
+                      <div key={entry.id} className="rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 px-3 py-2">
+                        <div className="text-sm font-semibold text-slate-900 dark:text-white">
+                          Validé le {formatHistoryTimestamp(entry.createdAt)}
+                        </div>
+                        <div className="text-xs text-slate-500 dark:text-gray-400">
+                          Risques: {entry.payload.conduiteSelectedRisks?.length ?? 0}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-xs text-slate-500 dark:text-gray-400">Aucun ordre de conduite validé.</div>
+                )}
+              </div>
+            </div>
+            <div className="px-4 py-3 border-t border-slate-200 dark:border-white/10 flex justify-end">
+              <button
+                onClick={() => setHistoryModalOpen(false)}
+                className="px-3 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-sm text-slate-700 dark:bg-white/5 dark:hover:bg-white/10 dark:text-gray-200 transition"
+              >
+                Fermer
               </button>
             </div>
           </div>

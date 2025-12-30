@@ -1,5 +1,6 @@
 import React from 'react';
 import { Radio } from 'lucide-react';
+import RoleBadgeIcon from './RoleBadgeIcon';
 
 interface CommandIconProps {
   type: 'group' | 'column' | 'communication' | 'site' | 'security' | 'supply';
@@ -24,14 +25,8 @@ const CommandIcon: React.FC<CommandIconProps> = ({ type }) => {
               <div className="w-20 h-3.5 bg-white"></div>
             </>
           ) : type === 'site' ? (
-            <div className="w-20 h-16 border-4 border-blue-600 bg-white relative flex flex-col justify-center">
-              <div className="h-2 bg-blue-700" />
-              <div className="h-4 bg-[#FFE082]" />
-              <div className="h-4 bg-blue-700" />
-              <div className="h-2 bg-white" />
-              <div className="h-2 bg-blue-700" />
-              <div className="h-4 bg-[#FFE082]" />
-              <div className="h-2 bg-blue-700" />
+            <div className="w-24 h-24 flex items-center justify-center">
+              <RoleBadgeIcon role="site" className="w-full h-full" />
             </div>
           ) : type === 'security' ? (
             <div className="grid grid-cols-4 grid-rows-4 gap-0.5">

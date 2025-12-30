@@ -3,15 +3,9 @@ import { Check, ChevronDown, Plus, Trash2, X } from 'lucide-react';
 import { DOCTRINE_CONTEXT } from '../constants/doctrine';
 import { useSessionSettings } from '../utils/sessionSettings';
 import { OctColor, OctTreeNode, useOctTree } from '../utils/octTreeStore';
-
-type Status = 'sur_place' | 'demande';
-
-export interface MeanItem {
-  id: string;
-  name: string;
-  status: Status;
-  category?: string;
-}
+import { readUserScopedJSON, writeUserScopedJSON } from '../utils/userStorage';
+import type { MeanItem } from '../types/means';
+import { generateMeanId } from '../utils/means';
 
 interface MeansModalProps {
   isOpen?: boolean;
@@ -23,11 +17,6 @@ interface MeansModalProps {
 
 const DEFAULT_SECTOR_LABELS = ['SECTEUR 1', 'SECTEUR 2'];
 const SECTOR_VALIDATION_KEY = 'atlas-oct-sector-validation';
-const generateMeanId = () => {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
-  return `mean-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-};
-
 type CategoryStyle = {
   label: string;
   key: keyof typeof DOCTRINE_CONTEXT;
@@ -128,13 +117,9 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
   const [sectorDrafts, setSectorDrafts] = React.useState<Record<string, string>>({});
   const [subsectorOpen, setSubsectorOpen] = React.useState<Record<string, boolean>>({});
   const [sectorValidated, setSectorValidated] = React.useState<Record<string, boolean>>(() => {
-    if (typeof window === 'undefined') return {};
     try {
-      const raw = localStorage.getItem(SECTOR_VALIDATION_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed === 'object') return parsed as Record<string, boolean>;
-      }
+      const parsed = readUserScopedJSON<Record<string, boolean>>(SECTOR_VALIDATION_KEY, 'local');
+      if (parsed && typeof parsed === 'object') return parsed;
     } catch (err) {
       console.error('OCT sector validation read error', err);
     }
@@ -142,9 +127,8 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
   });
 
   const persistSectorValidation = React.useCallback((state: Record<string, boolean>) => {
-    if (typeof window === 'undefined') return;
     try {
-      localStorage.setItem(SECTOR_VALIDATION_KEY, JSON.stringify(state));
+      writeUserScopedJSON(SECTOR_VALIDATION_KEY, state, 'local');
     } catch (err) {
       console.error('OCT sector validation write error', err);
     }

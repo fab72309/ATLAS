@@ -1,4 +1,4 @@
-import { auth } from './firebase';
+import { supabase } from './supabaseClient';
 import { DOCTRINE_CONTEXT } from '../constants/doctrine';
 
 const DOCTRINE_DOMINANTE_MAP: Record<string, keyof typeof DOCTRINE_CONTEXT> = {
@@ -118,16 +118,15 @@ export const analyzeEmergency = async (
     const doctrineContext = type === 'group' ? getDoctrineContext(opts?.dominante) : null;
 
     if (!proxyUrl) {
-      throw new Error('VITE_OPENAI_PROXY_URL manquante. L\'app doit passer par la Function Firebase pour protéger la clé.');
+      throw new Error('VITE_OPENAI_PROXY_URL manquante. L\'app doit passer par un proxy serveur pour protéger la clé.');
     }
 
     const headers: Record<string, string> = {
       'Content-Type': 'application/json'
     };
-    const user = auth.currentUser;
-    if (user) {
-      const token = await user.getIdToken();
-      headers.Authorization = `Bearer ${token}`;
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (sessionData.session?.access_token) {
+      headers.Authorization = `Bearer ${sessionData.session.access_token}`;
     }
 
     const payload: Record<string, unknown> = {

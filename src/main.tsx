@@ -2,7 +2,6 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
-import { initAnalytics } from './utils/firebase';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 
@@ -24,10 +23,6 @@ try {
 } catch (e) {
   console.error('[BOOT ERROR]', e);
 }
-
-initAnalytics().catch((err) => {
-  console.warn('[Analytics] init skipped', err);
-});
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

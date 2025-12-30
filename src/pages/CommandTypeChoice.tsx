@@ -3,12 +3,12 @@ import { LocateFixed, Loader2, Camera } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import CommandIcon from '../components/CommandIcon';
 import { useInterventionStore } from '../stores/useInterventionStore';
-import { getInterventionShare, type InterventionSharePayload } from '../utils/firestore';
-import { INTERVENTION_DRAFT_KEY, INTERVENTION_SHARE_PREFIX } from '../constants/intervention';
-import { setOctTree } from '../utils/octTreeStore';
-import { useSitacStore } from '../stores/useSitacStore';
+import { INTERVENTION_INVITE_PREFIX } from '../constants/intervention';
+import { getLocalDate, getLocalTime } from '../utils/dateTime';
+import { supabase } from '../utils/supabaseClient';
+import { logInterventionEvent } from '../utils/atlasTelemetry';
 
-const ROLE_OPTIONS = [
+const ROLE_OPTIONS_BASE = [
   { value: 'chef_site', label: 'Chef de site' },
   { value: 'chef_colonne', label: 'Chef de colonne' },
   { value: 'chef_groupe', label: 'Chef de groupe' },
@@ -23,6 +23,14 @@ const CommandTypeChoice = () => {
   const isValidType = (value: string | undefined): value is (typeof validTypes)[number] =>
     !!value && validTypes.includes(value as (typeof validTypes)[number]);
   const currentType = isValidType(type) ? type : null;
+  const isExtendedOps = type === 'column' || type === 'site';
+  const soiecLabel = isExtendedOps ? 'SAOIECL' : 'SOIEC';
+  const roleOptions = isExtendedOps
+    ? [
+        ...ROLE_OPTIONS_BASE,
+        { value: 'officier_anticipation', label: 'Officier anticipation' }
+      ]
+    : ROLE_OPTIONS_BASE;
   const [showInterventionModal, setShowInterventionModal] = React.useState(false);
   const [showMetadataModal, setShowMetadataModal] = React.useState(false);
   const [interventionMeta, setInterventionMeta] = React.useState({
@@ -33,6 +41,8 @@ const CommandTypeChoice = () => {
     time: '',
     role: ''
   });
+  const [isCreatingIntervention, setIsCreatingIntervention] = React.useState(false);
+  const [createInterventionError, setCreateInterventionError] = React.useState<string | null>(null);
   const [isGeolocating, setIsGeolocating] = React.useState(false);
   const [geoError, setGeoError] = React.useState<string | null>(null);
   const storedStreetNumber = useInterventionStore((s) => s.streetNumber);
@@ -43,9 +53,13 @@ const CommandTypeChoice = () => {
   const setStoredStreetNumber = useInterventionStore((s) => s.setStreetNumber);
   const setStoredStreetName = useInterventionStore((s) => s.setStreetName);
   const setStoredCity = useInterventionStore((s) => s.setCity);
+  const setInterventionAddress = useInterventionStore((s) => s.setInterventionAddress);
+  const setLogicalIds = useInterventionStore((s) => s.setLogicalIds);
   const setStoredRole = useInterventionStore((s) => s.setRole);
   const setStoredLocation = useInterventionStore((s) => s.setLocation);
   const clearStoredLocation = useInterventionStore((s) => s.clearLocation);
+  const setCurrentIntervention = useInterventionStore((s) => s.setCurrentIntervention);
+  const clearCurrentIntervention = useInterventionStore((s) => s.clearCurrentIntervention);
   const [showScanModal, setShowScanModal] = React.useState(false);
   const [scanStatus, setScanStatus] = React.useState<'idle' | 'scanning' | 'loading'>('idle');
   const [scanError, setScanError] = React.useState<string | null>(null);
@@ -68,6 +82,7 @@ const CommandTypeChoice = () => {
   const handlePrimaryAction = () => {
     if (!currentType) return;
     if (type === 'communication') {
+      clearCurrentIntervention();
       navigate(`/situation/${currentType}/dictate`);
       return;
     }
@@ -76,8 +91,8 @@ const CommandTypeChoice = () => {
 
   const resetMeta = () => {
     const now = new Date();
-    const defaultDate = now.toISOString().slice(0, 10);
-    const defaultTime = now.toISOString().slice(11, 16);
+    const defaultDate = getLocalDate(now);
+    const defaultTime = getLocalTime(now);
     setInterventionMeta((prev) => ({
       streetNumber: storedStreetNumber || prev.streetNumber || '',
       streetName: storedStreetName || prev.streetName || '',
@@ -91,6 +106,7 @@ const CommandTypeChoice = () => {
   const handleCreateIntervention = () => {
     if (!currentType) return;
     resetMeta();
+    setCreateInterventionError(null);
     setShowInterventionModal(false);
     setShowMetadataModal(true);
   };
@@ -105,6 +121,7 @@ const CommandTypeChoice = () => {
 
   const handleResumeIntervention = () => {
     if (!currentType) return;
+    clearCurrentIntervention();
     setShowInterventionModal(false);
     navigate(`/situation/${currentType}/dictate`, { state: { mode: 'resume' } });
   };
@@ -123,116 +140,45 @@ const CommandTypeChoice = () => {
       videoRef.current.srcObject = null;
     }
     detectorRef.current = null;
-  }, [INTERVENTION_SHARE_PREFIX]);
+  }, []);
 
-  const parseShareCode = React.useCallback((value: string) => {
+  const parseInviteToken = React.useCallback((value: string) => {
     const trimmed = value.trim();
     if (!trimmed) return null;
-    if (trimmed.startsWith(INTERVENTION_SHARE_PREFIX)) {
-      return trimmed.slice(INTERVENTION_SHARE_PREFIX.length).trim();
+    if (trimmed.startsWith(INTERVENTION_INVITE_PREFIX)) {
+      return trimmed.slice(INTERVENTION_INVITE_PREFIX.length).trim();
+    }
+    try {
+      const url = new URL(trimmed);
+      const tokenParam = url.searchParams.get('token');
+      if (tokenParam) return tokenParam.trim();
+    } catch (err) {
+      void err;
+    }
+    const match = trimmed.match(/token=([^&]+)/);
+    if (match) {
+      try {
+        return decodeURIComponent(match[1]).trim();
+      } catch (err) {
+        return match[1].trim();
+      }
     }
     return trimmed;
   }, []);
 
-  const applySharePayload = React.useCallback((payload: InterventionSharePayload) => {
-    const draft = payload?.draft && typeof payload.draft === 'object' ? payload.draft as Record<string, unknown> : null;
-    if (!draft) {
-      throw new Error('Données de partage invalides.');
-    }
-    const sanitizedDraft = JSON.parse(JSON.stringify(draft)) as Record<string, unknown>;
-    try {
-      localStorage.setItem(INTERVENTION_DRAFT_KEY, JSON.stringify(sanitizedDraft));
-    } catch (err) {
-      console.error('Erreur sauvegarde brouillon partagé', err);
-    }
-
-    const meta = payload.interventionMeta && typeof payload.interventionMeta === 'object'
-      ? payload.interventionMeta as Record<string, unknown>
-      : null;
-    const streetNumber = meta && typeof meta.streetNumber === 'string' ? meta.streetNumber : '';
-    const streetName = meta && typeof meta.streetName === 'string' ? meta.streetName : '';
-    const role = meta && typeof meta.role === 'string' ? meta.role : '';
-    const lat = meta && typeof meta.lat === 'number' ? meta.lat : null;
-    const lng = meta && typeof meta.lng === 'number' ? meta.lng : null;
-    const draftAddress = typeof sanitizedDraft.address === 'string' ? sanitizedDraft.address : undefined;
-    const draftCity = typeof sanitizedDraft.city === 'string' ? sanitizedDraft.city : undefined;
-
-    if (draftAddress) setStoredAddress(draftAddress);
-    if (streetNumber) setStoredStreetNumber(streetNumber);
-    if (streetName) setStoredStreetName(streetName);
-    if (draftCity) setStoredCity(draftCity);
-    if (role) setStoredRole(role);
-    if (Number.isFinite(lat) && Number.isFinite(lng)) {
-      setStoredLocation({
-        lat: lat as number,
-        lng: lng as number,
-        address: draftAddress,
-        city: draftCity,
-        streetNumber: streetNumber || undefined,
-        streetName: streetName || undefined
-      });
-    } else {
-      clearStoredLocation();
-    }
-
-    if (payload.octTree && typeof payload.octTree === 'object') {
-      setOctTree(payload.octTree as Parameters<typeof setOctTree>[0]);
-    }
-
-    if (payload.sitacState && typeof payload.sitacState === 'object') {
-      const sitacState = payload.sitacState as Record<string, unknown>;
-      const geoJSON = sitacState.geoJSON;
-      if (geoJSON && typeof geoJSON === 'object') {
-        const snapshots = Array.isArray(sitacState.snapshots) ? sitacState.snapshots : undefined;
-        const drawingColor = typeof sitacState.drawingColor === 'string' ? sitacState.drawingColor : undefined;
-        const lineStyle = sitacState.lineStyle === 'solid' || sitacState.lineStyle === 'dashed' || sitacState.lineStyle === 'dot-dash'
-          ? sitacState.lineStyle
-          : undefined;
-        const locked = typeof sitacState.locked === 'boolean' ? sitacState.locked : undefined;
-        useSitacStore.setState((state) => ({
-          geoJSON: geoJSON as typeof state.geoJSON,
-          history: [geoJSON as typeof state.geoJSON],
-          redo: [],
-          selectedFeatureId: null,
-          snapshots: snapshots ?? state.snapshots,
-          drawingColor: drawingColor ?? state.drawingColor,
-          lineStyle: lineStyle ?? state.lineStyle,
-          locked: locked ?? state.locked,
-          mode: 'view'
-        }));
-      }
-    }
-  }, [clearStoredLocation, setStoredAddress, setStoredCity, setStoredLocation, setStoredRole, setStoredStreetName, setStoredStreetNumber]);
-
-  const handleConsumeShare = React.useCallback(async (rawValue: string) => {
-    const shareId = parseShareCode(rawValue);
-    if (!shareId) {
+  const handleConsumeInvite = React.useCallback(async (rawValue: string) => {
+    const token = parseInviteToken(rawValue);
+    if (!token) {
       setScanError('Code invalide. Vérifiez la saisie.');
       return;
     }
     stopScanner();
     setScanStatus('loading');
     setScanError(null);
-    try {
-      const payload = await getInterventionShare(shareId);
-      if (!payload) {
-        setScanError('Intervention introuvable.');
-        setScanStatus('idle');
-        return;
-      }
-      applySharePayload(payload);
-      setShowScanModal(false);
-      const shareType = payload.shareType && isValidType(payload.shareType) ? payload.shareType : currentType;
-      if (shareType) {
-        navigate(`/situation/${shareType}/dictate`, { state: { mode: 'resume' } });
-      }
-    } catch (error) {
-      console.error('Erreur récupération partage intervention', error);
-      const message = error instanceof Error ? error.message : 'Impossible de récupérer le partage.';
-      setScanError(message);
-      setScanStatus('idle');
-    }
-  }, [applySharePayload, currentType, navigate, parseShareCode, stopScanner]);
+    setShowScanModal(false);
+    setScanStatus('idle');
+    navigate(`/join?token=${encodeURIComponent(token)}`);
+  }, [navigate, parseInviteToken, stopScanner]);
 
   const handleOpenScanModal = () => {
     setShowInterventionModal(false);
@@ -249,21 +195,96 @@ const CommandTypeChoice = () => {
     stopScanner();
   };
 
-  const handleConfirmMetadata = () => {
+  const handleConfirmMetadata = async () => {
     if (!currentType) return;
-    const now = new Date();
-    const date = interventionMeta.date || now.toISOString().slice(0, 10);
-    const time = interventionMeta.time || now.toISOString().slice(11, 16);
-    const address = [interventionMeta.streetNumber, interventionMeta.streetName].filter(Boolean).join(' ').trim();
-    const payload = {
-      address,
-      city: interventionMeta.city,
-      role: interventionMeta.role,
-      date,
-      time,
-    };
-    setShowMetadataModal(false);
-    navigate(`/situation/${currentType}/dictate`, { state: { mode: 'create', meta: payload } });
+    setIsCreatingIntervention(true);
+    setCreateInterventionError(null);
+    try {
+      const now = new Date();
+      const date = interventionMeta.date || getLocalDate(now);
+      const time = interventionMeta.time || getLocalTime(now);
+      const address = [interventionMeta.streetNumber, interventionMeta.streetName].filter(Boolean).join(' ').trim();
+      const payload = {
+        address,
+        city: interventionMeta.city,
+        role: interventionMeta.role,
+        date,
+        time
+      };
+
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      if (!authData.user) throw new Error('Vous devez être connecté pour créer une intervention.');
+      const userId = authData.user.id;
+
+      const title = payload.address || payload.city ? `Intervention - ${payload.address || payload.city}` : 'Intervention ATLAS';
+      const { data: created, error: createErr } = await supabase
+        .from('interventions')
+        .insert({
+          title,
+          created_by: userId,
+          address_line1: address || null,
+          street_number: interventionMeta.streetNumber || null,
+          street_name: interventionMeta.streetName || null,
+          city: interventionMeta.city || null
+        })
+        .select('id, oi_logical_id, conduite_logical_id')
+        .single();
+
+      if (createErr) throw createErr;
+      const interventionId = created?.id as string | undefined;
+      if (!interventionId) throw new Error('Intervention ID manquant après création.');
+
+      const { error: memberErr } = await supabase
+        .from('intervention_members')
+        .insert({ intervention_id: interventionId, user_id: userId, role: 'owner', command_level: currentType });
+      if (memberErr) throw memberErr;
+
+      const startedAtMs = Date.now();
+      setCurrentIntervention(interventionId, startedAtMs);
+      setInterventionAddress({
+        address,
+        streetNumber: interventionMeta.streetNumber,
+        streetName: interventionMeta.streetName,
+        city: interventionMeta.city
+      });
+      setLogicalIds({
+        oiLogicalId: created?.oi_logical_id ?? null,
+        conduiteLogicalId: created?.conduite_logical_id ?? null
+      });
+      try {
+        await logInterventionEvent(
+          interventionId,
+          'INTERVENTION_CREATED_VALIDATED',
+          {
+            ...payload,
+            street_number: interventionMeta.streetNumber,
+            street_name: interventionMeta.streetName,
+            command_level: currentType
+          },
+          {
+            duration_ms: 0,
+            edit_count: 0,
+            source: 'keyboard',
+            ui_context: 'command_type_choice',
+            elapsed_ms_since_intervention_start: Date.now() - startedAtMs
+          }
+        );
+      } catch (telemetryError) {
+        console.error('Erreur log telemetry intervention', telemetryError);
+      }
+
+      setShowMetadataModal(false);
+      navigate(`/situation/${currentType}/dictate`, {
+        state: { mode: 'create', meta: payload, interventionId, startedAtMs }
+      });
+    } catch (error) {
+      console.error('Erreur création intervention', error);
+      const message = error instanceof Error ? error.message : "Impossible de créer l'intervention.";
+      setCreateInterventionError(message);
+    } finally {
+      setIsCreatingIntervention(false);
+    }
   };
 
   const handleLocateUser = () => {
@@ -369,7 +390,7 @@ const CommandTypeChoice = () => {
             const barcodes = await detectorRef.current.detect(videoRef.current);
             if (barcodes.length > 0 && barcodes[0]?.rawValue) {
               scanActiveRef.current = false;
-              void handleConsumeShare(barcodes[0].rawValue);
+              void handleConsumeInvite(barcodes[0].rawValue);
               return;
             }
           } catch (error) {
@@ -392,7 +413,7 @@ const CommandTypeChoice = () => {
     return () => {
       stopScanner();
     };
-  }, [handleConsumeShare, showScanModal, stopScanner]);
+  }, [handleConsumeInvite, showScanModal, stopScanner]);
 
   React.useEffect(() => {
     if (!showMetadataModal) return;
@@ -474,7 +495,7 @@ const CommandTypeChoice = () => {
               <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-4">
                 <h4 className="text-lg font-semibold mb-1">Créer une nouvelle intervention</h4>
                 <p className="text-sm text-slate-600 dark:text-gray-400 mb-4">
-                  Démarrer un nouveau raisonnement SOIEC et configurer vos moyens.
+                  Démarrer un nouveau raisonnement {soiecLabel} et configurer vos moyens.
                 </p>
                 <button
                   type="button"
@@ -554,18 +575,18 @@ const CommandTypeChoice = () => {
                     value={scanManualCode}
                     onChange={(e) => setScanManualCode(e.target.value)}
                     className="flex-1 px-4 py-3 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-red-500/40"
-                    placeholder={`${INTERVENTION_SHARE_PREFIX}...`}
+                    placeholder={`${INTERVENTION_INVITE_PREFIX}...`}
                   />
                   <button
                     type="button"
-                    onClick={() => handleConsumeShare(scanManualCode)}
+                    onClick={() => handleConsumeInvite(scanManualCode)}
                     disabled={scanStatus === 'loading'}
                     className="px-4 py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-semibold transition disabled:opacity-60"
                   >
                     Valider
                   </button>
                 </div>
-                <p className="text-xs text-slate-500 dark:text-gray-400">Scannez le QR code ou collez le code partagé.</p>
+                <p className="text-xs text-slate-500 dark:text-gray-400">Scannez le QR code ou collez le code d'invitation.</p>
               </div>
             </div>
           </div>
@@ -669,7 +690,7 @@ const CommandTypeChoice = () => {
                   className="w-full px-4 py-3 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-red-500/40 text-slate-800 dark:text-gray-200"
                 >
                   <option value="">Sélectionner une fonction</option>
-                  {ROLE_OPTIONS.map((role) => (
+                  {roleOptions.map((role) => (
                     <option key={role.value} value={role.value}>
                       {role.label}
                     </option>
@@ -678,6 +699,9 @@ const CommandTypeChoice = () => {
               </div>
             </div>
             <div className="flex flex-wrap gap-3 justify-end">
+              {createInterventionError && (
+                <p className="text-xs text-red-500 mr-auto">{createInterventionError}</p>
+              )}
                 <button
                   type="button"
                   onClick={() => {
@@ -691,9 +715,10 @@ const CommandTypeChoice = () => {
               <button
                 type="button"
                 onClick={handleConfirmMetadata}
+                disabled={isCreatingIntervention}
                 className="px-6 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold transition"
               >
-                Valider
+                {isCreatingIntervention ? 'Création...' : 'Valider'}
               </button>
             </div>
           </div>

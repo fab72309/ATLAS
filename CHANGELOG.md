@@ -1,5 +1,12 @@
 # Changelog
 
+## Alpha-0.2.4 — 2025-12-30
+- Invitations/QR + join + preview
+- Hydration OI/ODC + historique multi-utilisateur
+- SITAC partagée (formes + symboles persistés)
+- Moyens/OCT partagés + persistance
+- Correctifs routing/assets/drag-drop
+
 ## 0.2.3-alpha.1
 - Ajustements OCT (titre, boutons, zoom par defaut, hauteur de carte).
 - Export PDF OCT enrichi avec date/heure et adresse d'intervention.
@@ -12,7 +19,7 @@
 - Ajustements de l’onglet OCT : titre en noir et fond quadrillé légèrement renforcé en mode clair.
 
 ## 0.2.0-alpha (en cours)
-- Bascule de l’authentification vers email/mot de passe (Firebase) avec page de connexion/inscription et garde de routes.
+- Bascule de l’authentification vers email/mot de passe (Supabase) avec page de connexion/inscription et garde de routes.
 - Bouton de déconnexion global et badge de version visible dans l’application.
-- Harmonisation des écritures Firestore pour exiger un utilisateur connecté et alignement avec les règles de sécurité.
+- Suppression des anciennes écritures legacy.
 - Marquage de la version applicative en `0.2.0-alpha`.

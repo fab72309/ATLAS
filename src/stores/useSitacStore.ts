@@ -14,6 +14,7 @@ interface SitacState {
     locked: boolean;
     externalSearchQuery: string;
     externalSearchId: number;
+    hydrationId: number;
 
     // Actions
     setMode: (mode: DrawingMode) => void;
@@ -21,6 +22,7 @@ interface SitacState {
     setLineStyle: (style: 'solid' | 'dashed' | 'dot-dash') => void;
     setSelectedFeatureId: (id: string | null) => void;
     setGeoJSON: (fc: SITACCollection, pushHistory?: boolean) => void;
+    setFromHydration: (fc: SITACCollection) => void;
     addFeature: (feature: SITACFeature) => void;
     updateFeature: (id: string, updater: (feature: SITACFeature) => SITACFeature) => void;
     deleteFeature: (id: string) => void;
@@ -31,6 +33,7 @@ interface SitacState {
     toggleLock: () => void;
     addSnapshot: (snapshot: Snapshot) => void;
     setExternalSearch: (query: string) => void;
+    reset: () => void;
     // Fabric Sync
     selectedFabricProperties: SITACFeatureProperties | null;
     fabricAction: { type: 'delete' | 'duplicate' | 'none' } | null; // Adding missing action
@@ -39,21 +42,31 @@ interface SitacState {
     setFabricAction: (action: { type: 'delete' | 'none' } | null) => void;
 }
 
-const EMPTY_FC: SITACCollection = { type: 'FeatureCollection', features: [] };
+const createEmptyFc = (): SITACCollection => ({ type: 'FeatureCollection', features: [] });
 const SNAPSHOT_LIMIT = 4;
 
+const buildBaseState = () => {
+    const empty = createEmptyFc();
+    return {
+        mode: 'view' as DrawingMode,
+        drawingColor: '#ef4444',
+        lineStyle: 'solid' as const,
+        geoJSON: empty,
+        history: [empty],
+        redo: [],
+        selectedFeatureId: null,
+        snapshots: [],
+        locked: false,
+        externalSearchQuery: '',
+        externalSearchId: 0,
+        selectedFabricProperties: null,
+        fabricAction: null,
+        hydrationId: 0,
+    };
+};
+
 export const useSitacStore = create<SitacState>((set, get) => ({
-    mode: 'view',
-    drawingColor: '#ef4444', // Default red
-    lineStyle: 'solid',
-    geoJSON: EMPTY_FC,
-    history: [EMPTY_FC],
-    redo: [],
-    selectedFeatureId: null,
-    snapshots: [],
-    locked: false,
-    externalSearchQuery: '',
-    externalSearchId: 0,
+    ...buildBaseState(),
 
     setMode: (mode) => set({ mode }),
     setColor: (color) => set({ drawingColor: color }),
@@ -66,6 +79,17 @@ export const useSitacStore = create<SitacState>((set, get) => ({
         // Keep max 50 history states
         const newHistory = pushHistory ? [...history, next].slice(-50) : history;
         set({ geoJSON: next, history: newHistory, redo: [] });
+    },
+
+    setFromHydration: (fc) => {
+        const next = JSON.parse(JSON.stringify(fc)) as SITACCollection;
+        set((state) => ({
+            geoJSON: next,
+            history: [next],
+            redo: [],
+            selectedFeatureId: null,
+            hydrationId: state.hydrationId + 1
+        }));
     },
 
     addFeature: (feature) => {
@@ -151,12 +175,15 @@ export const useSitacStore = create<SitacState>((set, get) => ({
         });
     },
 
-    clear: () => set({
-        geoJSON: EMPTY_FC,
-        history: [EMPTY_FC],
-        redo: [],
-        selectedFeatureId: null
-    }),
+    clear: () => {
+        const empty = createEmptyFc();
+        set({
+            geoJSON: empty,
+            history: [empty],
+            redo: [],
+            selectedFeatureId: null
+        });
+    },
 
     toggleLock: () => set((state) => ({ locked: !state.locked })),
 
@@ -171,8 +198,7 @@ export const useSitacStore = create<SitacState>((set, get) => ({
             externalSearchId: state.externalSearchId + 1
         })),
 
-    selectedFabricProperties: null,
-    fabricAction: null,
+    reset: () => set((state) => ({ ...buildBaseState(), hydrationId: state.hydrationId + 1 })),
 
     setSelectedFabricProperties: (props) => set({ selectedFabricProperties: props }),
 

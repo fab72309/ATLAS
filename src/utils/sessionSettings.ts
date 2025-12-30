@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { readUserScopedJSON, writeUserScopedJSON } from './userStorage';
 import { OctNodeType } from './octTreeStore';
 
 export const MEANS_CATEGORY_KEYS = ['incendie', 'suap', 'speciaux', 'commandement'] as const;
@@ -154,11 +155,9 @@ const sanitizeMessageOptions = (input: unknown, fallback: MessageCheckboxOption[
 };
 
 export const readSessionSettings = (): SessionSettings => {
-  if (typeof window === 'undefined') return getDefaultSettings();
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as Partial<SessionSettings>;
+    const parsed = readUserScopedJSON<Partial<SessionSettings>>(STORAGE_KEY, 'session');
+    if (parsed) {
       const defaultDemandeOptions = getDefaultMessageDemandeOptions();
       const defaultSurLesLieuxOptions = getDefaultMessageSurLesLieuxOptions();
       return {
@@ -176,10 +175,11 @@ export const readSessionSettings = (): SessionSettings => {
 };
 
 export const writeSessionSettings = (settings: SessionSettings) => {
-  if (typeof window === 'undefined') return;
   try {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-    window.dispatchEvent(new Event(UPDATE_EVENT));
+    writeUserScopedJSON(STORAGE_KEY, settings, 'session');
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event(UPDATE_EVENT));
+    }
   } catch (err) {
     console.error('Session settings write error', err);
   }

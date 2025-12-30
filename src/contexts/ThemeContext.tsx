@@ -1,5 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import React from 'react';
+import { onActiveUserChange, readUserScopedItem, writeUserScopedItem } from '../utils/userStorage';
 
 export type ThemePreference = 'light' | 'dark' | 'system';
 export type ResolvedTheme = 'light' | 'dark';
@@ -13,9 +14,8 @@ interface ThemeContextValue {
 const THEME_STORAGE_KEY = 'atlas-theme';
 
 const getStoredTheme = (): ThemePreference => {
-  if (typeof window === 'undefined') return 'system';
   try {
-    const stored = window.localStorage.getItem(THEME_STORAGE_KEY);
+    const stored = readUserScopedItem(THEME_STORAGE_KEY, 'local');
     if (stored === 'light' || stored === 'dark' || stored === 'system') {
       return stored;
     }
@@ -57,11 +57,18 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   React.useEffect(() => {
     try {
-      window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+      writeUserScopedItem(THEME_STORAGE_KEY, theme, 'local');
     } catch (err) {
       void err;
     }
   }, [theme]);
+
+  React.useEffect(() => {
+    const unsubscribe = onActiveUserChange(() => {
+      setTheme(getStoredTheme());
+    });
+    return () => unsubscribe();
+  }, []);
 
   React.useEffect(() => {
     const root = document.documentElement;
