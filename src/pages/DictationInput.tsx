@@ -1430,7 +1430,7 @@ const DictationInput = () => {
     } catch (err) {
       console.error('Erreur lecture brouillon', err);
     }
-  }, [normalizeMeans]);
+  }, [normalizeMeans, setAddress, setCity, setSelectedMeans]);
 
   // Persist draft
   React.useEffect(() => {
