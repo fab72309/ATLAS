@@ -62,7 +62,9 @@ export const normalizeSymbolProps = (
   rawProps: Record<string, unknown>
 ) => {
   const { type, iconName: iconFromType } = normalizeSymbolType(rawType);
-  const { type: _type, id: _id, ...rest } = rawProps;
+  const { type: ignoredType, id: ignoredId, ...rest } = rawProps;
+  void ignoredType;
+  void ignoredId;
   const props = cleanProps(rest);
 
   if (type !== 'symbol') {

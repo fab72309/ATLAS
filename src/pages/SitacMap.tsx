@@ -28,7 +28,7 @@ import SitacEditControls from '../components/sitac/SitacEditControls';
 import SitacFabricCanvas from '../components/sitac/SitacFabricCanvas';
 import { logInterventionEvent } from '../utils/atlasTelemetry';
 import { telemetryBuffer } from '../utils/telemetryBuffer';
-import { supabase } from '../utils/supabaseClient';
+import { getSupabaseClient } from '../utils/supabaseClient';
 
 const maplibreWithWorker = maplibregl as typeof maplibregl & { workerClass?: typeof MapLibreWorker };
 maplibreWithWorker.workerClass = MapLibreWorker;
@@ -176,7 +176,10 @@ const buildSitacHash = async (collection: SITACCollection): Promise<string | nul
   normalized.sort((a, b) => a.sortKey.localeCompare(b.sortKey));
   const hashInput = {
     type: collection?.type || 'FeatureCollection',
-    features: normalized.map(({ sortKey, ...rest }) => rest)
+    features: normalized.map(({ sortKey: ignoredSortKey, ...rest }) => {
+      void ignoredSortKey;
+      return rest;
+    })
   };
   try {
     return await hashString(stableStringify(hashInput));
@@ -270,6 +273,11 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
     let active = true;
     const loadSitacState = async () => {
       try {
+        const supabase = getSupabaseClient();
+        if (!supabase) {
+          console.warn('Supabase config missing; skipping SITAC load.');
+          return;
+        }
         const { data, error } = await supabase
           .from('sitac_features')
           .select('feature_id, symbol_type, lat, lng, props')
@@ -290,6 +298,10 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
 
   const getUserId = useCallback(async () => {
     if (userIdRef.current) return userIdRef.current;
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      throw new Error('Configuration Supabase manquante.');
+    }
     const { data, error } = await supabase.auth.getUser();
     if (error) throw error;
     const userId = data.user?.id;
@@ -327,6 +339,11 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
     () =>
       debounce(async (collection: SITACCollection) => {
         if (!currentInterventionId) return;
+        const supabase = getSupabaseClient();
+        if (!supabase) {
+          console.warn('Supabase config missing; skipping SITAC sync.');
+          return;
+        }
         const currentMap = buildSitacSnapshotMap(collection);
         const previousMap = previousSitacSnapshotRef.current;
         const added: SitacStateSnapshot[] = [];

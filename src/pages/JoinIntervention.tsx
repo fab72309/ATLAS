@@ -1,6 +1,6 @@
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { supabase } from '../utils/supabaseClient';
+import { getSupabaseClient } from '../utils/supabaseClient';
 import { useInterventionStore } from '../stores/useInterventionStore';
 import { hydrateIntervention } from '../utils/interventionHydration';
 import { APP_NAME, APP_VERSION } from '../constants/appInfo';
@@ -60,27 +60,41 @@ const JoinIntervention: React.FC = () => {
     }
     setPreviewStatus('loading');
     setPreviewError(null);
-    supabase
-      .rpc('preview_invite', { p_token: token })
-      .then(({ data, error: previewErr }) => {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setPreviewStatus('error');
+      setPreviewError('Configuration Supabase manquante.');
+      setPreview(null);
+      return;
+    }
+    const fetchPreview = async () => {
+      try {
+        const { data, error: previewErr } = await supabase.rpc('preview_invite', { p_token: token });
         if (previewErr) throw previewErr;
         const payload = Array.isArray(data) ? data[0] : data;
         setPreview(payload ?? null);
         setPreviewStatus(payload ? 'ready' : 'error');
         if (!payload) setPreviewError('Invitation introuvable.');
-      })
-      .catch((err) => {
+      } catch (err: unknown) {
         console.error('Erreur preview invite', err);
         const message = err instanceof Error ? err.message : 'Impossible de vérifier l’invitation.';
         setPreviewError(message);
         setPreviewStatus('error');
         setPreview(null);
-      });
+      }
+    };
+    void fetchPreview();
   }, [token]);
 
   const handleJoin = async () => {
     if (!token) {
       setError('Token manquant.');
+      return;
+    }
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setError('Configuration Supabase manquante.');
+      setStatus('error');
       return;
     }
     if (!commandLevel) {

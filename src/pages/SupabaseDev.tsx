@@ -1,18 +1,31 @@
-import React, { useState } from "react";
-import { supabase } from "../utils/supabaseClient"; // adapte si ton chemin diffère
+import { useState } from "react";
+import { getSupabaseClient } from "../utils/supabaseClient"; // adapte si ton chemin diffère
 
 export default function SupabaseDev() {
   const [log, setLog] = useState<string>("");
 
   const append = (msg: string) => setLog((prev) => prev + msg + "\n");
+  const formatError = (err: unknown) => {
+    if (err instanceof Error) return err.message;
+    if (err && typeof err === "object" && "message" in err && typeof err.message === "string") {
+      return err.message;
+    }
+    return String(err);
+  };
 
   async function signUpOrSignIn() {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      append("ERROR: Configuration Supabase manquante.");
+      return;
+    }
     try {
       const email = "demo@atlas.local";
       const password = "ChangeMe_12345!";
 
       append("Trying signIn...");
-      let { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
+      let data = signInData;
 
       if (error) {
         append("signIn failed, trying signUp...");
@@ -27,13 +40,18 @@ export default function SupabaseDev() {
       }
 
       append(`AUTH OK user.id=${data?.user?.id}`);
-    } catch (e: any) {
-      append(`ERROR: ${e?.message ?? String(e)}`);
+    } catch (e: unknown) {
+      append(`ERROR: ${formatError(e)}`);
       console.error(e);
     }
   }
 
   async function createInterventionAndLogEvent() {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      append("ERROR: Configuration Supabase manquante.");
+      return;
+    }
     try {
       const { data: authData, error: authErr } = await supabase.auth.getUser();
       if (authErr) throw authErr;
@@ -77,8 +95,8 @@ export default function SupabaseDev() {
       if (eventErr) throw eventErr;
 
       append("OK: event inserted");
-    } catch (e: any) {
-      append(`ERROR: ${e?.message ?? String(e)}`);
+    } catch (e: unknown) {
+      append(`ERROR: ${formatError(e)}`);
       console.error(e);
     }
   }

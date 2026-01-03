@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronDown, ChevronUp, Info, Bell, Shield, LogOut, Sun, Plus, Trash2 } from 'lucide-react';
 import { RELEASE_NOTES } from '../constants/releaseNotes';

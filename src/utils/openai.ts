@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { getSupabaseClient } from './supabaseClient';
 import { DOCTRINE_CONTEXT } from '../constants/doctrine';
 
 const DOCTRINE_DOMINANTE_MAP: Record<string, keyof typeof DOCTRINE_CONTEXT> = {
@@ -49,6 +49,10 @@ const parseJsonSafely = (value: string): unknown | null => {
     return null;
   }
 };
+
+const isRecord = (value: unknown): value is Record<string, unknown> => (
+  typeof value === 'object' && value !== null
+);
 
 const normalizeProxyPayload = (payload: unknown) => {
   if (!payload || typeof payload !== 'object') return payload;
@@ -124,9 +128,12 @@ export const analyzeEmergency = async (
     const headers: Record<string, string> = {
       'Content-Type': 'application/json'
     };
-    const { data: sessionData } = await supabase.auth.getSession();
-    if (sessionData.session?.access_token) {
-      headers.Authorization = `Bearer ${sessionData.session.access_token}`;
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (sessionData.session?.access_token) {
+        headers.Authorization = `Bearer ${sessionData.session.access_token}`;
+      }
     }
 
     const payload: Record<string, unknown> = {
@@ -154,7 +161,9 @@ export const analyzeEmergency = async (
 
     const rawText = await response.text();
     const data = parseJsonSafely(rawText);
-    const resultPayload = data?.result ?? data?.output ?? data?.content ?? data ?? rawText;
+    const resultPayload = isRecord(data)
+      ? data.result ?? data.output ?? data.content ?? data
+      : data ?? rawText;
     return normalizeProxyResult(resultPayload, type);
 
   } catch (error) {

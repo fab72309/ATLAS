@@ -1,4 +1,5 @@
-import { supabase } from './supabaseClient';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { getSupabaseClient } from './supabaseClient';
 
 export type TelemetrySource = 'keyboard' | 'stt' | 'dictation' | 'template';
 
@@ -92,7 +93,7 @@ const buildPayload = <TData>(
   return payload;
 };
 
-const requireUserId = async (): Promise<string> => {
+const requireUserId = async (supabase: SupabaseClient): Promise<string> => {
   const { data, error } = await supabase.auth.getUser();
   if (error) throw error;
   if (!data.user) {
@@ -114,7 +115,12 @@ export const logUserEvent = async <TData>(
   metrics?: Partial<TelemetryMetrics>,
   context?: Record<string, unknown>
 ) => {
-  const userId = await requireUserId();
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    console.warn('Supabase client missing; telemetry disabled.');
+    return;
+  }
+  const userId = await requireUserId(supabase);
   const payload = buildPayload(data, metrics, context);
   const { error } = await supabase.from('user_events').insert({
     user_id: userId,
@@ -133,6 +139,11 @@ export const logInterventionEvent = async <TData>(
   context?: Record<string, unknown>,
   options?: LogInterventionOptions
 ) => {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    console.warn('Supabase client missing; telemetry disabled.');
+    return;
+  }
   if (!intervention_id) {
     throw new Error('Missing intervention_id for telemetry event');
   }
@@ -140,7 +151,7 @@ export const logInterventionEvent = async <TData>(
   if (!isValidated) {
     throw new Error('intervention_events requires is_validated = true (append-only)');
   }
-  const userId = await requireUserId();
+  const userId = await requireUserId(supabase);
   const payload = buildPayload(data, metrics, context);
   const insertPayload: Record<string, unknown> = {
     intervention_id,
@@ -166,10 +177,15 @@ export const logTelemetryBatch = async (
   metrics?: Partial<TelemetryBatchMetrics>,
   context?: Record<string, unknown>
 ) => {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    console.warn('Supabase client missing; telemetry disabled.');
+    return;
+  }
   if (!intervention_id) {
     throw new Error('Missing intervention_id for telemetry batch');
   }
-  const userId = await requireUserId();
+  const userId = await requireUserId(supabase);
   const { sample_count, ui_context, ...rest } = metrics ?? {};
   const normalizedMetrics: TelemetryBatchMetrics = {
     sample_count:

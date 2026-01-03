@@ -66,12 +66,17 @@ export class SpeechRecognitionService {
     }
 
     try {
+      const recognition = this.recognition;
+      if (!recognition) {
+        config.onError(new Error('La reconnaissance vocale n\'est pas disponible.'));
+        return;
+      }
       // Configuration des événements
-      this.recognition.onstart = () => {
+      recognition.onstart = () => {
         config.onStart();
       };
 
-      this.recognition.onresult = (event: SpeechRecognitionEventLike) => {
+      recognition.onresult = (event: SpeechRecognitionEventLike) => {
         const transcript = Array.from(event.results)
           .map((result) => result[0])
           .map((result) => result?.transcript || '')
@@ -80,7 +85,7 @@ export class SpeechRecognitionService {
         config.onResult(transcript);
       };
 
-      this.recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
+      recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
         let errorMessage = 'Une erreur est survenue avec la reconnaissance vocale.';
         
         switch (event.error) {
@@ -102,12 +107,12 @@ export class SpeechRecognitionService {
         config.onError(new Error(errorMessage));
       };
 
-      this.recognition.onend = () => {
+      recognition.onend = () => {
         config.onEnd();
       };
 
       // Démarrer la reconnaissance
-      this.recognition.start();
+      recognition.start();
     } catch (error) {
       const fallbackError = error instanceof Error ? error : new Error('Erreur de reconnaissance vocale.');
       config.onError(fallbackError);

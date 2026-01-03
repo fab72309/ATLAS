@@ -47,10 +47,14 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     updateSystemTheme();
     if (media.addEventListener) {
       media.addEventListener('change', updateSystemTheme);
-      return () => media.removeEventListener('change', updateSystemTheme);
+      return () => {
+        media.removeEventListener('change', updateSystemTheme);
+      };
     }
     media.addListener(updateSystemTheme);
-    return () => media.removeListener(updateSystemTheme);
+    return () => {
+      media.removeListener(updateSystemTheme);
+    };
   }, []);
 
   const resolvedTheme = theme === 'system' ? systemTheme : theme;
@@ -67,7 +71,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const unsubscribe = onActiveUserChange(() => {
       setTheme(getStoredTheme());
     });
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   React.useEffect(() => {

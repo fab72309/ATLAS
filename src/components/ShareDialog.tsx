@@ -55,9 +55,10 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
     return canvas;
   };
 
-  const generateAnalysisPDF = () => {
+  const generateAnalysisPDF = async () => {
     if (!displaySections) return;
-    
+
+    const { jsPDF } = await import('jspdf');
     const doc = new jsPDF();
     let yPosition = 20;
 
@@ -161,7 +162,7 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
 
         pdf.save(`${generateFileName()}.pdf`);
       } else {
-        generateAnalysisPDF();
+        await generateAnalysisPDF();
       }
       onClose();
     } catch (error) {

@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { getSupabaseClient } from './supabaseClient';
 
 const STORAGE_PREFIX = 'atlas:v1';
 
@@ -6,6 +6,8 @@ let activeUserId: string | null = null;
 const listeners = new Set<(nextUserId: string | null, prevUserId: string | null) => void>();
 
 export const getCurrentUserId = async (): Promise<string | null> => {
+  const supabase = getSupabaseClient();
+  if (!supabase) return null;
   const { data, error } = await supabase.auth.getSession();
   if (error) {
     console.error('Auth session read error', error);

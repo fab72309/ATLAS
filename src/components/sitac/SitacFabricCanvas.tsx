@@ -91,17 +91,6 @@ const setBaseTransform = (obj: fabric.Object, map: maplibregl.Map | null) => {
     meta.baseScaleY = typeof meta.baseScaleY === 'number' ? meta.baseScaleY : (obj.scaleY ?? 1);
 };
 
-const normalizeCustomProperties = (obj: fabric.Object) => {
-    const metaObj = obj as fabric.Object & { customProperties?: unknown };
-    if (!Array.isArray(metaObj.customProperties)) {
-        metaObj.customProperties = [];
-    }
-    const ctor = metaObj.constructor as { customProperties?: unknown };
-    if (!Array.isArray(ctor.customProperties)) {
-        ctor.customProperties = [];
-    }
-};
-
 const copyFabricMeta = (source: fabric.Object, target: fabric.Object) => {
     const srcMeta = source as FabricMetaObject;
     const dstMeta = target as FabricMetaObject;

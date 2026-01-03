@@ -1,4 +1,4 @@
-import { supabase } from './supabaseClient';
+import { getSupabaseClient } from './supabaseClient';
 import { normalizeMeanItems } from './means';
 import { resetOctTree, setOctTree, type OctTreeNode } from './octTreeStore';
 import { useInterventionStore, type HydratedOrdreInitial, type HydratedOrdreConduite, type InterventionHistoryEntry } from '../stores/useInterventionStore';
@@ -253,6 +253,11 @@ export const hydrateIntervention = async (interventionId: string): Promise<Hydra
     throw new Error('Intervention manquante pour hydratation');
   }
 
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    throw new Error('Configuration Supabase manquante.');
+  }
+
   const interventionStore = useInterventionStore.getState();
   const meansStore = useMeansStore.getState();
   const sitacStore = useSitacStore.getState();
@@ -305,8 +310,8 @@ export const hydrateIntervention = async (interventionId: string): Promise<Hydra
 
   let ordreInitial: HydratedOrdreInitial | undefined;
   let ordreConduite: HydratedOrdreConduite | undefined;
-  let ordreInitialHistory: InterventionHistoryEntry<HydratedOrdreInitial>[] = [];
-  let ordreConduiteHistory: InterventionHistoryEntry<HydratedOrdreConduite>[] = [];
+  const ordreInitialHistory: InterventionHistoryEntry<HydratedOrdreInitial>[] = [];
+  const ordreConduiteHistory: InterventionHistoryEntry<HydratedOrdreConduite>[] = [];
   try {
     const { data: eventRows, error } = await supabase
       .from('intervention_events')

@@ -1,11 +1,11 @@
-export type DebouncedFunction<T extends (...args: any[]) => void> = ((
+export type DebouncedFunction<T extends (...args: unknown[]) => void> = ((
   ...args: Parameters<T>
 ) => void) & {
   cancel: () => void;
   flush: () => void;
 };
 
-export const debounce = <T extends (...args: any[]) => void>(
+export const debounce = <T extends (...args: unknown[]) => void>(
   fn: T,
   waitMs: number
 ): DebouncedFunction<T> => {

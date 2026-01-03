@@ -1,13 +1,20 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
-import { supabase } from '../utils/supabaseClient';
+import { getSupabaseClient } from '../utils/supabaseClient';
 import { clearUserScopedStorage, getCurrentUserId, setActiveUserId } from '../utils/userStorage';
 import { hydrateAllStores, resetAllStores } from '../utils/storeReset';
+
+type AuthInitError = {
+  kind: 'missing-env' | 'timeout' | 'error';
+  message: string;
+};
 
 interface AuthContextValue {
   user: User | null;
   initializing: boolean;
+  initError: AuthInitError | null;
+  retryInit: () => void;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -15,13 +22,58 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+const SESSION_TIMEOUT_MS = 8000;
+
+class TimeoutError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'TimeoutError';
+  }
+}
+
+const withTimeout = async <T,>(promise: Promise<T>, ms: number) => {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  try {
+    return await new Promise<T>((resolve, reject) => {
+      timeoutId = setTimeout(() => reject(new TimeoutError('Supabase request timeout')), ms);
+      promise.then(resolve, reject);
+    });
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+};
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [initializing, setInitializing] = useState(true);
+  const [initError, setInitError] = useState<AuthInitError | null>(null);
+  const [initAttempt, setInitAttempt] = useState(0);
   const previousUserId = useRef<string | null>(null);
+
+  const retryInit = useCallback(() => {
+    setInitAttempt((attempt) => attempt + 1);
+  }, []);
 
   useEffect(() => {
     let active = true;
+    let subscription: { unsubscribe: () => void } | null = null;
+
+    setInitializing(true);
+    setInitError(null);
+
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setInitError({
+        kind: 'missing-env',
+        message: 'Configuration Supabase manquante. Définissez VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY.'
+      });
+      setInitializing(false);
+      return () => {
+        active = false;
+      };
+    }
 
     const applyUser = (nextUser: User | null) => {
       const nextUserId = nextUser?.id ?? null;
@@ -34,49 +86,81 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         previousUserId.current = nextUserId;
       }
       setUser(nextUser);
+      setInitError(null);
       setInitializing(false);
     };
 
     const bootstrap = async () => {
-      const sessionResult = await supabase.auth.getSession();
-      if (!active) return;
-      if (sessionResult.error) {
-        console.error('Erreur récupération session', sessionResult.error);
+      try {
+        const sessionResult = await withTimeout(supabase.auth.getSession(), SESSION_TIMEOUT_MS);
+        if (!active) return;
+        if (sessionResult.error) {
+          console.error('Erreur récupération session', sessionResult.error);
+        }
+        const currentUserId = await withTimeout(getCurrentUserId(), SESSION_TIMEOUT_MS);
+        if (!active) return;
+        const sessionUserId = sessionResult.data.session?.user?.id ?? null;
+        if (currentUserId && currentUserId !== sessionUserId) {
+          console.warn('Auth user mismatch', { currentUserId, sessionUserId });
+        }
+        applyUser(sessionResult.data.session?.user ?? null);
+      } catch (error) {
+        if (!active) return;
+        if (error instanceof TimeoutError) {
+          setInitError({
+            kind: 'timeout',
+            message: 'Supabase injoignable. Vérifiez la connexion et réessayez.'
+          });
+          setInitializing(false);
+          return;
+        }
+        console.error('Erreur initialisation auth', error);
+        setInitError({
+          kind: 'error',
+          message: 'Impossible d\'initialiser la session. Réessayez.'
+        });
+        setInitializing(false);
       }
-      const currentUserId = await getCurrentUserId();
-      if (!active) return;
-      const sessionUserId = sessionResult.data.session?.user?.id ?? null;
-      if (currentUserId && currentUserId !== sessionUserId) {
-        console.warn('Auth user mismatch', { currentUserId, sessionUserId });
-      }
-      applyUser(sessionResult.data.session?.user ?? null);
     };
 
     void bootstrap();
 
     const {
-      data: { subscription }
+      data: { subscription: authSubscription }
     } = supabase.auth.onAuthStateChange((_event, session) => {
       applyUser(session?.user ?? null);
     });
+    subscription = authSubscription;
 
     return () => {
       active = false;
-      subscription.unsubscribe();
+      subscription?.unsubscribe();
     };
-  }, []);
+  }, [initAttempt]);
 
   const login = useCallback(async (email: string, password: string) => {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      throw new Error('Configuration Supabase manquante.');
+    }
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
   }, []);
 
   const register = useCallback(async (email: string, password: string) => {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      throw new Error('Configuration Supabase manquante.');
+    }
     const { error } = await supabase.auth.signUp({ email, password });
     if (error) throw error;
   }, []);
 
   const logout = useCallback(async () => {
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      throw new Error('Configuration Supabase manquante.');
+    }
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
   }, []);
@@ -85,11 +169,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     () => ({
       user,
       initializing,
+      initError,
+      retryInit,
       login,
       register,
       logout
     }),
-    [user, initializing, login, register, logout]
+    [user, initializing, initError, retryInit, login, register, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -5,7 +5,7 @@ import CommandIcon from '../components/CommandIcon';
 import { useInterventionStore } from '../stores/useInterventionStore';
 import { INTERVENTION_INVITE_PREFIX } from '../constants/intervention';
 import { getLocalDate, getLocalTime } from '../utils/dateTime';
-import { supabase } from '../utils/supabaseClient';
+import { getSupabaseClient } from '../utils/supabaseClient';
 import { logInterventionEvent } from '../utils/atlasTelemetry';
 
 const ROLE_OPTIONS_BASE = [
@@ -49,7 +49,6 @@ const CommandTypeChoice = () => {
   const storedStreetName = useInterventionStore((s) => s.streetName);
   const storedCity = useInterventionStore((s) => s.city);
   const storedRole = useInterventionStore((s) => s.role);
-  const setStoredAddress = useInterventionStore((s) => s.setAddress);
   const setStoredStreetNumber = useInterventionStore((s) => s.setStreetNumber);
   const setStoredStreetName = useInterventionStore((s) => s.setStreetName);
   const setStoredCity = useInterventionStore((s) => s.setCity);
@@ -57,7 +56,6 @@ const CommandTypeChoice = () => {
   const setLogicalIds = useInterventionStore((s) => s.setLogicalIds);
   const setStoredRole = useInterventionStore((s) => s.setRole);
   const setStoredLocation = useInterventionStore((s) => s.setLocation);
-  const clearStoredLocation = useInterventionStore((s) => s.clearLocation);
   const setCurrentIntervention = useInterventionStore((s) => s.setCurrentIntervention);
   const clearCurrentIntervention = useInterventionStore((s) => s.clearCurrentIntervention);
   const [showScanModal, setShowScanModal] = React.useState(false);
@@ -152,14 +150,14 @@ const CommandTypeChoice = () => {
       const url = new URL(trimmed);
       const tokenParam = url.searchParams.get('token');
       if (tokenParam) return tokenParam.trim();
-    } catch (err) {
-      void err;
+    } catch {
+      void 0;
     }
     const match = trimmed.match(/token=([^&]+)/);
     if (match) {
       try {
         return decodeURIComponent(match[1]).trim();
-      } catch (err) {
+      } catch {
         return match[1].trim();
       }
     }
@@ -199,6 +197,12 @@ const CommandTypeChoice = () => {
     if (!currentType) return;
     setIsCreatingIntervention(true);
     setCreateInterventionError(null);
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setCreateInterventionError('Configuration Supabase manquante.');
+      setIsCreatingIntervention(false);
+      return;
+    }
     try {
       const now = new Date();
       const date = interventionMeta.date || getLocalDate(now);

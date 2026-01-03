@@ -24,7 +24,7 @@ import { logInterventionEvent, type TelemetryMetrics } from '../utils/atlasTelem
 import { telemetryBuffer } from '../utils/telemetryBuffer';
 import { debounce } from '../utils/debounce';
 import { readUserScopedJSON, writeUserScopedJSON, removeUserScopedItem } from '../utils/userStorage';
-import { supabase } from '../utils/supabaseClient';
+import { getSupabaseClient } from '../utils/supabaseClient';
 import { normalizeMeanItems } from '../utils/means';
 import { hydrateIntervention } from '../utils/interventionHydration';
 
@@ -1542,6 +1542,11 @@ const DictationInput = () => {
         if (serialized === lastMeansStateRef.current) return;
         lastMeansStateRef.current = serialized;
         try {
+          const supabase = getSupabaseClient();
+          if (!supabase) {
+            console.warn('Supabase config missing; skipping means sync.');
+            return;
+          }
           const { data, error } = await supabase.auth.getUser();
           if (error) throw error;
           const userId = data.user?.id;
@@ -1885,6 +1890,10 @@ const DictationInput = () => {
     try {
       if (!currentInterventionId) {
         throw new Error('Intervention active manquante pour partager.');
+      }
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        throw new Error('Configuration Supabase manquante.');
       }
       const { data, error } = await supabase.rpc('create_invite', {
         p_intervention_id: currentInterventionId

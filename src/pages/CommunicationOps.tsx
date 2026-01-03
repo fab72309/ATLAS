@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Radio } from 'lucide-react';
 import { Swiper, SwiperSlide } from 'swiper/react';
