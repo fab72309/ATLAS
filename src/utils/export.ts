@@ -155,11 +155,11 @@ export const exportOrdreToPdf = (ordre: OrdreInitial, opts?: { adresse?: string;
     const lineHeight = 7;
 
     // Helper pour ajouter du texte avec retour à la ligne automatique
-    const addText = (text: string, fontSize: number = 12, fontType: string = 'normal') => {
+    const addText = (text: OrdreInitial['E'], fontSize: number = 12, fontType: string = 'normal') => {
         doc.setFont("helvetica", fontType);
         doc.setFontSize(fontSize);
 
-        const splitText = doc.splitTextToSize(text, contentWidth);
+        const splitText = doc.splitTextToSize(text as string, contentWidth);
 
         // Vérifier si on doit changer de page
         if (yPos + (splitText.length * lineHeight) > 280) {
@@ -296,6 +296,7 @@ export const shareOrdreAsFile = async (
     channel: 'mail' | 'whatsapp' | 'sms',
     opts?: { adresse?: string; heure?: string; role?: string }
 ) => {
+    void channel;
     const isPdf = format === 'pdf';
     if (isPdf) {
         const doc = new jsPDF();
