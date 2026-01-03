@@ -1300,7 +1300,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
 
             useSitacStore.getState().setFabricAction(null);
         }
-    }, [fabricAction]);
+    }, [fabricAction, map]);
 
     // Handle Keyboard Delete & Eraser Mode
     useEffect(() => {

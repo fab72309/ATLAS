@@ -189,6 +189,52 @@ const buildSitacHash = async (collection: SITACCollection): Promise<string | nul
   }
 };
 
+const isValidLngLat = (coord: unknown): coord is [number, number] =>
+  Array.isArray(coord) &&
+  coord.length >= 2 &&
+  typeof coord[0] === 'number' &&
+  Number.isFinite(coord[0]) &&
+  typeof coord[1] === 'number' &&
+  Number.isFinite(coord[1]);
+
+const isValidGeometry = (geometry: GeoJSON.Geometry): boolean => {
+  switch (geometry.type) {
+    case 'Point':
+      return isValidLngLat(geometry.coordinates);
+    case 'MultiPoint':
+      return Array.isArray(geometry.coordinates) && geometry.coordinates.every(isValidLngLat);
+    case 'LineString':
+      return Array.isArray(geometry.coordinates) && geometry.coordinates.every(isValidLngLat);
+    case 'MultiLineString':
+      return Array.isArray(geometry.coordinates) && geometry.coordinates.every((line) => Array.isArray(line) && line.every(isValidLngLat));
+    case 'Polygon':
+      return Array.isArray(geometry.coordinates) && geometry.coordinates.every((ring) => Array.isArray(ring) && ring.every(isValidLngLat));
+    case 'MultiPolygon':
+      return Array.isArray(geometry.coordinates) &&
+        geometry.coordinates.every((poly) => Array.isArray(poly) && poly.every((ring) => Array.isArray(ring) && ring.every(isValidLngLat)));
+    case 'GeometryCollection':
+      return geometry.geometries.every(isValidGeometry);
+    default:
+      return false;
+  }
+};
+
+const sanitizeGeoJSON = (collection: SITACCollection): SITACCollection => {
+  if (!collection || !Array.isArray(collection.features)) {
+    return { type: 'FeatureCollection', features: [] };
+  }
+  const safeFeatures = collection.features.filter((feature) => {
+    if (!feature || !feature.geometry) return false;
+    try {
+      return isValidGeometry(feature.geometry);
+    } catch (err) {
+      console.warn('Invalid SITAC geometry skipped', err);
+      return false;
+    }
+  });
+  return { ...collection, features: safeFeatures };
+};
+
 interface SitacMapProps {
   embedded?: boolean;
   interventionAddress?: string;
@@ -499,52 +545,6 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
     [currentInterventionId, geoJSON.features, interventionStartedAtMs]
   );
 
-  const isValidLngLat = (coord: unknown): coord is [number, number] =>
-    Array.isArray(coord) &&
-    coord.length >= 2 &&
-    typeof coord[0] === 'number' &&
-    Number.isFinite(coord[0]) &&
-    typeof coord[1] === 'number' &&
-    Number.isFinite(coord[1]);
-
-  const isValidGeometry = (geometry: GeoJSON.Geometry): boolean => {
-    switch (geometry.type) {
-      case 'Point':
-        return isValidLngLat(geometry.coordinates);
-      case 'MultiPoint':
-        return Array.isArray(geometry.coordinates) && geometry.coordinates.every(isValidLngLat);
-      case 'LineString':
-        return Array.isArray(geometry.coordinates) && geometry.coordinates.every(isValidLngLat);
-      case 'MultiLineString':
-        return Array.isArray(geometry.coordinates) && geometry.coordinates.every((line) => Array.isArray(line) && line.every(isValidLngLat));
-      case 'Polygon':
-        return Array.isArray(geometry.coordinates) && geometry.coordinates.every((ring) => Array.isArray(ring) && ring.every(isValidLngLat));
-      case 'MultiPolygon':
-        return Array.isArray(geometry.coordinates) &&
-          geometry.coordinates.every((poly) => Array.isArray(poly) && poly.every((ring) => Array.isArray(ring) && ring.every(isValidLngLat)));
-      case 'GeometryCollection':
-        return geometry.geometries.every(isValidGeometry);
-      default:
-        return false;
-    }
-  };
-
-  const sanitizeGeoJSON = (collection: SITACCollection): SITACCollection => {
-    if (!collection || !Array.isArray(collection.features)) {
-      return { type: 'FeatureCollection', features: [] };
-    }
-    const safeFeatures = collection.features.filter((feature) => {
-      if (!feature || !feature.geometry) return false;
-      try {
-        return isValidGeometry(feature.geometry);
-      } catch (err) {
-        console.warn('Invalid SITAC geometry skipped', err);
-        return false;
-      }
-    });
-    return { ...collection, features: safeFeatures };
-  };
-
   // Map Init Helper ---
   const cycleBaseLayer = () => {
     const baseOrder: BaseLayerKey[] = ['plan', 'satellite', 'whiteboard', 'offline'];
@@ -741,7 +741,7 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
       map.remove();
       mapRef.current = null;
     };
-  }, []);
+  }, [baseLayer]);
 
   // Base Layer Switching
   useEffect(() => {

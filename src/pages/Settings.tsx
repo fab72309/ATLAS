@@ -177,7 +177,7 @@ const Settings = () => {
   const [editingSurLesLieuxId, setEditingSurLesLieuxId] = useState<string | null>(null);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
-  const meansCatalog = settings.meansCatalog || [];
+  const meansCatalog = useMemo(() => settings.meansCatalog || [], [settings.meansCatalog]);
   const messageDemandeOptions = settings.messageDemandeOptions || [];
   const messageSurLesLieuxOptions = settings.messageSurLesLieuxOptions || [];
   const sortedMeansCatalog = useMemo(() => {
