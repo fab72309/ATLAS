@@ -32,6 +32,13 @@ Supabase local vs cloud
 - typecheck: `npm run typecheck` (tsc app + node). (source: `package.json`)
 - build: `npm run build` (dist). (source: `package.json`, `vite.config.ts`)
 
+## Build notes
+- Vite chunking splits heavy libs into `maplibre`, `fabric`, `leaflet`, `html2canvas`, `export`, `ui`, `vendor`. (source: `vite.config.ts`)
+- SITAC and dictation routes are lazy-loaded in the router to keep the main bundle smaller. (source: `src/App.tsx`)
+- `build.chunkSizeWarningLimit` is set to 1200 kB to reflect cartography bundles (MapLibre). (source: `vite.config.ts`)
+- If the bundle sizes change, adjust `manualChunks` or the warning limit in `vite.config.ts`.
+- Keep changes limited to Vite config or routing wrappers; do not move SITAC logic.
+
 ## Repo map
 - `src/`: app React (routing, pages, components, contexts, stores, utils). (source: `src/main.tsx`, `src/App.tsx`)
 - `src/types/`: typings projet (ex: file-saver.d.ts). (source: `src/types/`)
