@@ -57,6 +57,7 @@ const flagIfMonochrome = (img: fabric.FabricImage) => {
     const image = img as FabricMetaImage;
     const element = image.getElement ? image.getElement() : image._element;
     if (!element) return image.colorizable === true;
+    if (!(element instanceof HTMLImageElement)) return image.colorizable === true;
     if (image.colorizable === true) return true;
     const isMono = isMonochromeElement(element);
     if (isMono) {
@@ -378,10 +379,11 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
             'arrowLength',
             'featureId'
         ];
-        const existingCustomProps = Array.isArray(fabric.Object.prototype.customProperties)
-            ? fabric.Object.prototype.customProperties
+        const fabricProto = fabric.Object.prototype as fabric.Object & { customProperties?: string[] };
+        const existingCustomProps = Array.isArray(fabricProto.customProperties)
+            ? fabricProto.customProperties
             : [];
-        fabric.Object.prototype.customProperties = Array.from(new Set([...existingCustomProps, ...baseCustomProps]));
+        fabricProto.customProperties = Array.from(new Set([...existingCustomProps, ...baseCustomProps]));
 
         // Rehydrate from Store
         const savedData = useSitacStore.getState().geoJSON;
@@ -957,10 +959,13 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
         canvas.on('selection:cleared', updateSelection);
 
         // Persistence Logic
-        const saveToStore = (evt?: fabric.IEvent) => {
+        const saveToStore = (evt?: unknown) => {
             if (syncingFromStore.current) return;
-            if (map && evt?.target) {
-                refreshGeoTransform(evt.target as FabricGeoObject, map);
+            if (map && evt && typeof evt === 'object' && 'target' in evt) {
+                const target = (evt as { target?: unknown }).target;
+                if (target) {
+                    refreshGeoTransform(target as FabricGeoObject, map);
+                }
             }
             const features: Array<{ type: 'Feature'; id: string; geometry: Geometry; properties: LooseFeatureProperties }> = [];
             canvas.getObjects().forEach((obj) => {
@@ -1099,7 +1104,8 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
         canvas.on('object:added', saveToStore);
         canvas.on('object:removed', saveToStore);
         canvas.on('text:changed', saveToStore);
-        canvas.on('editing:exited', saveToStore);
+        const editingExitedEvent = 'editing:exited' as unknown as keyof fabric.CanvasEvents;
+        canvas.on(editingExitedEvent, saveToStore);
 
         return () => {
             canvas.off('selection:created', updateSelection);
@@ -1109,7 +1115,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
             canvas.off('object:added', saveToStore);
             canvas.off('object:removed', saveToStore);
             canvas.off('text:changed', saveToStore);
-            canvas.off('editing:exited', saveToStore);
+            canvas.off(editingExitedEvent, saveToStore);
         };
     }, [map]); // map dependency for Line calc if needed
 
