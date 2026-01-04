@@ -26,6 +26,15 @@ import { telemetryBuffer } from '../utils/telemetryBuffer';
 
 type MeanSource = 'manual' | 'means';
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === 'object' && !Array.isArray(value);
+
+const isMeanSource = (value: unknown): value is MeanSource =>
+  value === 'manual' || value === 'means';
+
+const toMeanSource = (value?: string): MeanSource | undefined =>
+  isMeanSource(value) ? value : undefined;
+
 interface OctNodeData {
   nodeId: string;
   label: string;
@@ -188,7 +197,7 @@ const assignPositions = (
     notes: node.notes,
     color: node.color,
     chief: node.chief,
-    meanSource: node.meanSource,
+    meanSource: toMeanSource(node.meanSource),
     meanStatus: node.meanStatus,
     meanCategory: node.meanCategory,
     onEdit: callbacks.onEdit,
@@ -253,7 +262,7 @@ const assignPositions = (
           notes: child.notes,
           color: child.color,
           chief: child.chief,
-          meanSource: child.meanSource,
+          meanSource: toMeanSource(child.meanSource),
           meanStatus: child.meanStatus,
           meanCategory: child.meanCategory,
           onEdit: callbacks.onEdit,
@@ -505,7 +514,8 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
   const { tree, setTree } = useOctTree();
   const queueOctTelemetry = useMemo(
     () =>
-      debounce((patch: Record<string, unknown>) => {
+      debounce((patch: unknown) => {
+        if (!isRecord(patch)) return;
         telemetryBuffer.addSample({
           interventionId: currentInterventionId,
           stream: 'OCT',

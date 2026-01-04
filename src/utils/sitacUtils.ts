@@ -76,6 +76,10 @@ export const translateGeometry = (geometry: Geometry, delta: { dLng: number; dLa
     return { ...geometry, coordinates: moveCoords(geometryWithCoords.coordinates) } as Geometry;
 };
 
+const isCoordPair = (value: unknown): value is [number, number] => (
+    Array.isArray(value) && typeof value[0] === 'number' && typeof value[1] === 'number'
+);
+
 export const centroid = (geometry: Geometry): [number, number] => {
     if (geometry.type === 'Point') return geometry.coordinates as [number, number];
     const coords = geometry.type === 'LineString'
@@ -84,11 +88,13 @@ export const centroid = (geometry: Geometry): [number, number] => {
             ? geometry.coordinates[0]
             : [];
     if (!Array.isArray(coords) || coords.length === 0) return [0, 0];
-    const sum = coords.reduce(
-        (acc: [number, number], curr: [number, number]): [number, number] => [acc[0] + curr[0], acc[1] + curr[1]],
+    const coords2d = coords.filter(isCoordPair);
+    if (coords2d.length === 0) return [0, 0];
+    const sum = coords2d.reduce(
+        (acc, curr): [number, number] => [acc[0] + curr[0], acc[1] + curr[1]],
         [0, 0] as [number, number],
     );
-    return [sum[0] / coords.length, sum[1] / coords.length];
+    return [sum[0] / coords2d.length, sum[1] / coords2d.length];
 };
 
 export const rotateGeometry = (geometry: Geometry, angleDeg: number) => {
