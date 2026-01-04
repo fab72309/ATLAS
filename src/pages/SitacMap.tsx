@@ -35,6 +35,9 @@ maplibreWithWorker.workerClass = MapLibreWorker;
 
 const DEFAULT_VIEW = { center: [2.3522, 48.8566] as [number, number], zoom: 13 };
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === 'object' && !Array.isArray(value);
+
 const summarizeSitac = (collection: SITACCollection) => {
   const features = Array.isArray(collection?.features) ? collection.features : [];
   const countsByType: Record<string, number> = {};
@@ -101,7 +104,7 @@ const buildSitacSnapshot = (feature: SITACFeature): SitacStateSnapshot | null =>
   const lng = Number(coords[0]);
   const lat = Number(coords[1]);
   if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null;
-  const rawProps = (feature.properties ?? {}) as Record<string, unknown>;
+  const rawProps: Record<string, unknown> = isRecord(feature.properties) ? feature.properties : {};
   const featureId = typeof feature.id === 'string'
     ? feature.id
     : typeof rawProps.id === 'string'
@@ -281,9 +284,10 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
   const userIdRef = useRef<string | null>(null);
   const sitacTelemetry = useMemo(
     () =>
-      debounce((collection: SITACCollection) => {
-        const summary = summarizeSitac(collection);
-        const features = Array.isArray(collection?.features) ? collection.features : [];
+      debounce((collection: unknown) => {
+        const safeCollection = collection as SITACCollection;
+        const summary = summarizeSitac(safeCollection);
+        const features = Array.isArray(safeCollection?.features) ? safeCollection.features : [];
         const currentIds = collectFeatureIds(features);
         const previousIds = previousFeatureIdsRef.current;
         const addedIds = Array.from(currentIds).filter((id) => !previousIds.has(id));
@@ -291,7 +295,7 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
         previousFeatureIdsRef.current = currentIds;
 
         void (async () => {
-          const hash = await buildSitacHash(collection);
+          const hash = await buildSitacHash(safeCollection);
           const patch: Record<string, unknown> = {
             ...summary
           };
@@ -383,112 +387,115 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
 
   const sitacStateSync = useMemo(
     () =>
-      debounce(async (collection: SITACCollection) => {
-        if (!currentInterventionId) return;
-        const supabase = getSupabaseClient();
-        if (!supabase) {
-          console.warn('Supabase config missing; skipping SITAC sync.');
-          return;
-        }
-        const currentMap = buildSitacSnapshotMap(collection);
-        const previousMap = previousSitacSnapshotRef.current;
-        const added: SitacStateSnapshot[] = [];
-        const updated: SitacStateSnapshot[] = [];
-        const removed: SitacStateSnapshot[] = [];
-
-        currentMap.forEach((snapshot, id) => {
-          const previous = previousMap.get(id);
-          if (!previous) {
-            added.push(snapshot);
+      debounce((collection: unknown) => {
+        void (async () => {
+          const safeCollection = collection as SITACCollection;
+          if (!currentInterventionId) return;
+          const supabase = getSupabaseClient();
+          if (!supabase) {
+            console.warn('Supabase config missing; skipping SITAC sync.');
             return;
           }
-          if (previous.hash !== snapshot.hash) {
-            updated.push(snapshot);
-          }
-        });
+          const currentMap = buildSitacSnapshotMap(safeCollection);
+          const previousMap = previousSitacSnapshotRef.current;
+          const added: SitacStateSnapshot[] = [];
+          const updated: SitacStateSnapshot[] = [];
+          const removed: SitacStateSnapshot[] = [];
 
-        previousMap.forEach((snapshot, id) => {
-          if (!currentMap.has(id)) {
-            removed.push(snapshot);
-          }
-        });
-
-        previousSitacSnapshotRef.current = currentMap;
-
-        if (!added.length && !updated.length && !removed.length) return;
-
-        try {
-          const userId = await getUserId();
-          const upsertRows = [...added, ...updated].map((snapshot) => ({
-            intervention_id: currentInterventionId,
-            feature_id: snapshot.featureId,
-            symbol_type: snapshot.symbolType,
-            lat: snapshot.lat,
-            lng: snapshot.lng,
-            props: snapshot.props,
-            updated_by: userId
-          }));
-
-          if (upsertRows.length) {
-            const { error } = await supabase
-              .from('sitac_features')
-              .upsert(upsertRows, { onConflict: 'intervention_id,feature_id' });
-            if (error) throw error;
-          }
-
-          if (removed.length) {
-            const removedIds = removed.map((snapshot) => snapshot.featureId);
-            const { error } = await supabase
-              .from('sitac_features')
-              .delete()
-              .eq('intervention_id', currentInterventionId)
-              .in('feature_id', removedIds);
-            if (error) throw error;
-          }
-
-          const logPromises: Promise<unknown>[] = [];
-          added.forEach((snapshot) => {
-            logPromises.push(
-              logInterventionEvent(
-                currentInterventionId,
-                'SITAC_FEATURE_ADDED_VALIDATED',
-                buildSitacEventPayload(snapshot),
-                buildSitacMetrics('sitac.map', 1)
-              ).catch((error) => {
-                console.error('SITAC add log failed', error);
-              })
-            );
+          currentMap.forEach((snapshot, id) => {
+            const previous = previousMap.get(id);
+            if (!previous) {
+              added.push(snapshot);
+              return;
+            }
+            if (previous.hash !== snapshot.hash) {
+              updated.push(snapshot);
+            }
           });
-          updated.forEach((snapshot) => {
-            logPromises.push(
-              logInterventionEvent(
-                currentInterventionId,
-                'SITAC_FEATURE_UPDATED_VALIDATED',
-                buildSitacEventPayload(snapshot),
-                buildSitacMetrics('sitac.map', 1)
-              ).catch((error) => {
-                console.error('SITAC update log failed', error);
-              })
-            );
+
+          previousMap.forEach((snapshot, id) => {
+            if (!currentMap.has(id)) {
+              removed.push(snapshot);
+            }
           });
-          removed.forEach((snapshot) => {
-            logPromises.push(
-              logInterventionEvent(
-                currentInterventionId,
-                'SITAC_FEATURE_DELETED_VALIDATED',
-                buildSitacEventPayload(snapshot),
-                buildSitacMetrics('sitac.map', 1)
-              ).catch((error) => {
-                console.error('SITAC delete log failed', error);
-              })
-            );
-          });
-          if (logPromises.length) {
-            await Promise.all(logPromises);
+
+          previousSitacSnapshotRef.current = currentMap;
+
+          if (!added.length && !updated.length && !removed.length) return;
+
+          try {
+            const userId = await getUserId();
+            const upsertRows = [...added, ...updated].map((snapshot) => ({
+              intervention_id: currentInterventionId,
+              feature_id: snapshot.featureId,
+              symbol_type: snapshot.symbolType,
+              lat: snapshot.lat,
+              lng: snapshot.lng,
+              props: snapshot.props,
+              updated_by: userId
+            }));
+
+            if (upsertRows.length) {
+              const { error } = await supabase
+                .from('sitac_features')
+                .upsert(upsertRows, { onConflict: 'intervention_id,feature_id' });
+              if (error) throw error;
+            }
+
+            if (removed.length) {
+              const removedIds = removed.map((snapshot) => snapshot.featureId);
+              const { error } = await supabase
+                .from('sitac_features')
+                .delete()
+                .eq('intervention_id', currentInterventionId)
+                .in('feature_id', removedIds);
+              if (error) throw error;
+            }
+
+            const logPromises: Promise<unknown>[] = [];
+            added.forEach((snapshot) => {
+              logPromises.push(
+                logInterventionEvent(
+                  currentInterventionId,
+                  'SITAC_FEATURE_ADDED_VALIDATED',
+                  buildSitacEventPayload(snapshot),
+                  buildSitacMetrics('sitac.map', 1)
+                ).catch((error) => {
+                  console.error('SITAC add log failed', error);
+                })
+              );
+            });
+            updated.forEach((snapshot) => {
+              logPromises.push(
+                logInterventionEvent(
+                  currentInterventionId,
+                  'SITAC_FEATURE_UPDATED_VALIDATED',
+                  buildSitacEventPayload(snapshot),
+                  buildSitacMetrics('sitac.map', 1)
+                ).catch((error) => {
+                  console.error('SITAC update log failed', error);
+                })
+              );
+            });
+            removed.forEach((snapshot) => {
+              logPromises.push(
+                logInterventionEvent(
+                  currentInterventionId,
+                  'SITAC_FEATURE_DELETED_VALIDATED',
+                  buildSitacEventPayload(snapshot),
+                  buildSitacMetrics('sitac.map', 1)
+                ).catch((error) => {
+                  console.error('SITAC delete log failed', error);
+                })
+              );
+            });
+            if (logPromises.length) {
+              await Promise.all(logPromises);
+            }
+          } catch (error) {
+            console.error('SITAC state sync failed', error);
           }
-        } catch (error) {
-          console.error('SITAC state sync failed', error);
-        }
+        })();
       }, 600),
     [buildSitacEventPayload, buildSitacMetrics, currentInterventionId, getUserId]
   );
@@ -719,14 +726,16 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
   // Map Initialization
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
-    const map = new maplibregl.Map({
+    type MapOptionsWithPreserve = maplibregl.MapOptions & { preserveDrawingBuffer?: boolean };
+    const mapOptions: MapOptionsWithPreserve = {
       container: containerRef.current,
       style: BASE_STYLES[baseLayer],
       center: DEFAULT_VIEW.center as LngLatLike,
       zoom: DEFAULT_VIEW.zoom,
       attributionControl: false,
       preserveDrawingBuffer: true, // Required for export
-    });
+    };
+    const map = new maplibregl.Map(mapOptions);
     mapRef.current = map;
     setMapInstance(map);
     map.addControl(new maplibregl.NavigationControl({ showCompass: true, visualizePitch: false }), 'bottom-right');

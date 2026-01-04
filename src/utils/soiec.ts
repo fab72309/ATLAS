@@ -1,9 +1,25 @@
-import { OrdreInitial } from '../types/soiec';
+import { OrdreInitial, IdeeManoeuvre } from '../types/soiec';
 
 const resolveRoleLabel = (role?: string) => role || 'Chef de groupe';
 const isExtendedRole = (role?: string) => role === 'Chef de colonne' || role === 'Chef de site';
 
 export const buildOrdreTitle = (role?: string) => `ORDRE INITIAL – ${resolveRoleLabel(role)}`;
+
+const toIdeeManoeuvre = (value: unknown): IdeeManoeuvre => {
+    if (typeof value === 'string') {
+        return { mission: value, moyen: '' };
+    }
+    if (!value || typeof value !== 'object') {
+        return { mission: JSON.stringify(value), moyen: '' };
+    }
+    const record = value as Record<string, unknown>;
+    const mission = typeof record.mission === 'string' ? record.mission : JSON.stringify(value);
+    const moyen = typeof record.moyen === 'string' ? record.moyen : '';
+    const idee: IdeeManoeuvre = { mission, moyen };
+    if (typeof record.moyen_supp === 'string') idee.moyen_supp = record.moyen_supp;
+    if (typeof record.details === 'string') idee.details = record.details;
+    return idee;
+};
 
 export const parseOrdreInitial = (jsonString: string): OrdreInitial => {
     try {
@@ -70,14 +86,10 @@ export const parseOrdreInitial = (jsonString: string): OrdreInitial => {
                 ? normalized.O.map((o: unknown) => typeof o === 'string' ? o : JSON.stringify(o))
                 : (normalized.O ? [typeof normalized.O === 'string' ? normalized.O : JSON.stringify(normalized.O)] : []),
 
-            // I est maintenant une liste de chaînes (Idées de manœuvre générales)
+            // I est normalisé en liste d'IdeeManoeuvre.
             I: Array.isArray(finalI)
-                ? finalI.map((i: unknown) => {
-                    if (typeof i === 'string') return i;
-                    const mission = (i as { mission?: unknown }).mission;
-                    return typeof mission === 'string' ? mission : JSON.stringify(i);
-                })
-                : (typeof finalI === 'string' ? [finalI] : []),
+                ? finalI.map((i: unknown) => toIdeeManoeuvre(i))
+                : (typeof finalI === 'string' ? [toIdeeManoeuvre(finalI)] : []),
 
             // E contient maintenant potentiellement les données structurées (Missions/Moyens)
             // Mais le type OrdreInitial définit E comme string pour l'instant. 

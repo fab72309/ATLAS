@@ -271,9 +271,11 @@ export const ensureLayers = (map: maplibregl.Map) => {
 };
 
 export const setSelectionFilter = (map: maplibregl.Map, featureId: string | null) => {
+    const asFilter = (value: unknown): maplibregl.FilterSpecification =>
+        value as maplibregl.FilterSpecification;
     const idFilter = featureId
-        ? (['==', ['get', 'id'], featureId] as maplibregl.Expression)
-        : (['==', ['get', 'id'], ''] as maplibregl.Expression);
+        ? asFilter(['==', ['get', 'id'], featureId])
+        : asFilter(['==', ['get', 'id'], '']);
 
     if (map.getLayer(SELECT_LINE_LAYER_ID)) map.setFilter(SELECT_LINE_LAYER_ID, idFilter);
 
@@ -281,12 +283,12 @@ export const setSelectionFilter = (map: maplibregl.Map, featureId: string | null
         map.setFilter(
             SELECT_POINT_LAYER_ID,
             featureId
-                ? ([
+                ? asFilter([
                     'all',
                     ['==', ['get', 'id'], featureId],
                     ['==', ['geometry-type'], 'Point'],
-                ] as maplibregl.Expression)
-                : (['==', ['get', 'id'], ''] as maplibregl.Expression),
+                ])
+                : asFilter(['==', ['get', 'id'], '']),
         );
     }
 
@@ -294,12 +296,12 @@ export const setSelectionFilter = (map: maplibregl.Map, featureId: string | null
         map.setFilter(
             SELECT_POLYGON_LAYER_ID,
             featureId
-                ? ([
+                ? asFilter([
                     'all',
                     ['==', ['get', 'id'], featureId],
                     ['==', ['geometry-type'], 'Polygon'],
-                ] as maplibregl.Expression)
-                : (['==', ['get', 'id'], ''] as maplibregl.Expression),
+                ])
+                : asFilter(['==', ['get', 'id'], '']),
         );
     }
 };

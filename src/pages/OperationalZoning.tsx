@@ -41,7 +41,7 @@ const MapUpdater: React.FC<{ center: [number, number] }> = ({ center }) => {
   useEffect(() => {
     map.setView(center, 16);
 
-    const northArrow = L.control({ position: 'topright' });
+    const northArrow = new L.Control({ position: 'topright' });
 
     northArrow.onAdd = function () {
       const div = L.DomUtil.create('div', 'north-arrow-container');
@@ -66,7 +66,7 @@ const MapUpdater: React.FC<{ center: [number, number] }> = ({ center }) => {
 // Component to handle map clicks
 const MapClickHandler: React.FC<{ onMapClick: (latlng: L.LatLng) => void }> = ({ onMapClick }) => {
   useMapEvents({
-    click: (e) => {
+    click: (e: L.LeafletMouseEvent) => {
       onMapClick(e.latlng);
     },
   });
@@ -84,7 +84,7 @@ interface WeatherData {
 const ShareDialog: React.FC<{
   isOpen: boolean;
   onClose: () => void;
-  mapRef: React.RefObject<HTMLDivElement>;
+  mapRef: React.RefObject<HTMLDivElement | null>;
   address: string;
   zones: {
     exclusion: number;
@@ -285,7 +285,7 @@ const OperationalZoning = () => {
   });
   const [address, setAddress] = useState<string>('');
   const [isShareOpen, setIsShareOpen] = useState(false);
-  const mapRef = React.useRef<HTMLDivElement>(null);
+  const mapRef = React.useRef<HTMLDivElement | null>(null);
   const [weather, setWeather] = useState<WeatherData | null>(null);
 
   const fetchWeather = useCallback(async (lat: number, lon: number) => {
@@ -551,15 +551,12 @@ const OperationalZoning = () => {
             <Share2 className="w-5 h-5 text-slate-600 dark:text-gray-400 group-hover:text-slate-900 dark:group-hover:text-white" />
           </button>
           <div className="flex-1 w-full max-w-4xl mx-auto rounded-2xl overflow-hidden border border-slate-200 dark:border-white/10 shadow-2xl animate-fade-in-down" style={{ animationDelay: '0.3s' }}>
-            <div className="relative">
+            <div className="relative" ref={mapRef}>
               <MapContainer
-                ref={mapRef}
+                ref={leafletMapRef}
                 center={position}
                 zoom={16}
                 style={{ height: 'calc(100vh - 400px)', width: '100%' }}
-                whenCreated={(mapInstance) => {
-                  leafletMapRef.current = mapInstance;
-                }}
               >
                 <TileLayer
                   attribution={

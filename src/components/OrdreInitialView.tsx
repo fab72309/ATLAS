@@ -38,9 +38,9 @@ interface ColumnData {
   items: CardItem[];
 }
 
-const safeRender = (content: unknown) => {
+const safeRender = (content: unknown): string => {
   if (typeof content === 'string') return content;
-  if (typeof content === 'number') return content;
+  if (typeof content === 'number') return String(content);
   if (Array.isArray(content)) return content.map(c => safeRender(c)).join('\n');
   if (!content) return '';
   return JSON.stringify(content);
@@ -60,7 +60,10 @@ const DOCTRINE_DOMINANTE_MAP: Partial<Record<DominanteType, keyof typeof DOCTRIN
   'Risque Radiologique': 'secours_personne_complexe',
 };
 
-const buildColumnsFromOrdre = (ordre: OrdreInitial | null, useExtendedLayout: boolean) => {
+const buildColumnsFromOrdre = (
+  ordre: OrdreInitial | null,
+  useExtendedLayout: boolean
+): Record<string, ColumnData> => {
   const processItems = (content: unknown, isManeuver = false): CardItem[] => {
     if (!content) return [];
     if (Array.isArray(content)) {

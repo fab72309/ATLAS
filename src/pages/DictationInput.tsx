@@ -110,6 +110,83 @@ type CompteRenduMessage = {
   addressConfirmed: boolean;
 };
 
+type DraftPayload = {
+  ordreData?: OrdreInitial;
+  selectedRisks?: DominanteType[];
+  address?: string;
+  city?: string;
+  additionalInfo?: string | null;
+  orderTime?: string;
+  selectedMeans?: unknown[];
+  ambianceMessage?: Partial<AmbianceMessage>;
+  compteRenduMessage?: Partial<CompteRenduMessage>;
+  validatedAmbiance?: Partial<AmbianceMessage>;
+  validatedCompteRendu?: Partial<CompteRenduMessage>;
+  ordreValidatedAt?: string;
+  ordreConduite?: OrdreInitial;
+  showConduite?: boolean;
+  conduiteValidatedAt?: string;
+  conduiteSelectedRisks?: DominanteType[];
+  conduiteAddress?: string;
+  conduiteCity?: string;
+  conduiteAdditionalInfo?: string;
+  conduiteOrderTime?: string;
+  hasAdditionalInfo?: boolean;
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === 'object' && !Array.isArray(value);
+
+const isNonEmptyString = (value: unknown): value is string =>
+  typeof value === 'string' && value.length > 0;
+
+const toStringArray = (value: unknown): string[] | undefined => (
+  Array.isArray(value) && value.every((item) => typeof item === 'string') ? value : undefined
+);
+
+const toDominanteArray = (value: unknown): DominanteType[] | undefined => {
+  const arr = toStringArray(value);
+  return arr ? (arr as DominanteType[]) : undefined;
+};
+
+const isOrdreInitialLike = (value: unknown): value is OrdreInitial => {
+  if (!isRecord(value)) return false;
+  if (typeof value.S !== 'string') return false;
+  if (!Array.isArray(value.O)) return false;
+  if (!Array.isArray(value.I)) return false;
+  if (!('E' in value)) return false;
+  if (typeof value.C !== 'string') return false;
+  return true;
+};
+
+const parseDraftPayload = (value: unknown): DraftPayload | null => {
+  if (!isRecord(value)) return null;
+  const hasAdditionalInfo = Object.prototype.hasOwnProperty.call(value, 'additionalInfo');
+  return {
+    ordreData: isOrdreInitialLike(value.ordreData) ? value.ordreData : undefined,
+    selectedRisks: toDominanteArray(value.selectedRisks),
+    address: isNonEmptyString(value.address) ? value.address : undefined,
+    city: isNonEmptyString(value.city) ? value.city : undefined,
+    additionalInfo: hasAdditionalInfo && typeof value.additionalInfo === 'string' ? value.additionalInfo : null,
+    orderTime: isNonEmptyString(value.orderTime) ? value.orderTime : undefined,
+    selectedMeans: Array.isArray(value.selectedMeans) ? value.selectedMeans : undefined,
+    ambianceMessage: isRecord(value.ambianceMessage) ? value.ambianceMessage : undefined,
+    compteRenduMessage: isRecord(value.compteRenduMessage) ? value.compteRenduMessage : undefined,
+    validatedAmbiance: isRecord(value.validatedAmbiance) ? value.validatedAmbiance : undefined,
+    validatedCompteRendu: isRecord(value.validatedCompteRendu) ? value.validatedCompteRendu : undefined,
+    ordreValidatedAt: isNonEmptyString(value.ordreValidatedAt) ? value.ordreValidatedAt : undefined,
+    ordreConduite: isOrdreInitialLike(value.ordreConduite) ? value.ordreConduite : undefined,
+    showConduite: typeof value.showConduite === 'boolean' ? value.showConduite : undefined,
+    conduiteValidatedAt: isNonEmptyString(value.conduiteValidatedAt) ? value.conduiteValidatedAt : undefined,
+    conduiteSelectedRisks: toDominanteArray(value.conduiteSelectedRisks),
+    conduiteAddress: isNonEmptyString(value.conduiteAddress) ? value.conduiteAddress : undefined,
+    conduiteCity: isNonEmptyString(value.conduiteCity) ? value.conduiteCity : undefined,
+    conduiteAdditionalInfo: isNonEmptyString(value.conduiteAdditionalInfo) ? value.conduiteAdditionalInfo : undefined,
+    conduiteOrderTime: isNonEmptyString(value.conduiteOrderTime) ? value.conduiteOrderTime : undefined,
+    hasAdditionalInfo
+  };
+};
+
 const createAmbianceMessage = (): AmbianceMessage => {
   const { date, time } = getNowStamp();
   return {
@@ -1360,73 +1437,69 @@ const DictationInput = () => {
   // Load draft
   React.useEffect(() => {
     try {
-      const parsed = readUserScopedJSON<Record<string, unknown>>(INTERVENTION_DRAFT_KEY, 'local');
-      if (parsed) {
-        if (parsed.ordreData) setOrdreData(parsed.ordreData);
-        if (parsed.selectedRisks) setSelectedRisks(parsed.selectedRisks);
-        if (parsed.address) setAddress(parsed.address);
-        if (parsed.city) setCity(parsed.city);
-        if (Object.prototype.hasOwnProperty.call(parsed, 'additionalInfo')) {
-          setAdditionalInfo(parsed.additionalInfo ?? '');
-        }
-        if (parsed.orderTime) setOrderTime(parsed.orderTime);
-        if (parsed.selectedMeans) setSelectedMeans(normalizeMeans(parsed.selectedMeans));
-        if (parsed.ambianceMessage) {
-          const draftAmbiance = parsed.ambianceMessage as Partial<AmbianceMessage>;
-          setAmbianceMessage({
-            ...createAmbianceMessage(),
-            ...draftAmbiance,
-            demandes: normalizeDemandes(draftAmbiance.demandes),
-            surLesLieux: normalizeSurLesLieux(draftAmbiance.surLesLieux)
-          });
-        }
-        if (parsed.compteRenduMessage) {
-          const draftCompteRendu = parsed.compteRenduMessage as Partial<CompteRenduMessage>;
-          setCompteRenduMessage({
-            ...createCompteRenduMessage(),
-            ...draftCompteRendu,
-            demandes: normalizeDemandes(draftCompteRendu.demandes),
-            surLesLieux: normalizeSurLesLieux(draftCompteRendu.surLesLieux)
-          });
-        }
-        if (parsed.validatedAmbiance) {
-          const validated = parsed.validatedAmbiance as Partial<AmbianceMessage>;
-          setValidatedAmbiance({
-            ...createAmbianceMessage(),
-            ...validated,
-            demandes: normalizeDemandes(validated.demandes),
-            surLesLieux: normalizeSurLesLieux(validated.surLesLieux)
-          });
-        }
-        if (parsed.validatedCompteRendu) {
-          const validated = parsed.validatedCompteRendu as Partial<CompteRenduMessage>;
-          setValidatedCompteRendu({
-            ...createCompteRenduMessage(),
-            ...validated,
-            demandes: normalizeDemandes(validated.demandes),
-            surLesLieux: normalizeSurLesLieux(validated.surLesLieux)
-          });
-        }
-        if (parsed.ordreValidatedAt) {
-          setOrdreValidatedAt(parsed.ordreValidatedAt);
-        }
-        if (parsed.ordreConduite) {
-          setOrdreConduite(parsed.ordreConduite);
-        }
-        if (typeof parsed.showConduite === 'boolean') {
-          setShowConduite(parsed.showConduite);
-        }
-        if (parsed.conduiteValidatedAt) {
-          setConduiteValidatedAt(parsed.conduiteValidatedAt);
-        }
-        if (parsed.conduiteSelectedRisks) {
-          setConduiteSelectedRisks(parsed.conduiteSelectedRisks);
-        }
-        if (parsed.conduiteAddress) setConduiteAddress(parsed.conduiteAddress);
-        if (parsed.conduiteCity) setConduiteCity(parsed.conduiteCity);
-        if (parsed.conduiteAdditionalInfo) setConduiteAdditionalInfo(parsed.conduiteAdditionalInfo);
-        if (parsed.conduiteOrderTime) setConduiteOrderTime(parsed.conduiteOrderTime);
+      const parsed = readUserScopedJSON<unknown>(INTERVENTION_DRAFT_KEY, 'local');
+      const draft = parseDraftPayload(parsed);
+      if (!draft) return;
+      if (draft.ordreData) setOrdreData(draft.ordreData);
+      if (draft.selectedRisks) setSelectedRisks(draft.selectedRisks);
+      if (draft.address) setAddress(draft.address);
+      if (draft.city) setCity(draft.city);
+      if (draft.hasAdditionalInfo) {
+        setAdditionalInfo(draft.additionalInfo ?? '');
       }
+      if (draft.orderTime) setOrderTime(draft.orderTime);
+      if (draft.selectedMeans) setSelectedMeans(normalizeMeans(draft.selectedMeans));
+      if (draft.ambianceMessage) {
+        setAmbianceMessage({
+          ...createAmbianceMessage(),
+          ...draft.ambianceMessage,
+          demandes: normalizeDemandes(draft.ambianceMessage.demandes),
+          surLesLieux: normalizeSurLesLieux(draft.ambianceMessage.surLesLieux)
+        });
+      }
+      if (draft.compteRenduMessage) {
+        setCompteRenduMessage({
+          ...createCompteRenduMessage(),
+          ...draft.compteRenduMessage,
+          demandes: normalizeDemandes(draft.compteRenduMessage.demandes),
+          surLesLieux: normalizeSurLesLieux(draft.compteRenduMessage.surLesLieux)
+        });
+      }
+      if (draft.validatedAmbiance) {
+        setValidatedAmbiance({
+          ...createAmbianceMessage(),
+          ...draft.validatedAmbiance,
+          demandes: normalizeDemandes(draft.validatedAmbiance.demandes),
+          surLesLieux: normalizeSurLesLieux(draft.validatedAmbiance.surLesLieux)
+        });
+      }
+      if (draft.validatedCompteRendu) {
+        setValidatedCompteRendu({
+          ...createCompteRenduMessage(),
+          ...draft.validatedCompteRendu,
+          demandes: normalizeDemandes(draft.validatedCompteRendu.demandes),
+          surLesLieux: normalizeSurLesLieux(draft.validatedCompteRendu.surLesLieux)
+        });
+      }
+      if (draft.ordreValidatedAt) {
+        setOrdreValidatedAt(draft.ordreValidatedAt);
+      }
+      if (draft.ordreConduite) {
+        setOrdreConduite(draft.ordreConduite);
+      }
+      if (typeof draft.showConduite === 'boolean') {
+        setShowConduite(draft.showConduite);
+      }
+      if (draft.conduiteValidatedAt) {
+        setConduiteValidatedAt(draft.conduiteValidatedAt);
+      }
+      if (draft.conduiteSelectedRisks) {
+        setConduiteSelectedRisks(draft.conduiteSelectedRisks);
+      }
+      if (draft.conduiteAddress) setConduiteAddress(draft.conduiteAddress);
+      if (draft.conduiteCity) setConduiteCity(draft.conduiteCity);
+      if (draft.conduiteAdditionalInfo) setConduiteAdditionalInfo(draft.conduiteAdditionalInfo);
+      if (draft.conduiteOrderTime) setConduiteOrderTime(draft.conduiteOrderTime);
     } catch (err) {
       console.error('Erreur lecture brouillon', err);
     }
@@ -1535,53 +1608,58 @@ const DictationInput = () => {
 
   const persistMeansState = React.useMemo(
     () =>
-      debounce(async (means: MeanItem[], tree: OctTreeNode | null) => {
-        if (!currentInterventionId) return;
-        const payload = { selectedMeans: means, octTree: tree };
-        const serialized = JSON.stringify({ interventionId: currentInterventionId, payload });
-        if (serialized === lastMeansStateRef.current) return;
-        lastMeansStateRef.current = serialized;
-        try {
-          const supabase = getSupabaseClient();
-          if (!supabase) {
-            console.warn('Supabase config missing; skipping means sync.');
-            return;
+      debounce((means: unknown, tree: unknown) => {
+        void (async () => {
+          if (!currentInterventionId) return;
+          const normalizedMeans = Array.isArray(means) ? normalizeMeans(means) : [];
+          const normalizedTree = tree && typeof tree === 'object' ? (tree as OctTreeNode) : null;
+          const payload = { selectedMeans: normalizedMeans, octTree: normalizedTree };
+          const serialized = JSON.stringify({ interventionId: currentInterventionId, payload });
+          if (serialized === lastMeansStateRef.current) return;
+          lastMeansStateRef.current = serialized;
+          try {
+            const supabase = getSupabaseClient();
+            if (!supabase) {
+              console.warn('Supabase config missing; skipping means sync.');
+              return;
+            }
+            const { data, error } = await supabase.auth.getUser();
+            if (error) throw error;
+            const userId = data.user?.id;
+            if (!userId) throw new Error('Utilisateur non authentifié');
+            const { error: upsertError } = await supabase.from('intervention_means_state').upsert({
+              intervention_id: currentInterventionId,
+              data: payload,
+              updated_by: userId
+            });
+            if (upsertError) throw upsertError;
+            await logInterventionEvent(
+              currentInterventionId,
+              'MEANS_STATE_VALIDATED',
+              payload,
+              buildInterventionMetrics('dictation.moyens', { edit_count: normalizedMeans.length })
+            );
+          } catch (error) {
+            console.error('Erreur sauvegarde moyens', error);
           }
-          const { data, error } = await supabase.auth.getUser();
-          if (error) throw error;
-          const userId = data.user?.id;
-          if (!userId) throw new Error('Utilisateur non authentifié');
-          const { error: upsertError } = await supabase.from('intervention_means_state').upsert({
-            intervention_id: currentInterventionId,
-            data: payload,
-            updated_by: userId
-          });
-          if (upsertError) throw upsertError;
-          await logInterventionEvent(
-            currentInterventionId,
-            'MEANS_STATE_VALIDATED',
-            payload,
-            buildInterventionMetrics('dictation.moyens', { edit_count: means.length })
-          );
-        } catch (error) {
-          console.error('Erreur sauvegarde moyens', error);
-        }
+        })();
       }, 2500),
-    [buildInterventionMetrics, currentInterventionId]
+    [buildInterventionMetrics, currentInterventionId, normalizeMeans]
   );
 
   const meansTelemetry = React.useMemo(
     () =>
-      debounce((means: MeanItem[]) => {
+      debounce((means: unknown) => {
+        const normalizedMeans = Array.isArray(means) ? normalizeMeans(means) : [];
         telemetryBuffer.addSample({
           interventionId: currentInterventionId,
           stream: 'MEANS',
-          patch: { selectedMeansIds: means.map((mean) => mean.id) },
+          patch: { selectedMeansIds: normalizedMeans.map((mean) => mean.id) },
           interventionStartedAtMs,
           uiContext: 'dictation.moyens'
         });
       }, 2000),
-    [currentInterventionId, interventionStartedAtMs]
+    [currentInterventionId, interventionStartedAtMs, normalizeMeans]
   );
 
   React.useEffect(() => {

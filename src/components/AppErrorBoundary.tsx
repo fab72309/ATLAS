@@ -5,8 +5,12 @@ interface AppErrorBoundaryState {
   error?: unknown;
 }
 
-class AppErrorBoundary extends React.Component<React.PropsWithChildren<Record<string, never>>, AppErrorBoundaryState> {
-  constructor(props: React.PropsWithChildren<Record<string, never>>) {
+interface AppErrorBoundaryProps {
+  children?: React.ReactNode;
+}
+
+class AppErrorBoundary extends React.Component<AppErrorBoundaryProps, AppErrorBoundaryState> {
+  constructor(props: AppErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false };
   }
@@ -47,7 +51,7 @@ class AppErrorBoundary extends React.Component<React.PropsWithChildren<Record<st
       );
     }
 
-    return this.props.children as React.ReactElement;
+    return this.props.children;
   }
 }
 

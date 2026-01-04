@@ -3,12 +3,21 @@ import { getDominantesOrder, DEFAULT_DOMINANTES } from '../utils/dominantes';
 
 export type DominanteType = typeof DEFAULT_DOMINANTES[number];
 
-interface DominantSelectorProps {
+interface DominantSelectorMultiProps {
   selectedRisks: DominanteType[];
   onChange: (risks: DominanteType[]) => void;
   className?: string;
   disabled?: boolean;
 }
+
+interface DominantSelectorSingleProps {
+  value: DominanteType;
+  onChange: (value: DominanteType) => void;
+  className?: string;
+  disabled?: boolean;
+}
+
+type DominantSelectorProps = DominantSelectorMultiProps | DominantSelectorSingleProps;
 
 const useDominantes = () => {
   const [order, setOrder] = React.useState(getDominantesOrder());
@@ -24,17 +33,26 @@ const useDominantes = () => {
   return order;
 };
 
-const DominantSelector: React.FC<DominantSelectorProps> = ({ selectedRisks, onChange, className, disabled = false }) => {
+const DominantSelector: React.FC<DominantSelectorProps> = (props) => {
+  const { className, disabled = false } = props;
   const order = useDominantes();
+  const selectedRisks = 'selectedRisks' in props ? props.selectedRisks : [props.value];
 
   const handleSelect = (opt: DominanteType) => {
     if (disabled) return;
-    if (selectedRisks.includes(opt)) {
-      // Si déjà sélectionné, on le retire
-      onChange(selectedRisks.filter(r => r !== opt));
-    } else {
-      // Sinon on l'ajoute à la fin
-      onChange([...selectedRisks, opt]);
+    if ('selectedRisks' in props) {
+      if (selectedRisks.includes(opt)) {
+        // Si déjà sélectionné, on le retire
+        props.onChange(selectedRisks.filter(r => r !== opt));
+      } else {
+        // Sinon on l'ajoute à la fin
+        props.onChange([...selectedRisks, opt]);
+      }
+      return;
+    }
+
+    if (props.value !== opt) {
+      props.onChange(opt);
     }
   };
 
