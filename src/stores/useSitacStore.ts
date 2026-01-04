@@ -39,7 +39,7 @@ interface SitacState {
     fabricAction: { type: 'delete' | 'duplicate' | 'none' } | null; // Adding missing action
     setSelectedFabricProperties: (props: SITACFeatureProperties | null) => void;
     updateFabricObject: (props: Partial<SITACFeatureProperties>) => void;
-    setFabricAction: (action: { type: 'delete' | 'none' } | null) => void;
+    setFabricAction: (action: { type: 'delete' | 'duplicate' | 'none' } | null) => void;
 }
 
 const createEmptyFc = (): SITACCollection => ({ type: 'FeatureCollection', features: [] });
