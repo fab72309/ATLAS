@@ -84,6 +84,13 @@ const getLineStyleFromDash = (dash?: number[] | null) => {
     return 'dashed';
 };
 
+type OptionalFill = string | fabric.TFiller | null | undefined;
+
+const toOptionalFill = (value: unknown): OptionalFill => value as OptionalFill;
+const toOptionalString = (value: unknown): string | undefined => value as string | undefined;
+const toDashArray = (value: number[] | null | undefined): number[] | null => value ?? null;
+const toPathString = (value: unknown): string => value as string;
+
 const setBaseTransform = (obj: fabric.Object, map: maplibregl.Map | null) => {
     if (!map) return;
     const meta = obj as FabricMetaObject;
@@ -907,7 +914,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                 else if (active instanceof fabric.Image) type = 'symbol';
 
                 // Fabric types are tricky. simpler to check visual props.
-                let color = (active.fill as string) !== 'transparent' ? active.fill : active.stroke;
+                let color = toOptionalFill((active.fill as string) !== 'transparent' ? active.fill : active.stroke);
 
                 // If it is an image/symbol, check filters for color
                 if (active instanceof fabric.Image && active.filters) {
@@ -924,28 +931,28 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                     }
                 } else if (active instanceof fabric.Group && (active as FabricMetaGroup).isArrow) {
                     const groupMeta = active as FabricMetaGroup & { _objects?: fabric.Object[] };
-                    const strokeColor = groupMeta.strokeColor;
+                    const strokeColor = toOptionalFill(groupMeta.strokeColor);
                     const firstChild = groupMeta._objects?.[0] as fabric.Object | undefined;
-                    const firstStroke = firstChild && 'stroke' in firstChild ? (firstChild as fabric.Object).stroke : undefined;
+                    const firstStroke = firstChild && 'stroke' in firstChild ? toOptionalFill((firstChild as fabric.Object).stroke) : undefined;
                     color = strokeColor || (firstStroke ?? color);
                 }
 
                 // Read Dash Array for style
-                let dash = active.strokeDashArray;
+                let dash = toDashArray(active.strokeDashArray);
                 if (active instanceof fabric.Group && (active as FabricMetaGroup).isArrow) {
                     const groupMeta = active as FabricMetaGroup & { _objects?: fabric.Object[] };
                     const lineChild = groupMeta._objects?.find((c) => c instanceof fabric.Line) as fabric.Line | undefined;
-                    dash = lineChild?.strokeDashArray;
+                    dash = toDashArray(lineChild?.strokeDashArray);
                 }
                 const style = getLineStyleFromDash(dash);
 
                 useSitacStore.setState({
                     selectedFabricProperties: {
-                        color: (color as string) || '#000000',
+                        color: toOptionalString(color) || '#000000',
                         lineStyle: style,
-                        type: type,
+                        type: type as SITACFeatureProperties['type'],
                         // Add more props if needed
-                    }
+                    } as SITACFeatureProperties
                 });
             } else {
                 useSitacStore.setState({ selectedFabricProperties: null });
@@ -1005,13 +1012,13 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                     return (obj.fill as string) !== 'transparent' ? obj.fill : obj.stroke;
                 };
 
-                properties.color = getColor();
+                properties.color = toOptionalString(getColor());
 
                 if (obj instanceof fabric.IText) {
                     geometry = { type: 'Point', coordinates: [lng, lat] };
                     properties.type = 'text';
                     properties.textContent = (obj as fabric.IText).text;
-                    properties.color = obj.fill;
+                    properties.color = toOptionalString(obj.fill);
                 } else if (obj instanceof fabric.Image) {
                     geometry = { type: 'Point', coordinates: [lng, lat] };
                     properties.type = 'symbol';
@@ -1045,36 +1052,37 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                         Math.pow(((obj as fabric.Line).x2 || 0) - ((obj as fabric.Line).x1 || 0), 2) +
                         Math.pow(((obj as fabric.Line).y2 || 0) - ((obj as fabric.Line).y1 || 0), 2)
                     );
-                    properties.color = obj.stroke;
+                    properties.color = toOptionalString(obj.stroke);
                     properties.lineStyle = getLineStyleFromDash(obj.strokeDashArray);
                     geometry = { type: 'Point', coordinates: [lng, lat] };
                 } else if (obj instanceof fabric.Group && (obj as FabricMetaGroup).isArrow) {
                     const groupMeta = obj as FabricMetaGroup & { _objects?: fabric.Object[] };
                     const lineChild = groupMeta._objects?.find((c) => c instanceof fabric.Line) as fabric.Line | undefined;
+                    const strokeColor = toOptionalFill(groupMeta.strokeColor);
                     properties.type = 'arrow';
                     properties.strokeWidth = lineChild?.strokeWidth || 4;
                     const derivedLength = lineChild
                         ? Math.sqrt(Math.pow((lineChild.x2 || 0) - (lineChild.x1 || 0), 2) + Math.pow((lineChild.y2 || 0) - (lineChild.y1 || 0), 2))
                         : obj.width || 80;
                     properties.length = typeof groupMeta.arrowLength === 'number' ? groupMeta.arrowLength : derivedLength;
-                    properties.color = (groupMeta.strokeColor as string | undefined) || lineChild?.stroke;
+                    properties.color = toOptionalString(strokeColor || lineChild?.stroke);
                     properties.lineStyle = getLineStyleFromDash(lineChild?.strokeDashArray);
                     geometry = { type: 'Point', coordinates: [lng, lat] };
                 } else if (obj instanceof fabric.Polygon) {
                     properties.type = 'polygon';
                     properties.points = (obj as fabric.Polygon).points;
                     properties.strokeWidth = obj.strokeWidth;
-                    properties.color = obj.stroke;
+                    properties.color = toOptionalString(obj.stroke);
                     properties.lineStyle = getLineStyleFromDash(obj.strokeDashArray);
                     geometry = { type: 'Point', coordinates: [lng, lat] };
                 } else if (obj instanceof fabric.Path) {
                     properties.type = 'freehand';
                     geometry = { type: 'Point', coordinates: [lng, lat] };
-                    properties.path = (obj as fabric.Path).path;
+                    properties.path = toPathString((obj as fabric.Path).path);
                     properties.strokeWidth = obj.strokeWidth;
                     properties.scaleX = obj.scaleX;
                     properties.scaleY = obj.scaleY;
-                    properties.color = obj.stroke;
+                    properties.color = toOptionalString(obj.stroke);
                     properties.lineStyle = getLineStyleFromDash(obj.strokeDashArray);
                 }
 
