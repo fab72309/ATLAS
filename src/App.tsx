@@ -3,11 +3,9 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Home from './pages/Home';
 import CommandTypeChoice from './pages/CommandTypeChoice';
 import SituationInput from './pages/SituationInput';
-import DictationInput from './pages/DictationInput';
 import Results from './pages/Results';
 import OperationalZoning from './pages/OperationalZoning';
 import OperationalFunctions from './pages/OperationalFunctions';
-import SitacMap from './pages/SitacMap';
 import SettingsPage from './pages/Settings';
 import OctDiagram from './pages/OctDiagram';
 import JoinIntervention from './pages/JoinIntervention';
@@ -19,6 +17,9 @@ import { APP_VERSION } from './version';
 
 // DEV-only page
 import SupabaseDev from './pages/SupabaseDev';
+
+const DictationInput = React.lazy(() => import('./pages/DictationInput'));
+const SitacMap = React.lazy(() => import('./pages/SitacMap'));
 
 function App() {
   React.useEffect(() => {
@@ -51,10 +52,24 @@ function App() {
             <Route path="functions" element={<OperationalFunctions />} />
             <Route path="command-type/:type" element={<CommandTypeChoice />} />
             <Route path="situation/:type/ai" element={<SituationInput />} />
-            <Route path="situation/:type/dictate" element={<DictationInput />} />
+            <Route
+              path="situation/:type/dictate"
+              element={(
+                <React.Suspense fallback={null}>
+                  <DictationInput />
+                </React.Suspense>
+              )}
+            />
             <Route path="results" element={<Results />} />
             <Route path="operational-zoning" element={<OperationalZoning />} />
-            <Route path="sitac" element={<SitacMap />} />
+            <Route
+              path="sitac"
+              element={(
+                <React.Suspense fallback={null}>
+                  <SitacMap />
+                </React.Suspense>
+              )}
+            />
             <Route path="oct" element={<OctDiagram />} />
             <Route path="settings" element={<SettingsPage />} />
 
