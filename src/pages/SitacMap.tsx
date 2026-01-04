@@ -3,7 +3,6 @@ import maplibregl, { type GeoJSONSource, type LngLatLike } from 'maplibre-gl';
 import type GeoJSON from 'geojson';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import MapLibreWorker from 'maplibre-gl/dist/maplibre-gl-csp-worker?worker';
-import { jsPDF } from 'jspdf';
 
 import { useSitacStore } from '../stores/useSitacStore';
 import { useInterventionStore } from '../stores/useInterventionStore';
@@ -29,6 +28,7 @@ import SitacFabricCanvas from '../components/sitac/SitacFabricCanvas';
 import { logInterventionEvent } from '../utils/atlasTelemetry';
 import { telemetryBuffer } from '../utils/telemetryBuffer';
 import { getSupabaseClient } from '../utils/supabaseClient';
+import { getJsPDF } from '../utils/jspdf';
 
 const maplibreWithWorker = maplibregl as typeof maplibregl & { workerClass?: typeof MapLibreWorker };
 maplibreWithWorker.workerClass = MapLibreWorker;
@@ -1269,7 +1269,8 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
       exportHeight = fallbackCanvas.height;
     }
     const orientation = exportWidth > exportHeight ? 'landscape' : 'portrait';
-    const pdf = new jsPDF({
+    const JsPDF = await getJsPDF();
+    const pdf = new JsPDF({
       orientation,
       unit: 'px',
       format: [exportWidth, exportHeight],

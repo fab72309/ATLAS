@@ -1,8 +1,8 @@
 import { Share } from '@capacitor/share';
 import { Clipboard } from '@capacitor/clipboard';
-import { jsPDF } from 'jspdf';
 import { OrdreInitial } from '../types/soiec';
 import { buildOrdreTitle, generateOrdreInitialText, generateOrdreInitialShortText } from './soiec';
+import { getJsPDF } from './jspdf';
 
 const buildMeta = (opts?: { adresse?: string; heure?: string; role?: string }) => ({
     adresse: opts?.adresse,
@@ -129,8 +129,9 @@ export const exportOrdreToShare = async (ordre: OrdreInitial, opts?: { adresse?:
     }
 };
 
-export const exportOrdreToPdf = (ordre: OrdreInitial, opts?: { adresse?: string; heure?: string; role?: string }): void => {
-    const doc = new jsPDF();
+export const exportOrdreToPdf = async (ordre: OrdreInitial, opts?: { adresse?: string; heure?: string; role?: string }): Promise<void> => {
+    const JsPDF = await getJsPDF();
+    const doc = new JsPDF();
     const date = new Date().toLocaleDateString('fr-FR');
     const time = new Date().toLocaleTimeString('fr-FR');
     const filename = buildFilename('pdf', opts);
@@ -299,7 +300,8 @@ export const shareOrdreAsFile = async (
     void channel;
     const isPdf = format === 'pdf';
     if (isPdf) {
-        const doc = new jsPDF();
+        const JsPDF = await getJsPDF();
+        const doc = new JsPDF();
         const text = generateOrdreInitialText(ordre, buildMeta(opts));
         doc.text(text, 10, 10, { maxWidth: 190 });
         const blob = doc.output('blob');
@@ -387,7 +389,8 @@ export const exportBoardDesignPdf = async (el: HTMLElement, opts?: { adresse?: s
     applyBoardExportMeta(canvas, opts);
     const imgData = canvas.toDataURL('image/jpeg', 0.75);
     const orientation = canvas.width > canvas.height ? 'landscape' : 'portrait';
-    const pdf = new jsPDF({
+    const JsPDF = await getJsPDF();
+    const pdf = new JsPDF({
         orientation,
         unit: 'px',
         format: [canvas.width, canvas.height]

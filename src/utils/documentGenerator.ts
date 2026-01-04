@@ -1,14 +1,15 @@
-import { jsPDF } from 'jspdf';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
 import { saveAs } from 'file-saver';
+import { getJsPDF } from './jspdf';
 
 interface Section {
   title: string;
   content: string;
 }
 
-export const generatePDF = (sections: Section[]) => {
-  const doc = new jsPDF();
+export const generatePDF = async (sections: Section[]) => {
+  const JsPDF = await getJsPDF();
+  const doc = new JsPDF();
   let yPosition = 20;
 
   doc.setFont("helvetica", "bold");

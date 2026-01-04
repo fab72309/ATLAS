@@ -2,12 +2,12 @@ import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { Share2, Download, Check, Copy, Bug, FileText, Send } from 'lucide-react';
-import { jsPDF } from 'jspdf';
 import CommandIcon from '../components/CommandIcon';
 import OrdreInitialView from '../components/OrdreInitialView';
 import { parseOrdreInitial } from '../utils/soiec';
 import { exportOrdreToClipboard, exportOrdreToPdf, exportOrdreToShare, exportOrdreToWord, shareOrdreAsText, shareOrdreAsFile } from '../utils/export';
 import { OrdreInitial } from '../types/soiec';
+import { getJsPDF } from '../utils/jspdf';
 
 type DisplaySection = { title?: string; content?: string };
 
@@ -112,13 +112,14 @@ const Results = () => {
     }
   };
 
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     if (isOperational && ordreInitial && !showDebug) {
-      exportOrdreToPdf(ordreInitial, meta);
+      await exportOrdreToPdf(ordreInitial, meta);
       return;
     }
 
-    const doc = new jsPDF();
+    const JsPDF = await getJsPDF();
+    const doc = new JsPDF();
     const date = new Date().toLocaleDateString('fr-FR');
     const time = new Date().toLocaleTimeString('fr-FR');
 

@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Share } from '@capacitor/share';
 // Heavy libs are loaded on demand
+import { getJsPDF } from '../utils/jspdf';
 
 interface ShareDialogProps {
   isOpen: boolean;
@@ -58,8 +59,8 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
   const generateAnalysisPDF = async () => {
     if (!displaySections) return;
 
-    const { jsPDF } = await import('jspdf');
-    const doc = new jsPDF();
+    const JsPDF = await getJsPDF();
+    const doc = new JsPDF();
     let yPosition = 20;
 
     doc.setFont("helvetica", "bold");
@@ -124,8 +125,8 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
         if (!canvas) return;
 
         const imgData = canvas.toDataURL('image/png');
-        const { jsPDF } = await import('jspdf');
-        const pdf = new jsPDF({
+        const JsPDF = await getJsPDF();
+        const pdf = new JsPDF({
           orientation: 'landscape',
           unit: 'mm',
         });

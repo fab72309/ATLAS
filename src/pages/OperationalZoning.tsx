@@ -7,6 +7,7 @@ import L from 'leaflet';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import 'leaflet/dist/leaflet.css';
+import { getJsPDF } from '../utils/jspdf';
 
 const getCardinalDirection = (degrees: number): string => {
   const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSO', 'SO', 'OSO', 'O', 'ONO', 'NO', 'NNO'];
@@ -161,8 +162,8 @@ const ShareDialog: React.FC<{
       if (!canvas) return;
 
       const imgData = canvas.toDataURL('image/png');
-      const { jsPDF } = await import('jspdf');
-      const pdf = new jsPDF({
+      const JsPDF = await getJsPDF();
+      const pdf = new JsPDF({
         orientation: 'landscape',
         unit: 'mm',
       });
