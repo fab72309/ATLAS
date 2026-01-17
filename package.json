@@ -65,6 +65,10 @@
     "typescript-eslint": "^8.3.0",
     "vite": "^5.4.2"
   },
+  "overrides": {
+    "tar": "7.5.3",
+    "@mapbox/node-pre-gyp": "2.0.3"
+  },
   "description": "Aide Tactique et Logique pour l'Action des Secours",
   "main": "eslint.config.js",
   "repository": {
