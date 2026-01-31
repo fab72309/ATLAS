@@ -14,6 +14,7 @@ import AppErrorBoundary from './components/AppErrorBoundary';
 import LoginPage from './pages/Login';
 import RequireAuth from './components/RequireAuth';
 import { APP_VERSION } from './version';
+import Onboarding from './pages/Onboarding';
 
 // DEV-only page
 import SupabaseDev from './pages/SupabaseDev';
@@ -41,8 +42,9 @@ function App() {
               </RequireAuth>
             }
           >
-            <Route index element={<Home />} />
-            <Route path="index.html" element={<Navigate to="/" replace />} />
+          <Route index element={<Home />} />
+          <Route path="index.html" element={<Navigate to="/" replace />} />
+          <Route path="onboarding" element={<Onboarding />} />
 
             {/* DEV-only route (protected) */}
             {import.meta.env.DEV && (

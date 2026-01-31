@@ -114,6 +114,8 @@ const SitacToolbar: React.FC<SitacToolbarProps> = ({
                                 ? 'Plan'
                                 : baseLayer === 'satellite'
                                     ? 'Satellite'
+                                    : baseLayer === 'hybrid'
+                                        ? 'Hybride'
                                     : baseLayer === 'whiteboard'
                                         ? 'Tableau blanc'
                                         : 'Offline'}

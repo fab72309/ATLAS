@@ -30,6 +30,8 @@ const LoginPage = () => {
   const [mode, setMode] = React.useState<Mode>('login');
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
+  const [firstName, setFirstName] = React.useState('');
+  const [lastName, setLastName] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -47,7 +49,7 @@ const LoginPage = () => {
       if (mode === 'login') {
         await login(email, password);
       } else {
-        await register(email, password);
+        await register(email, password, { firstName, lastName });
       }
       navigate(from, { replace: true });
     } catch (err) {
@@ -93,6 +95,35 @@ const LoginPage = () => {
         </div>
 
         <form className="space-y-4" onSubmit={handleSubmit}>
+          {mode === 'signup' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-sm text-slate-600 dark:text-gray-300">Prénom</label>
+                <input
+                  type="text"
+                  autoComplete="given-name"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  className="w-full bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-slate-400 dark:focus:border-white/30"
+                  placeholder="Prénom"
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm text-slate-600 dark:text-gray-300">Nom</label>
+                <input
+                  type="text"
+                  autoComplete="family-name"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  className="w-full bg-slate-100 dark:bg-black/30 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-slate-400 dark:focus:border-white/30"
+                  placeholder="Nom"
+                  required
+                />
+              </div>
+            </div>
+          )}
+
           <div className="space-y-1">
             <label className="text-sm text-slate-600 dark:text-gray-300">Email</label>
             <input

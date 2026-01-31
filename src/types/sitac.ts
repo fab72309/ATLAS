@@ -35,7 +35,7 @@ export interface SITACFeatureProperties {
 export type SITACFeature = Feature<Geometry, SITACFeatureProperties>;
 export type SITACCollection = FeatureCollection<Geometry, SITACFeatureProperties>;
 
-export type BaseLayerKey = 'plan' | 'satellite' | 'whiteboard' | 'offline';
+export type BaseLayerKey = 'plan' | 'satellite' | 'hybrid' | 'whiteboard' | 'offline';
 
 export type SymbolAsset = {
     id: string;

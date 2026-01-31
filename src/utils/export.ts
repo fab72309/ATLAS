@@ -1,7 +1,7 @@
 import { Share } from '@capacitor/share';
 import { Clipboard } from '@capacitor/clipboard';
 import { OrdreInitial } from '../types/soiec';
-import { buildOrdreTitle, generateOrdreInitialText, generateOrdreInitialShortText } from './soiec';
+import { buildOrdreTitle, generateOrdreInitialText, generateOrdreInitialShortText, getSimpleSectionContentList, getSimpleSectionText } from './soiec';
 import { getJsPDF } from './jspdf';
 
 const buildMeta = (opts?: { adresse?: string; heure?: string; role?: string }) => ({
@@ -135,10 +135,13 @@ export const exportOrdreToPdf = async (ordre: OrdreInitial, opts?: { adresse?: s
     const date = new Date().toLocaleDateString('fr-FR');
     const time = new Date().toLocaleTimeString('fr-FR');
     const filename = buildFilename('pdf', opts);
-    const includeAnticipation = isExtendedRole(opts?.role) || (Array.isArray(ordre.A) && ordre.A.length > 0);
-    const includeLogistique = isExtendedRole(opts?.role) || (Array.isArray(ordre.L) && ordre.L.length > 0);
-    const anticipationItems = Array.isArray(ordre.A) ? ordre.A : [];
-    const logistiqueItems = Array.isArray(ordre.L) ? ordre.L : [];
+    const anticipationItems = getSimpleSectionContentList(ordre.A);
+    const logistiqueItems = getSimpleSectionContentList(ordre.L);
+    const objectifs = getSimpleSectionContentList(ordre.O);
+    const situationText = getSimpleSectionText(ordre.S);
+    const commandementText = getSimpleSectionText(ordre.C);
+    const includeAnticipation = isExtendedRole(opts?.role) || anticipationItems.length > 0;
+    const includeLogistique = isExtendedRole(opts?.role) || logistiqueItems.length > 0;
 
     // Configuration de la police
     doc.setFont("helvetica");
@@ -156,7 +159,7 @@ export const exportOrdreToPdf = async (ordre: OrdreInitial, opts?: { adresse?: s
     const lineHeight = 7;
 
     // Helper pour ajouter du texte avec retour à la ligne automatique
-    const addText = (text: OrdreInitial['E'], fontSize: number = 12, fontType: string = 'normal') => {
+    const addText = (text: string, fontSize: number = 12, fontType: string = 'normal') => {
         doc.setFont("helvetica", fontType);
         doc.setFontSize(fontSize);
 
@@ -183,7 +186,7 @@ export const exportOrdreToPdf = async (ordre: OrdreInitial, opts?: { adresse?: s
 
     // S - SITUATION
     addText('S – SITUATION', 14, 'bold');
-    addText(ordre.S);
+    addText(situationText);
     yPos += 5;
 
     if (includeAnticipation) {
@@ -200,8 +203,8 @@ export const exportOrdreToPdf = async (ordre: OrdreInitial, opts?: { adresse?: s
 
     // O - OBJECTIFS
     addText('O – OBJECTIFS', 14, 'bold');
-    if (ordre.O.length > 0) {
-        ordre.O.forEach((obj, i) => {
+    if (objectifs.length > 0) {
+        objectifs.forEach((obj, i) => {
             addText(`${i + 1}. ${obj}`);
         });
     } else {
@@ -211,8 +214,9 @@ export const exportOrdreToPdf = async (ordre: OrdreInitial, opts?: { adresse?: s
 
     // I - IDÉES DE MANŒUVRE
     addText('I – IDÉES DE MANŒUVRE', 14, 'bold');
-    if (ordre.I.length > 0) {
-        ordre.I.forEach((im, i) => {
+    const ideeItems = ordre.I.filter((im) => im?.type !== 'separator' && im?.type !== 'empty');
+    if (ideeItems.length > 0) {
+        ideeItems.forEach((im, i) => {
             addText(`IM${i + 1} – ${im.mission}`, 12, 'bold');
             addText(`Moyens : ${im.moyen}`);
             if (im.moyen_supp) addText(`Moyens suppl. : ${im.moyen_supp}`);
@@ -226,12 +230,36 @@ export const exportOrdreToPdf = async (ordre: OrdreInitial, opts?: { adresse?: s
 
     // E - EXÉCUTION
     addText('E – EXÉCUTION', 14, 'bold');
-    addText(ordre.E);
+    if (Array.isArray(ordre.E)) {
+        const executionItems = ordre.E.filter((entry) => {
+            if (!entry || typeof entry !== 'object') return true;
+            const record = entry as Record<string, unknown>;
+            return record.type !== 'separator' && record.type !== 'empty';
+        });
+        if (executionItems.length > 0) {
+            executionItems.forEach((entry, index) => {
+                if (typeof entry === 'string') {
+                    addText(`${index + 1}. ${entry}`);
+                    return;
+                }
+                const record = entry as Record<string, unknown>;
+                const mission = typeof record.mission === 'string' ? record.mission : '';
+                const moyen = typeof record.moyen === 'string' ? ` (${record.moyen})` : '';
+                const moyenSupp = typeof record.moyen_supp === 'string' ? ` + ${record.moyen_supp}` : '';
+                const details = typeof record.details === 'string' ? ` — ${record.details}` : '';
+                addText(`${index + 1}. ${mission}${moyen}${moyenSupp}${details}`.trim());
+            });
+        } else {
+            addText("Aucune exécution spécifiée.");
+        }
+    } else {
+        addText(String(ordre.E ?? ''));
+    }
     yPos += 5;
 
     // C - COMMANDEMENT
     addText('C – COMMANDEMENT', 14, 'bold');
-    addText(ordre.C);
+    addText(commandementText);
 
     if (includeLogistique) {
         yPos += 5;
@@ -426,28 +454,34 @@ const buildBoardHtmlTemplate = (ordre: OrdreInitial, opts?: { adresse?: string; 
     const metaLines = [];
     if (opts?.adresse) metaLines.push(`<div class="meta">Adresse : ${escapeHtml(opts.adresse)}</div>`);
     if (opts?.heure) metaLines.push(`<div class="meta">Heure : ${escapeHtml(opts.heure)}</div>`);
-    const includeAnticipation = isExtendedRole(opts?.role) || (Array.isArray(ordre.A) && ordre.A.length > 0);
-    const includeLogistique = isExtendedRole(opts?.role) || (Array.isArray(ordre.L) && ordre.L.length > 0);
-    const anticipationItems = Array.isArray(ordre.A) ? ordre.A : [];
-    const logistiqueItems = Array.isArray(ordre.L) ? ordre.L : [];
+    const anticipationItems = getSimpleSectionContentList(ordre.A);
+    const logistiqueItems = getSimpleSectionContentList(ordre.L);
+    const includeAnticipation = isExtendedRole(opts?.role) || anticipationItems.length > 0;
+    const includeLogistique = isExtendedRole(opts?.role) || logistiqueItems.length > 0;
 
     const executionData = Array.isArray(ordre.E)
-        ? ordre.E.map((entry) => {
-            if (typeof entry === 'string') return entry;
-            const record = (entry ?? {}) as Record<string, unknown>;
-            const mission = typeof record.mission === 'string' ? record.mission : '';
-            const moyen = typeof record.moyen === 'string' ? record.moyen : '';
-            return `${mission} – ${moyen}`.trim();
-        })
+        ? ordre.E
+            .filter((entry) => {
+                if (!entry || typeof entry !== 'object') return true;
+                const record = entry as Record<string, unknown>;
+                return record.type !== 'separator' && record.type !== 'empty';
+            })
+            .map((entry) => {
+                if (typeof entry === 'string') return entry;
+                const record = (entry ?? {}) as Record<string, unknown>;
+                const mission = typeof record.mission === 'string' ? record.mission : '';
+                const moyen = typeof record.moyen === 'string' ? record.moyen : '';
+                return `${mission} – ${moyen}`.trim();
+            })
         : [typeof ordre.E === 'string' ? ordre.E : String(ordre.E ?? '')];
 
     const columns = [
-        { title: 'Situation', color: '#1e3a8a', data: typeof ordre.S === 'string' ? ordre.S.split('\n').filter(Boolean) : [] },
+        { title: 'Situation', color: '#1e3a8a', data: getSimpleSectionContentList(ordre.S) },
         ...(includeAnticipation ? [{ title: 'Anticipation', color: '#0f766e', data: anticipationItems }] : []),
-        { title: 'Objectif', color: '#065f46', data: ordre.O || [] },
-        { title: 'Idée de manœuvre', color: '#92400e', data: (ordre.I || []).map(i => i.mission || '') },
+        { title: 'Objectif', color: '#065f46', data: getSimpleSectionContentList(ordre.O) },
+        { title: 'Idée de manœuvre', color: '#92400e', data: (ordre.I || []).filter((i) => i?.type !== 'separator' && i?.type !== 'empty').map(i => i.mission || '') },
         { title: 'Exécution', color: '#7f1d1d', data: executionData },
-        { title: 'Commandement', color: '#6b21a8', data: typeof ordre.C === 'string' ? ordre.C.split('\n').filter(Boolean) : [] },
+        { title: 'Commandement', color: '#6b21a8', data: getSimpleSectionContentList(ordre.C) },
         ...(includeLogistique ? [{ title: 'Logistique', color: '#c2410c', data: logistiqueItems }] : []),
     ];
 

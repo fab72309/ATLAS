@@ -4,6 +4,7 @@ import App from './App.tsx';
 import './index.css';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { ProfileProvider } from './contexts/ProfileContext';
 
 // Ensure HashRouter has a starting hash on iOS WebView (Capacitor) to prevent blank screen
 if (!window.location.hash) {
@@ -28,7 +29,9 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider>
       <AuthProvider>
-        <App />
+        <ProfileProvider>
+          <App />
+        </ProfileProvider>
       </AuthProvider>
     </ThemeProvider>
   </StrictMode>

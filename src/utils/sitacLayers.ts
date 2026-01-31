@@ -62,6 +62,7 @@ const WHITEBOARD_STYLE: StyleSpecification = {
 };
 
 const SATELLITE_STYLE = `https://api.maptiler.com/maps/satellite/style.json?key=${MAPTILER_KEY}`;
+const HYBRID_STYLE = `https://api.maptiler.com/maps/hybrid/style.json?key=${MAPTILER_KEY}`;
 
 const OFFLINE_STYLE: StyleSpecification = {
     version: 8,
@@ -96,6 +97,7 @@ const OFFLINE_STYLE: StyleSpecification = {
 export const BASE_STYLES: Record<BaseLayerKey, StyleSpecification | string> = {
     plan: `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`,
     satellite: SATELLITE_STYLE,
+    hybrid: HYBRID_STYLE,
     whiteboard: WHITEBOARD_STYLE,
     offline: OFFLINE_STYLE,
 };

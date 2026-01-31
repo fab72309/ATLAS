@@ -1,14 +1,19 @@
 {
   "name": "emergency-command-app",
   "private": true,
-  "version": "0.2.4-alpha.1",
+  "version": "0.2.5-alpha.1",
   "type": "module",
   "scripts": {
     "dev": "vite --port 5174",
     "build": "vite build",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop",
+    "supabase:reset": "supabase db reset",
+    "supabase:status": "supabase status",
+    "supabase:gen-types": "supabase gen types typescript --local --schema public > src/types/supabase.ts"
   },
   "dependencies": {
     "@capacitor/app": "^5.0.7",

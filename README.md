@@ -2,7 +2,7 @@
 
 Aide Tactique et Logique pour l'Action des Secours
 
-**Version courante : Alpha-0.2.3**
+**Version courante : Alpha-0.2.5**
 
 ## 📱 Fonctionnalités
 
@@ -11,6 +11,13 @@ Aide Tactique et Logique pour l'Action des Secours
 - Assistance IA (OpenAI) pour structurer l’analyse/ordre initial
 - Sauvegarde et historique des opérations
 - Export PDF et partage
+
+## 🧭 SOIEC / SAOIECL (notes)
+
+- Objectifs numérotés et IDM numérotées par objectif (ex: 1.1, 1.2, 2.1).
+- IDM liées horizontalement à l’objectif via un identifiant (objectif peut avoir plusieurs IDM).
+- Les IDM non liées apparaissent dans un groupe "Non lié".
+- Dans Exécution, sélection rapide des moyens (secteurs OCT si présents, sinon engins).
 
 ## 🚀 Prérequis
 

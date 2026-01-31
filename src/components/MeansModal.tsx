@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, ChevronDown, Plus, Trash2, X } from 'lucide-react';
+import { ArrowRight, Check, CheckCircle2, ChevronDown, Clock, Filter, MapPin, Plus, Trash2, X } from 'lucide-react';
 import { DOCTRINE_CONTEXT } from '../constants/doctrine';
 import { useSessionSettings } from '../utils/sessionSettings';
 import { OctColor, OctTreeNode, useOctTree } from '../utils/octTreeStore';
@@ -100,6 +100,15 @@ const removeNodeById = (node: OctTreeNode, id: string): OctTreeNode => {
   };
 };
 
+const removeMeanByRef = (node: OctTreeNode, meanRef: string): OctTreeNode => {
+  return {
+    ...node,
+    children: node.children
+      .filter((child) => !(child.meanSource === 'means' && child.meanRef === meanRef))
+      .map((child) => removeMeanByRef(child, meanRef))
+  };
+};
+
 const updateNodeById = (node: OctTreeNode, id: string, updater: (n: OctTreeNode) => OctTreeNode): OctTreeNode => {
   if (node.id === id) return updater(node);
   return { ...node, children: node.children.map((c) => updateNodeById(c, id, updater)) };
@@ -116,6 +125,13 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
   const [assignSelection, setAssignSelection] = React.useState<Record<string, string>>({});
   const [sectorDrafts, setSectorDrafts] = React.useState<Record<string, string>>({});
   const [subsectorOpen, setSubsectorOpen] = React.useState<Record<string, boolean>>({});
+  const [selectionFilters, setSelectionFilters] = React.useState({
+    requested: false,
+    onSite: false,
+    toAssign: false,
+    assigned: false
+  });
+  const [isFilterOpen, setIsFilterOpen] = React.useState(false);
   const [sectorValidated, setSectorValidated] = React.useState<Record<string, boolean>>(() => {
     try {
       const parsed = readUserScopedJSON<Record<string, boolean>>(SECTOR_VALIDATION_KEY, 'local');
@@ -133,6 +149,27 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
       console.error('OCT sector validation write error', err);
     }
   }, []);
+
+  const activeFiltersCount = Object.values(selectionFilters).filter(Boolean).length;
+  const hasActiveFilters = activeFiltersCount > 0;
+  const resetSelectionFilters = () => {
+    setSelectionFilters({ requested: false, onSite: false, toAssign: false, assigned: false });
+  };
+  const filteredSelected = React.useMemo(() => {
+    if (!hasActiveFilters) return selected;
+    return selected.filter((s) => {
+      const isRequested = s.status === 'demande';
+      const isOnSite = s.status === 'sur_place';
+      const isAssigned = octTree ? meanExistsInTree(octTree, s.id) : false;
+      const isToAssign = !isAssigned;
+      return (
+        (selectionFilters.requested && isRequested)
+        || (selectionFilters.onSite && isOnSite)
+        || (selectionFilters.toAssign && isToAssign)
+        || (selectionFilters.assigned && isAssigned)
+      );
+    });
+  }, [hasActiveFilters, selected, selectionFilters, octTree]);
 
   React.useEffect(() => {
     const needsIds = selected.some((s) => !s.id);
@@ -288,7 +325,8 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
     if (!targetNode || (targetNode.type !== 'sector' && targetNode.type !== 'subsector')) return;
     updateOctTree((tree) => {
       if (meanExistsInTree(tree, mean.id)) return tree;
-      const colorByStatus: Record<'sur_place' | 'demande', OctColor> = { sur_place: 'green', demande: 'orange' };
+      const runtimeTarget = findNodeById(tree, targetId);
+      const inheritedColor = (runtimeTarget?.color as OctColor) || 'orange';
       const newEngine: OctTreeNode = {
         id: generateId(),
         type: 'engine',
@@ -298,7 +336,7 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
         meanRef: mean.id,
         meanStatus: mean.status,
         meanCategory: mean.category,
-        color: colorByStatus[mean.status] || 'orange',
+        color: inheritedColor,
         children: []
       };
       return addChildToTree(tree, targetId, newEngine);
@@ -313,6 +351,9 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
   const remove = (id: string) => {
     if (typeof window !== 'undefined' && !window.confirm('Supprimer ce moyen de la sélection ?')) return;
     onChange(selected.filter((s) => s.id !== id));
+    if (octTree) {
+      setOctTree((tree) => removeMeanByRef(tree, id));
+    }
     setAssignSelection((prev) => {
       if (!(id in prev)) return prev;
       const next = { ...prev };
@@ -451,10 +492,27 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
           </div>
 
           <div className="w-full border border-slate-200/80 dark:border-white/10 rounded-2xl p-4 space-y-3 overflow-y-auto bg-white/80 dark:bg-white/5 shadow-sm dark:shadow-none">
-            <h4 className="text-sm font-semibold text-slate-800 dark:text-gray-200">Sélection</h4>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h4 className="text-sm font-semibold text-slate-800 dark:text-gray-200">Sélection</h4>
+              <button
+                onClick={() => setIsFilterOpen(true)}
+                className="text-[11px] px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-700 hover:text-slate-900 hover:border-slate-300 dark:bg-white/5 dark:border-white/10 dark:text-gray-200 transition flex items-center gap-1"
+              >
+                <Filter className="w-3 h-3" />
+                Filtrer
+                {hasActiveFilters && (
+                  <span className="ml-1 inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-full text-[10px] bg-amber-100 text-amber-800 dark:bg-amber-500/20 dark:text-amber-200">
+                    {activeFiltersCount}
+                  </span>
+                )}
+              </button>
+            </div>
             {selected.length === 0 && <div className="text-slate-500 dark:text-gray-500 text-sm">Aucun moyen sélectionné.</div>}
             <div className="space-y-2">
-              {selected.map((s) => {
+              {filteredSelected.length === 0 && selected.length > 0 && (
+                <div className="text-slate-500 dark:text-gray-500 text-sm">Aucun moyen pour ces filtres.</div>
+              )}
+              {filteredSelected.map((s) => {
                 const colorMeta = CATEGORIES[s.category || ''] || {
                   statusClass: 'outline-slate-300',
                   color: 'border-slate-200 bg-white text-slate-700 dark:border-white/20 dark:bg-white/5 dark:text-white',
@@ -474,7 +532,7 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
                       <select
                         value={assignSelection[s.id] || assignableNodes[0]?.id || ''}
                         onChange={(e) => setAssignSelection((prev) => ({ ...prev, [s.id]: e.target.value }))}
-                        className="flex-1 px-3 py-2 rounded-lg bg-white border border-slate-200 text-[12px] text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200/80 dark:bg-white/5 dark:border-white/10 dark:text-gray-200 dark:focus:ring-white/20"
+                        className="flex-1 h-9 px-3 py-2 rounded-lg bg-white border border-slate-200 text-[12px] text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200/80 dark:bg-white/5 dark:border-white/10 dark:text-gray-200 dark:focus:ring-white/20"
                         disabled={!assignableNodes.length}
                       >
                         {!assignableNodes.length && <option value="">Aucun secteur disponible</option>}
@@ -518,6 +576,89 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
                 );
               })}
             </div>
+            {isFilterOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                <button
+                  className="absolute inset-0 bg-black/40"
+                  onClick={() => setIsFilterOpen(false)}
+                  aria-label="Fermer les filtres"
+                />
+                <div className="relative w-full max-w-xs rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0f121a] shadow-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                      <Filter className="w-4 h-4" />
+                      Filtres
+                    </div>
+                    <button
+                      onClick={() => setIsFilterOpen(false)}
+                      className="text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    <label className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 px-3 py-2">
+                      <div className="flex items-center gap-2 text-slate-700 dark:text-gray-200">
+                        <Clock className="w-4 h-4 text-amber-500" />
+                        Demandé
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={selectionFilters.requested}
+                        onChange={() => setSelectionFilters((prev) => ({ ...prev, requested: !prev.requested }))}
+                      />
+                    </label>
+                    <label className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 px-3 py-2">
+                      <div className="flex items-center gap-2 text-slate-700 dark:text-gray-200">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                        Sur place
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={selectionFilters.onSite}
+                        onChange={() => setSelectionFilters((prev) => ({ ...prev, onSite: !prev.onSite }))}
+                      />
+                    </label>
+                    <label className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 px-3 py-2">
+                      <div className="flex items-center gap-2 text-slate-700 dark:text-gray-200">
+                        <ArrowRight className="w-4 h-4 text-blue-500" />
+                        À affecter
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={selectionFilters.toAssign}
+                        onChange={() => setSelectionFilters((prev) => ({ ...prev, toAssign: !prev.toAssign }))}
+                      />
+                    </label>
+                    <label className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 px-3 py-2">
+                      <div className="flex items-center gap-2 text-slate-700 dark:text-gray-200">
+                        <MapPin className="w-4 h-4 text-purple-500" />
+                        Affectés
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={selectionFilters.assigned}
+                        onChange={() => setSelectionFilters((prev) => ({ ...prev, assigned: !prev.assigned }))}
+                      />
+                    </label>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 pt-1">
+                    <button
+                      onClick={resetSelectionFilters}
+                      className="text-[12px] px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:bg-white/5 dark:border-white/10 dark:text-gray-200 transition"
+                    >
+                      Réinitialiser
+                    </button>
+                    <button
+                      onClick={() => setIsFilterOpen(false)}
+                      className="text-[12px] px-3 py-1.5 rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition"
+                    >
+                      Fermer
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
