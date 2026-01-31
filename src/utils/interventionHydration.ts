@@ -6,8 +6,9 @@ import { useMeansStore } from '../stores/useMeansStore';
 import { useSitacStore } from '../stores/useSitacStore';
 import type { MeanItem } from '../types/means';
 import type { SITACCollection, SITACFeature, SITACFeatureProperties } from '../types/sitac';
-import type { OrdreInitial, IdeeManoeuvre } from '../types/soiec';
+import type { OrdreInitial, IdeeManoeuvre, SimpleSection } from '../types/soiec';
 import { normalizeSymbolProps } from './sitacSymbolPersistence';
+import { normalizeSimpleSectionItems } from './soiec';
 
 type SitacRow = {
   feature_id: string;
@@ -17,7 +18,7 @@ type SitacRow = {
   props: Record<string, unknown> | null;
 };
 
-const isOctTreeNode = (value: unknown): value is OctTreeNode => {
+export const isOctTreeNode = (value: unknown): value is OctTreeNode => {
   if (!value || typeof value !== 'object') return false;
   const record = value as OctTreeNode;
   return typeof record.id === 'string' && typeof record.type === 'string' && Array.isArray(record.children);
@@ -57,22 +58,9 @@ const buildSitacFeature = (row: SitacRow): SITACFeature => {
   };
 };
 
-const normalizeStringList = (value: unknown): string[] => {
-  if (!value) return [];
-  if (Array.isArray(value)) {
-    return value
-      .map((entry) => {
-        if (typeof entry === 'string') return entry;
-        if (typeof entry === 'number') return String(entry);
-        if (entry && typeof entry === 'object') return JSON.stringify(entry);
-        return '';
-      })
-      .filter((entry) => entry.trim());
-  }
-  if (typeof value === 'string') {
-    return value.split('\n').map((entry) => entry.trim()).filter(Boolean);
-  }
-  return [String(value)];
+const normalizeSimpleSectionValue = (value: unknown): SimpleSection => {
+  if (typeof value === 'string') return value;
+  return normalizeSimpleSectionItems(value);
 };
 
 const normalizeIdeeManoeuvre = (value: unknown): IdeeManoeuvre[] => {
@@ -89,7 +77,15 @@ const normalizeIdeeManoeuvre = (value: unknown): IdeeManoeuvre[] => {
           mission: typeof record.mission === 'string' ? record.mission : '',
           moyen: typeof record.moyen === 'string' ? record.moyen : '',
           moyen_supp: typeof record.moyen_supp === 'string' ? record.moyen_supp : '',
-          details: typeof record.details === 'string' ? record.details : ''
+          details: typeof record.details === 'string' ? record.details : '',
+          color: typeof record.color === 'string' ? record.color : undefined,
+          type: typeof record.type === 'string' ? record.type as IdeeManoeuvre['type'] : undefined,
+          objective_id: typeof record.objective_id === 'string'
+            ? record.objective_id
+            : typeof record.objectiveId === 'string'
+              ? record.objectiveId
+              : undefined,
+          order_in_objective: typeof record.order_in_objective === 'number' ? record.order_in_objective : undefined
         };
       })
       .filter(Boolean) as IdeeManoeuvre[];
@@ -112,30 +108,32 @@ const normalizeExecution = (value: unknown): OrdreInitial['E'] => {
 };
 
 const buildOrdreFromSoiec = (record: Record<string, unknown>): OrdreInitial => {
-  const situation = typeof record.situation === 'string'
-    ? record.situation
-    : typeof record.S === 'string'
-      ? record.S
-      : '';
+  const situationSource = record.situation ?? record.S;
+  const situation = typeof situationSource === 'string'
+    ? situationSource
+    : normalizeSimpleSectionValue(situationSource);
   const objectifs = record.objectifs ?? record.O;
   const ideeManoeuvre = record.idee_manoeuvre ?? record.I;
   const execution = record.execution ?? record.E;
-  const commandement = record.commandement ?? record.C;
+  const commandementSource = record.commandement ?? record.C;
+  const commandement = typeof commandementSource === 'string'
+    ? commandementSource
+    : normalizeSimpleSectionValue(commandementSource);
   const anticipation = record.anticipation ?? record.A;
   const logistique = record.logistique ?? record.L;
 
   return {
     S: situation,
-    O: normalizeStringList(objectifs),
+    O: normalizeSimpleSectionItems(objectifs),
     I: normalizeIdeeManoeuvre(ideeManoeuvre),
     E: normalizeExecution(execution),
-    C: typeof commandement === 'string' ? commandement : commandement ? JSON.stringify(commandement) : '',
-    A: normalizeStringList(anticipation),
-    L: normalizeStringList(logistique)
+    C: commandement,
+    A: normalizeSimpleSectionItems(anticipation),
+    L: normalizeSimpleSectionItems(logistique)
   };
 };
 
-const parseOiPayload = (payload: unknown, createdAt?: string | null): HydratedOrdreInitial | null => {
+export const parseOiPayload = (payload: unknown, createdAt?: string | null): HydratedOrdreInitial | null => {
   if (!payload || typeof payload !== 'object') return null;
   const data = (payload as { data?: unknown }).data;
   if (!data || typeof data !== 'object') return null;
@@ -145,6 +143,12 @@ const parseOiPayload = (payload: unknown, createdAt?: string | null): HydratedOr
     ordreData = buildOrdreFromSoiec(record.soiec as Record<string, unknown>);
   }
   if (!ordreData) return null;
+  if (!ordreData._colors) {
+    const colors = record._colors || record.colors;
+    if (colors && typeof colors === 'object') {
+      ordreData._colors = colors as OrdreInitial['_colors'];
+    }
+  }
 
   const meta = record.meta && typeof record.meta === 'object' ? record.meta as Record<string, unknown> : {};
   const selectedRisksSource = Array.isArray(record.selectedRisks)
@@ -199,7 +203,7 @@ const parseOiPayload = (payload: unknown, createdAt?: string | null): HydratedOr
   };
 };
 
-const parseConduitePayload = (payload: unknown, createdAt?: string | null): HydratedOrdreConduite | null => {
+export const parseConduitePayload = (payload: unknown, createdAt?: string | null): HydratedOrdreConduite | null => {
   if (!payload || typeof payload !== 'object') return null;
   const data = (payload as { data?: unknown }).data;
   if (!data || typeof data !== 'object') return null;

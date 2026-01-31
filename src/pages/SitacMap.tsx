@@ -554,7 +554,7 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
 
   // Map Init Helper ---
   const cycleBaseLayer = () => {
-    const baseOrder: BaseLayerKey[] = ['plan', 'satellite', 'whiteboard', 'offline'];
+    const baseOrder: BaseLayerKey[] = ['plan', 'satellite', 'hybrid', 'whiteboard', 'offline'];
     const current = baseOrder.indexOf(baseLayer);
     const next = baseOrder[(current + 1) % baseOrder.length];
     setBaseLayer(next);
@@ -756,8 +756,15 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
+    const view = {
+      center: map.getCenter(),
+      zoom: map.getZoom(),
+      bearing: map.getBearing(),
+      pitch: map.getPitch()
+    };
     map.setStyle(BASE_STYLES[baseLayer]);
     map.once('style.load', () => {
+      map.jumpTo(view);
       ensureLayers(map);
       syncGeoJSONRef.current();
       ensureIconsRef.current();

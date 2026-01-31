@@ -25,12 +25,39 @@ Legacy / unused
 Supabase local vs cloud
 - L'app utilise l'URL définie en env (cloud ou local). Supabase local optionnel via CLI; ports par défaut 54321-54324. (source: `src/utils/supabaseClient.ts`, `supabase/config.toml`)
 
+## Local Supabase
+Prérequis
+- Supabase CLI + Docker (CLI non intégrée au repo). Exemple: `brew install supabase/tap/supabase` ou `npm i -g supabase`.
+
+Runbook (5 min)
+- `npm run supabase:start` (démarre les services locaux + applique migrations).
+- `npm run supabase:status` (récupère `API URL`, `anon key`, `service_role key`).
+- Mettre à jour `.env`/`.env.local`:
+  - `VITE_SUPABASE_URL=http://127.0.0.1:54321`
+  - `VITE_SUPABASE_ANON_KEY=<clé anon locale>`
+- `npm run dev` pour lancer l'app.
+
+Reset / migrations / seed
+- `npm run supabase:reset` (reset DB locale + rejoue migrations + seed si configuré).
+- `supabase/config.toml` active `db.seed.enabled = true` avec `./seed.sql` mais le fichier n'existe pas actuellement; ajouter un seed ou désactiver si besoin.
+
+Ports locaux (config.toml)
+- API: 54321
+- DB: 54322
+- Studio: 54323
+- Inbucket: 54324
+
 ## Commands
 - install: `npm install` / `npm ci`. (source: `package.json`, `.github/workflows/ci.yml`)
 - dev: `npm run dev` (port 5174). (source: `package.json`)
 - lint: `npm run lint` (ESLint). (source: `package.json`, `eslint.config.js`)
 - typecheck: `npm run typecheck` (tsc app + node). (source: `package.json`)
 - build: `npm run build` (dist). (source: `package.json`, `vite.config.ts`)
+- supabase:start: `npm run supabase:start` (CLI Supabase local).
+- supabase:stop: `npm run supabase:stop`.
+- supabase:reset: `npm run supabase:reset`.
+- supabase:status: `npm run supabase:status`.
+- supabase:gen-types: `npm run supabase:gen-types` (génère `src/types/supabase.ts`).
 
 ## Build notes
 - Vite chunking splits heavy libs into `maplibre`, `fabric`, `leaflet`, `html2canvas`, `export`, `ui`, `vendor`. (source: `vite.config.ts`)
@@ -38,6 +65,12 @@ Supabase local vs cloud
 - `build.chunkSizeWarningLimit` is set to 1200 kB to reflect cartography bundles (MapLibre). (source: `vite.config.ts`)
 - If the bundle sizes change, adjust `manualChunks` or the warning limit in `vite.config.ts`.
 - Keep changes limited to Vite config or routing wrappers; do not move SITAC logic.
+
+## SOIEC / SAOIECL notes
+- Objectifs (O) peuvent être stockés comme `{ type: 'objective', id, content }` en plus des strings; l'ID est utilisé pour lier les IDM. (source: `src/types/soiec.ts`, `src/utils/soiec.ts`, `src/components/OrdreInitialView.tsx`)
+- Idées de manoeuvre (I) supportent `objective_id` + `order_in_objective` pour lier/ordonner les IDM par objectif. (source: `src/types/soiec.ts`, `src/utils/soiec.ts`, `src/utils/interventionHydration.ts`, `src/components/OrdreInitialView.tsx`)
+- UI: numérotation automatique des objectifs et IDM, section "Non lié", héritage couleur objectif -> IDM si non défini. (source: `src/components/OrdreInitialView.tsx`)
+- Exécution: quick-picks "Moyen" depuis secteurs OCT si présents, sinon liste des engins saisis; quick-picks "Mission" depuis IDM numérotées. (source: `src/components/OrdreInitialView.tsx`, `src/utils/octTreeStore.ts`)
 
 ## Repo map
 - `src/`: app React (routing, pages, components, contexts, stores, utils). (source: `src/main.tsx`, `src/App.tsx`)

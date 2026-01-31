@@ -1,9 +1,82 @@
-import { OrdreInitial, IdeeManoeuvre } from '../types/soiec';
+import { OrdreInitial, IdeeManoeuvre, ExecutionItem, SimpleSection, SimpleSectionItem } from '../types/soiec';
 
 const resolveRoleLabel = (role?: string) => role || 'Chef de groupe';
 const isExtendedRole = (role?: string) => role === 'Chef de colonne' || role === 'Chef de site';
 
 export const buildOrdreTitle = (role?: string) => `ORDRE INITIAL – ${resolveRoleLabel(role)}`;
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+    Boolean(value && typeof value === 'object' && !Array.isArray(value));
+
+const normalizeSimpleSectionItem = (value: unknown): SimpleSectionItem | null => {
+    if (typeof value === 'string') {
+        return value.trim() ? value : { type: 'empty' };
+    }
+    if (typeof value === 'number') return String(value);
+    if (!isRecord(value)) return null;
+
+    const rawType = typeof value.type === 'string'
+        ? value.type
+        : typeof value.kind === 'string'
+            ? value.kind
+            : undefined;
+
+    if (rawType === 'separator') return { type: 'separator' };
+    if (rawType === 'empty') return { type: 'empty' };
+
+    const contentRaw = value.content ?? value.text ?? value.label;
+    if (typeof contentRaw === 'string' || typeof contentRaw === 'number') {
+        const content = String(contentRaw);
+        if (rawType === 'objective') {
+            const id = typeof value.id === 'string' ? value.id : undefined;
+            if (id) return { type: 'objective', id, content };
+            return { type: 'objective', id: `objective-${Math.random().toString(36).slice(2, 9)}`, content };
+        }
+        if (rawType === 'text') {
+            const id = typeof value.id === 'string' ? value.id : undefined;
+            return id ? { type: 'text', id, content } : { content };
+        }
+        return { content };
+    }
+
+    return JSON.stringify(value);
+};
+
+export const normalizeSimpleSectionItems = (value: unknown): SimpleSectionItem[] => {
+    if (!value) return [];
+    if (Array.isArray(value)) {
+        return value
+            .map((entry) => normalizeSimpleSectionItem(entry))
+            .filter((entry): entry is SimpleSectionItem => entry !== null);
+    }
+    if (typeof value === 'string') {
+        return value
+            .split('\n')
+            .map((entry) => entry.trim())
+            .filter(Boolean);
+    }
+    const normalized = normalizeSimpleSectionItem(value);
+    return normalized ? [normalized] : [];
+};
+
+export const getSimpleSectionContentList = (value: SimpleSection | SimpleSectionItem[] | undefined): string[] => {
+    const items = normalizeSimpleSectionItems(value);
+    return items
+        .map((item) => {
+            if (typeof item === 'string') return item;
+            if (item && typeof item === 'object' && 'content' in item) {
+                const content = (item as { content?: unknown }).content;
+                if (typeof content === 'string') return content;
+                if (typeof content === 'number') return String(content);
+            }
+            return null;
+        })
+        .filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0);
+};
+
+export const getSimpleSectionText = (value: SimpleSection | SimpleSectionItem[] | undefined): string => (
+    getSimpleSectionContentList(value).join('\n')
+);
 
 const toIdeeManoeuvre = (value: unknown): IdeeManoeuvre => {
     if (typeof value === 'string') {
@@ -13,11 +86,20 @@ const toIdeeManoeuvre = (value: unknown): IdeeManoeuvre => {
         return { mission: JSON.stringify(value), moyen: '' };
     }
     const record = value as Record<string, unknown>;
+    const recordType = typeof record.type === 'string' ? record.type : undefined;
+    if (recordType === 'separator' || recordType === 'empty') {
+        return { mission: '', moyen: '', type: recordType };
+    }
     const mission = typeof record.mission === 'string' ? record.mission : JSON.stringify(value);
     const moyen = typeof record.moyen === 'string' ? record.moyen : '';
     const idee: IdeeManoeuvre = { mission, moyen };
+    if (typeof record.color === 'string') idee.color = record.color;
     if (typeof record.moyen_supp === 'string') idee.moyen_supp = record.moyen_supp;
     if (typeof record.details === 'string') idee.details = record.details;
+    if (typeof record.objective_id === 'string') idee.objective_id = record.objective_id;
+    if (!idee.objective_id && typeof record.objectiveId === 'string') idee.objective_id = record.objectiveId;
+    if (typeof record.order_in_objective === 'number') idee.order_in_objective = record.order_in_objective;
+    if (recordType === 'idea') idee.type = 'idea';
     return idee;
 };
 
@@ -39,6 +121,7 @@ export const parseOrdreInitial = (jsonString: string): OrdreInitial => {
         };
 
         const analyseTactique = parsed._analyse_tactique || parsed.analyse_tactique || parsed.analyseTactique;
+        const colors = parsed._colors && typeof parsed._colors === 'object' ? parsed._colors : undefined;
 
         // Normalisation des champs
         const normalized = {
@@ -76,15 +159,10 @@ export const parseOrdreInitial = (jsonString: string): OrdreInitial => {
         return {
             ...defaultOrdre,
             ...(analyseTactique ? { _analyse_tactique: analyseTactique } : {}),
-            S: normalized.S,
-            // Assurer que A est un tableau de chaînes
-            A: Array.isArray(normalized.A)
-                ? normalized.A.map((a: unknown) => typeof a === 'string' ? a : JSON.stringify(a))
-                : (normalized.A ? [typeof normalized.A === 'string' ? normalized.A : JSON.stringify(normalized.A)] : []),
-            // Assurer que O est un tableau de chaînes
-            O: Array.isArray(normalized.O)
-                ? normalized.O.map((o: unknown) => typeof o === 'string' ? o : JSON.stringify(o))
-                : (normalized.O ? [typeof normalized.O === 'string' ? normalized.O : JSON.stringify(normalized.O)] : []),
+            ...(colors ? { _colors: colors } : {}),
+            S: typeof normalized.S === 'string' ? normalized.S : normalizeSimpleSectionItems(normalized.S),
+            A: normalizeSimpleSectionItems(normalized.A),
+            O: normalizeSimpleSectionItems(normalized.O),
 
             // I est normalisé en liste d'IdeeManoeuvre.
             I: Array.isArray(finalI)
@@ -98,12 +176,9 @@ export const parseOrdreInitial = (jsonString: string): OrdreInitial => {
             // On va modifier le type OrdreInitial pour que E puisse être IdeeManoeuvre[] aussi.
             E: finalE,
 
-            // Assurer que L est un tableau de chaînes
-            L: Array.isArray(normalized.L)
-                ? normalized.L.map((l: unknown) => typeof l === 'string' ? l : JSON.stringify(l))
-                : (normalized.L ? [typeof normalized.L === 'string' ? normalized.L : JSON.stringify(normalized.L)] : []),
+            L: normalizeSimpleSectionItems(normalized.L),
 
-            C: normalized.C
+            C: typeof normalized.C === 'string' ? normalized.C : normalizeSimpleSectionItems(normalized.C)
         };
     } catch (error) {
         console.error("Erreur parsing OrdreInitial:", error);
@@ -125,17 +200,20 @@ export const generateOrdreInitialText = (
     meta?: { adresse?: string; heure?: string; role?: string }
 ): string => {
     let text = `${buildOrdreTitle(meta?.role)}\n\n`;
-    const includeAnticipation = isExtendedRole(meta?.role) || (Array.isArray(ordre.A) && ordre.A.length > 0);
-    const includeLogistique = isExtendedRole(meta?.role) || (Array.isArray(ordre.L) && ordre.L.length > 0);
-    const anticipationItems = Array.isArray(ordre.A) ? ordre.A : [];
-    const logistiqueItems = Array.isArray(ordre.L) ? ordre.L : [];
+    const anticipationItems = getSimpleSectionContentList(ordre.A);
+    const logistiqueItems = getSimpleSectionContentList(ordre.L);
+    const includeAnticipation = isExtendedRole(meta?.role) || anticipationItems.length > 0;
+    const includeLogistique = isExtendedRole(meta?.role) || logistiqueItems.length > 0;
+    const situationText = getSimpleSectionText(ordre.S);
+    const commandementText = getSimpleSectionText(ordre.C);
+    const objectifs = getSimpleSectionContentList(ordre.O);
 
     if (meta?.adresse) text += `Adresse: ${meta.adresse}\n`;
     if (meta?.heure) text += `Heure de saisie: ${meta.heure}\n`;
     if (meta?.adresse || meta?.heure) text += "\n";
 
     text += "S – SITUATION\n";
-    text += `${ordre.S}\n\n`;
+    text += `${situationText}\n\n`;
 
     if (includeAnticipation) {
         text += "A – ANTICIPATION\n";
@@ -150,8 +228,8 @@ export const generateOrdreInitialText = (
     }
 
     text += "O – OBJECTIFS\n";
-    if (ordre.O.length > 0) {
-        ordre.O.forEach((obj, index) => {
+    if (objectifs.length > 0) {
+        objectifs.forEach((obj, index) => {
             text += `${index + 1}. ${obj}\n`;
         });
     } else {
@@ -160,8 +238,9 @@ export const generateOrdreInitialText = (
     text += "\n";
 
     text += "I – IDÉES DE MANŒUVRE\n";
-    if (ordre.I.length > 0) {
-        ordre.I.forEach((im, index) => {
+    const ideeItems = Array.isArray(ordre.I) ? ordre.I.filter((im) => im?.type !== 'separator' && im?.type !== 'empty') : [];
+    if (ideeItems.length > 0) {
+        ideeItems.forEach((im, index) => {
             text += `IM${index + 1} – ${im.mission}\n`;
             text += `- Moyens : ${im.moyen}\n`;
             if (im.moyen_supp) text += `- Moyens suppl. : ${im.moyen_supp}\n`;
@@ -173,10 +252,26 @@ export const generateOrdreInitialText = (
     }
 
     text += "E – EXÉCUTION\n";
-    text += `${ordre.E}\n\n`;
+    if (Array.isArray(ordre.E)) {
+        const executionItems = (ordre.E as ExecutionItem[]).filter((entry) => entry?.type !== 'separator' && entry?.type !== 'empty');
+        if (executionItems.length > 0) {
+            executionItems.forEach((entry, index) => {
+                const mission = entry.mission || '';
+                const moyen = entry.moyen ? ` (${entry.moyen})` : '';
+                const moyenSupp = entry.moyen_supp ? ` + ${entry.moyen_supp}` : '';
+                const details = entry.details ? ` — ${entry.details}` : '';
+                text += `${index + 1}. ${mission}${moyen}${moyenSupp}${details}`.trim() + "\n";
+            });
+            text += "\n";
+        } else {
+            text += "Aucune exécution spécifiée.\n\n";
+        }
+    } else {
+        text += `${ordre.E}\n\n`;
+    }
 
     text += "C – COMMANDEMENT\n";
-    text += `${ordre.C}\n`;
+    text += `${commandementText}\n`;
 
     if (includeLogistique) {
         text += "\nL – LOGISTIQUE\n";
@@ -195,24 +290,29 @@ export const generateOrdreInitialText = (
 export const generateOrdreInitialShortText = (ordre: OrdreInitial): string => {
     // Version condensée pour SMS
     let text = "ORDRE INITIAL\n\n";
-    text += `S: ${ordre.S.substring(0, 100)}${ordre.S.length > 100 ? '...' : ''}\n\n`;
+    const situationText = getSimpleSectionText(ordre.S);
+    text += `S: ${situationText.substring(0, 100)}${situationText.length > 100 ? '...' : ''}\n\n`;
 
-    if (Array.isArray(ordre.A) && ordre.A.length > 0) {
+    const anticipationItems = getSimpleSectionContentList(ordre.A);
+    if (anticipationItems.length > 0) {
         text += "A:\n";
-        ordre.A.forEach((item, i) => text += `${i + 1}. ${item}\n`);
+        anticipationItems.forEach((item, i) => text += `${i + 1}. ${item}\n`);
         text += "\n";
     }
 
     text += "O:\n";
-    ordre.O.forEach((obj, i) => text += `${i + 1}. ${obj}\n`);
+    const objectifs = getSimpleSectionContentList(ordre.O);
+    objectifs.forEach((obj, i) => text += `${i + 1}. ${obj}\n`);
     text += "\n";
 
     text += "I:\n";
-    ordre.I.forEach((im, i) => text += `${i + 1}. ${im.mission} (${im.moyen})\n`);
+    const ideeItems = Array.isArray(ordre.I) ? ordre.I.filter((im) => im?.type !== 'separator' && im?.type !== 'empty') : [];
+    ideeItems.forEach((im, i) => text += `${i + 1}. ${im.mission} (${im.moyen})\n`);
 
-    if (Array.isArray(ordre.L) && ordre.L.length > 0) {
+    const logistiqueItems = getSimpleSectionContentList(ordre.L);
+    if (logistiqueItems.length > 0) {
         text += "\nL:\n";
-        ordre.L.forEach((item, i) => text += `${i + 1}. ${item}\n`);
+        logistiqueItems.forEach((item, i) => text += `${i + 1}. ${item}\n`);
     }
 
     return text;

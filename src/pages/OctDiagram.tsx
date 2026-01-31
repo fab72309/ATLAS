@@ -10,6 +10,8 @@ import ReactFlow, {
   NodeProps,
   Position,
   ReactFlowInstance,
+  getNodesBounds,
+  getViewportForBounds,
   useEdgesState,
   useNodesState
 } from 'reactflow';
@@ -21,6 +23,7 @@ import type { MeanItem } from '../types/means';
 import { OctColor, OctNodeType, OctTreeNode, useOctTree, resetOctTree, createInitialOctTree } from '../utils/octTreeStore';
 import { useTheme } from '../contexts/ThemeContext';
 import { useInterventionStore } from '../stores/useInterventionStore';
+import { useMeansStore } from '../stores/useMeansStore';
 import { debounce } from '../utils/debounce';
 import { telemetryBuffer } from '../utils/telemetryBuffer';
 
@@ -379,11 +382,28 @@ const collectSubtreeIds = (node: OctTreeNode, targetId: string, acc: Set<string>
   return acc;
 };
 
+const applyColorToSubtree = (node: OctTreeNode, color: OctColor): OctTreeNode => {
+  const canColor = node.type === 'sector' || node.type === 'subsector' || node.type === 'engine';
+  return {
+    ...node,
+    color: canColor ? color : node.color,
+    children: node.children.map((child) => applyColorToSubtree(child, color))
+  };
+};
+
 const collectUsedMeans = (node: OctTreeNode, acc: Set<string>) => {
   if (node.meanSource === 'means' && node.meanRef) {
     acc.add(node.meanRef);
   }
   node.children.forEach((child) => collectUsedMeans(child, acc));
+  return acc;
+};
+
+const collectMeanRefs = (node: OctTreeNode, acc: Set<string>) => {
+  if (node.meanSource === 'means' && node.meanRef) {
+    acc.add(node.meanRef);
+  }
+  node.children.forEach((child) => collectMeanRefs(child, acc));
   return acc;
 };
 
@@ -512,6 +532,8 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
     [getDefaultFrequencyPair]
   );
   const { tree, setTree } = useOctTree();
+  const selectedMeans = useMeansStore((s) => s.selectedMeans);
+  const setSelectedMeans = useMeansStore((s) => s.setSelectedMeans);
   const queueOctTelemetry = useMemo(
     () =>
       debounce((patch: unknown) => {
@@ -531,7 +553,10 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [isPortrait, setIsPortrait] = useState(false);
+  const [flowReady, setFlowReady] = useState(false);
   const flowRef = useRef<ReactFlowInstance | null>(null);
+  const layoutSignatureRef = useRef<string | null>(null);
+  const forceFitViewRef = useRef(true);
   const diagramRef = useRef<HTMLDivElement | null>(null);
   const diagramHeight = embedded ? '75vh' : '85vh';
   const canDeleteEditor = editor && editor.id !== tree.id;
@@ -558,21 +583,12 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
   );
   const isDark = resolvedTheme === 'dark';
   const gridDotColor = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(15,23,42,0.12)';
-  const reducedZoomFactor = 1.19;
-
   useEffect(() => {
     return () => {
       queueOctTelemetry.flush();
       queueOctTelemetry.cancel();
     };
   }, [queueOctTelemetry]);
-
-  const applyReducedZoom = useCallback(() => {
-    const instance = flowRef.current;
-    if (!instance) return;
-    const viewport = instance.getViewport();
-    instance.setViewport({ ...viewport, zoom: viewport.zoom * reducedZoomFactor });
-  }, [reducedZoomFactor]);
 
   useEffect(() => {
     if (!findNodeById(tree, selectedId)) {
@@ -725,21 +741,19 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
 
   const handleAddEngineFromMean = useCallback(
     (parentId: string, mean: MeanItem) => {
-      const colorByStatus: Record<'sur_place' | 'demande', OctColor> = {
-        sur_place: 'green',
-        demande: 'orange'
-      };
+      const parent = findNodeById(tree, parentId);
+      const inheritedColor = (parent?.color as OctColor) || 'orange';
       handleAddChild(parentId, 'engine', {
         label: mean.name,
         meanSource: 'means',
         meanRef: mean.id,
         meanStatus: mean.status,
         meanCategory: mean.category,
-        color: colorByStatus[mean.status] || 'orange'
+        color: inheritedColor
       }, { openEditor: false });
       setAddDialog(null);
     },
-    [handleAddChild]
+    [handleAddChild, tree]
   );
 
   const handleAddManualEngine = useCallback(() => {
@@ -770,6 +784,14 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
       if (id === tree.id) return;
       const parentId = findParentId(tree, id) || tree.id;
       const removedCount = collectSubtreeIds(tree, id).size;
+      const targetNode = findNodeById(tree, id);
+      const meanRefs = targetNode ? collectMeanRefs(targetNode, new Set()) : new Set<string>();
+      if (meanRefs.size > 0 && selectedMeans.length > 0) {
+        const nextMeans = selectedMeans.filter((mean) => !meanRefs.has(mean.id));
+        if (nextMeans.length !== selectedMeans.length) {
+          setSelectedMeans(nextMeans);
+        }
+      }
       queueOctTelemetry({
         action: 'delete',
         nodeId: id,
@@ -785,7 +807,7 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
         return nextTree;
       });
     },
-    [editor, setTree, setSelectedId, queueOctTelemetry, tree]
+    [editor, setTree, setSelectedId, queueOctTelemetry, tree, selectedMeans, setSelectedMeans]
   );
 
   const handleSave = useCallback(() => {
@@ -823,15 +845,23 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
       }
     }
     setTree((prev) =>
-      updateNodeById(prev, editor.id, (n) => ({
-        ...n,
-        label: editor.label || n.label,
-        type: editor.type,
-        frequencies: freqs,
-        notes: editor.notes,
-        color: canPickColor(editor.type) ? editor.color : undefined,
-        chief: canPickColor(editor.type) ? editor.chief : n.chief
-      }))
+      updateNodeById(prev, editor.id, (n) => {
+        const nextColor = canPickColor(editor.type) ? editor.color : undefined;
+        const nextNode: OctTreeNode = {
+          ...n,
+          label: editor.label || n.label,
+          type: editor.type,
+          frequencies: freqs,
+          notes: editor.notes,
+          color: nextColor,
+          chief: canPickColor(editor.type) ? editor.chief : n.chief
+        };
+        const shouldCascade =
+          (nextNode.type === 'sector' || nextNode.type === 'subsector') &&
+          nextNode.color &&
+          (n.color || null) !== (nextNode.color || null);
+        return shouldCascade ? applyColorToSubtree(nextNode, nextNode.color) : nextNode;
+      })
     );
     setEditor(null);
   }, [editor, setTree, queueOctTelemetry, tree]);
@@ -843,6 +873,8 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
       previousCount,
       selectedNodeId: tree.id
     });
+    layoutSignatureRef.current = null;
+    forceFitViewRef.current = true;
     const base = createInitialOctTree();
     resetOctTree();
     setSelectedId(base.id);
@@ -933,12 +965,56 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
     setEdges(adjustedLayout.edges);
   }, [adjustedLayout.nodes, adjustedLayout.edges, setNodes, setEdges]);
 
+  const centerLayoutInView = useCallback(() => {
+    const instance = flowRef.current;
+    if (!instance || !diagramRef.current) return;
+    const bounds = getNodesBounds(layout.nodes);
+    const rect = diagramRef.current.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const viewport = getViewportForBounds(bounds, rect.width, rect.height, 0.2, 1.2, 0.3);
+    instance.setCenter(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2, {
+      zoom: viewport.zoom,
+      duration: 500
+    });
+  }, [layout.nodes]);
+
   useEffect(() => {
-    if (!flowRef.current) return;
+    if (!flowReady || !flowRef.current) return;
     if (!layout.nodes.length) return;
-    flowRef.current.fitView({ padding: 0.25, duration: 500 });
-    requestAnimationFrame(applyReducedZoom);
-  }, [layout.nodes, applyReducedZoom]);
+    const signature = layout.nodes
+      .map((node) => node.id)
+      .sort()
+      .join('|');
+    const shouldFit = forceFitViewRef.current || signature !== layoutSignatureRef.current;
+    if (!shouldFit) return;
+    layoutSignatureRef.current = signature;
+    forceFitViewRef.current = false;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(centerLayoutInView);
+    });
+  }, [layout.nodes, flowReady, centerLayoutInView]);
+
+  useEffect(() => {
+    if (!flowReady || !diagramRef.current) return;
+    const element = diagramRef.current;
+    let frame: number | null = null;
+    const observer = new ResizeObserver(() => {
+      if (!layout.nodes.length) return;
+      if (frame !== null) {
+        window.cancelAnimationFrame(frame);
+      }
+      frame = window.requestAnimationFrame(() => {
+        centerLayoutInView();
+      });
+    });
+    observer.observe(element);
+    return () => {
+      observer.disconnect();
+      if (frame !== null) {
+        window.cancelAnimationFrame(frame);
+      }
+    };
+  }, [centerLayoutInView, flowReady, layout.nodes.length]);
 
   useEffect(() => {
     const updateOrientation = () => setIsPortrait(window.innerHeight > window.innerWidth);
@@ -997,7 +1073,6 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
                 setSelectedId(node.id);
                 setEditorFromId(node.id);
               }}
-              fitView
               proOptions={{ hideAttribution: true }}
               nodesDraggable={false}
               nodesConnectable={false}
@@ -1007,11 +1082,7 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
               defaultViewport={{ x: 0, y: 0, zoom: 0.8 }}
               onInit={(instance) => {
                 flowRef.current = instance;
-                instance.fitView({ padding: 0.25 });
-                requestAnimationFrame(() => {
-                  const viewport = instance.getViewport();
-                  instance.setViewport({ ...viewport, zoom: viewport.zoom * reducedZoomFactor });
-                });
+                setFlowReady(true);
               }}
             >
               <MiniMap

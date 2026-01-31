@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { Sparkles, ClipboardCopy, Share2, FileText, ImageDown, Check, QrCode } from 'lucide-react';
+import { Sparkles, ClipboardCopy, Share2, FileText, ImageDown, Check, QrCode, LocateFixed, Archive, Clock } from 'lucide-react';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { saveDictationData, saveCommunicationData } from '../utils/dataStore';
 import QRCode from 'react-qr-code';
 import DominantSelector, { DominanteType } from '../components/DominantSelector';
 import OrdreInitialView from '../components/OrdreInitialView';
 import { OrdreInitial } from '../types/soiec';
+import { getSimpleSectionContentList, getSimpleSectionText } from '../utils/soiec';
 import { addToHistory } from '../utils/history';
 import { exportBoardDesignImage, exportBoardDesignPdf, exportBoardDesignWordEditable, exportOrdreToClipboard, exportOrdreToImage, exportOrdreToPdf, shareOrdreAsText } from '../utils/export';
 import MeansModal from '../components/MeansModal';
@@ -151,11 +152,14 @@ const toDominanteArray = (value: unknown): DominanteType[] | undefined => {
 
 const isOrdreInitialLike = (value: unknown): value is OrdreInitial => {
   if (!isRecord(value)) return false;
-  if (typeof value.S !== 'string') return false;
+  const isSimpleSectionValue = (section: unknown) => (
+    typeof section === 'string' || Array.isArray(section)
+  );
+  if (!isSimpleSectionValue(value.S)) return false;
   if (!Array.isArray(value.O)) return false;
   if (!Array.isArray(value.I)) return false;
   if (!('E' in value)) return false;
-  if (typeof value.C !== 'string') return false;
+  if (!isSimpleSectionValue(value.C)) return false;
   return true;
 };
 
@@ -438,6 +442,7 @@ const DictationInput = () => {
   const city = useInterventionStore((s) => s.city);
   const setAddress = useInterventionStore((s) => s.setAddress);
   const setCity = useInterventionStore((s) => s.setCity);
+  const setLocation = useInterventionStore((s) => s.setLocation);
   const currentInterventionId = useInterventionStore((s) => s.currentInterventionId);
   const interventionStartedAtMs = useInterventionStore((s) => s.interventionStartedAtMs);
   const setCurrentIntervention = useInterventionStore((s) => s.setCurrentIntervention);
@@ -447,6 +452,8 @@ const DictationInput = () => {
   const [soiecTimeValidated, setSoiecTimeValidated] = useState(false);
   const [orderTime, setOrderTime] = useState<string>(() => getLocalDateTime(new Date()));
   const [isLoading, setIsLoading] = useState(false);
+  const [isGeolocating, setIsGeolocating] = useState(false);
+  const [geoError, setGeoError] = useState<string | null>(null);
   const [ordreValidatedAt, setOrdreValidatedAt] = useState<string | null>(null);
   const [conduiteValidatedAt, setConduiteValidatedAt] = useState<string | null>(null);
   const isOiLocked = Boolean(ordreValidatedAt && !isExtendedOps);
@@ -494,6 +501,11 @@ const DictationInput = () => {
     interventionId: currentInterventionId,
     hydrationId: meansHydrationId
   });
+  const [closeDialogOpen, setCloseDialogOpen] = useState(false);
+  const [closeStatus, setCloseStatus] = useState<'idle' | 'loading'>('idle');
+  const [closeError, setCloseError] = useState<string | null>(null);
+  const [closeNotice, setCloseNotice] = useState<string | null>(null);
+  const [isInterventionClosed, setIsInterventionClosed] = useState(false);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [octResetKey, setOctResetKey] = useState(0);
   const [meansResetKey, setMeansResetKey] = useState(0);
@@ -505,18 +517,47 @@ const DictationInput = () => {
     [address, city]
   );
   const hasHistory = ordreInitialHistory.length > 0 || ordreConduiteHistory.length > 0;
+  const closeButtonLabel = closeStatus === 'loading' ? 'Clôture…' : isInterventionClosed ? 'Clôturée' : 'Clôturer';
+  const isCloseDisabled = !currentInterventionId || closeStatus === 'loading' || isInterventionClosed;
+  useEffect(() => {
+    let isActive = true;
+    setIsInterventionClosed(false);
+    if (!currentInterventionId) return () => {
+      isActive = false;
+    };
+    const supabase = getSupabaseClient();
+    if (!supabase) return () => {
+      isActive = false;
+    };
+    void supabase
+      .from('interventions')
+      .select('status')
+      .eq('id', currentInterventionId)
+      .limit(1)
+      .then(({ data, error }) => {
+        if (!isActive || error) return;
+        const status = data?.[0]?.status;
+        setIsInterventionClosed(status === 'closed');
+      });
+    return () => {
+      isActive = false;
+    };
+  }, [currentInterventionId]);
   const formatHistoryTimestamp = React.useCallback((value: string) => {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return value;
     return date.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
   }, []);
-  const formatList = React.useCallback((items: string[] | undefined) => {
-    if (!items || items.length === 0) return '-';
-    return items.map((item, index) => `${index + 1}. ${item}`).join('\n');
+  const formatList = React.useCallback((items: OrdreInitial['O'] | OrdreInitial['A'] | OrdreInitial['L'] | undefined) => {
+    const normalized = getSimpleSectionContentList(items);
+    if (normalized.length === 0) return '-';
+    return normalized.map((item, index) => `${index + 1}. ${item}`).join('\n');
   }, []);
   const formatIdeeManoeuvre = React.useCallback((items: OrdreInitial['I']) => {
     if (!Array.isArray(items) || items.length === 0) return '-';
-    return items.map((idea, index) => {
+    const filtered = items.filter((idea) => idea?.type !== 'separator' && idea?.type !== 'empty');
+    if (filtered.length === 0) return '-';
+    return filtered.map((idea, index) => {
       if (!idea) return `${index + 1}. -`;
       const mission = idea.mission || '';
       const moyen = idea.moyen ? ` (${idea.moyen})` : '';
@@ -528,7 +569,13 @@ const DictationInput = () => {
   const formatExecution = React.useCallback((value: OrdreInitial['E']) => {
     if (!value) return '-';
     if (Array.isArray(value)) {
-      return value.map((entry, index) => {
+      const filtered = value.filter((entry) => {
+        if (!entry || typeof entry !== 'object') return true;
+        const record = entry as Record<string, unknown>;
+        return record.type !== 'separator' && record.type !== 'empty';
+      });
+      if (filtered.length === 0) return '-';
+      return filtered.map((entry, index) => {
         if (typeof entry === 'string') return `${index + 1}. ${entry}`;
         if (entry && typeof entry === 'object') {
           const record = entry as Record<string, unknown>;
@@ -698,14 +745,86 @@ const DictationInput = () => {
     normalizeMeanItems(items)
   ), []);
 
+  const handleLocateAddress = React.useCallback(() => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setGeoError('La géolocalisation n’est pas supportée par ce navigateur.');
+      return;
+    }
+    setIsGeolocating(true);
+    setGeoError(null);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&accept-language=fr`
+          );
+          const data = await response.json();
+          const addressData = data?.address || {};
+          const streetNumber = addressData.house_number || '';
+          const streetName = addressData.road || '';
+          const streetLine = [streetNumber, streetName].filter(Boolean).join(' ').trim();
+          const cityValue = addressData.city || addressData.town || addressData.village || addressData.municipality || addressData.county || '';
+          const addressValue = streetLine || data?.display_name || '';
+          setLocation({
+            lat: latitude,
+            lng: longitude,
+            address: addressValue || undefined,
+            city: cityValue || undefined,
+            streetNumber: streetNumber || undefined,
+            streetName: streetName || undefined
+          });
+          setSoiecAddressValidated(false);
+        } catch (error) {
+          console.error('Erreur de géocodage inverse', error);
+          setGeoError('Impossible de récupérer l’adresse. Réessayez ou saisissez-la manuellement.');
+        } finally {
+          setIsGeolocating(false);
+        }
+      },
+      (error) => {
+        console.error('Erreur de géolocalisation', error);
+        let message = 'Une erreur est survenue lors de la géolocalisation.';
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            message = 'Accès à la localisation refusé. Vous pouvez saisir l’adresse manuellement.';
+            break;
+          case error.POSITION_UNAVAILABLE:
+            message = 'Position actuelle non disponible.';
+            break;
+          case error.TIMEOUT:
+            message = 'Délai d’attente dépassé. Réessayez.';
+            break;
+        }
+        setGeoError(message);
+        setIsGeolocating(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  }, [setLocation]);
+
   const soiecLabel = isExtendedOps ? 'SAOIECL' : 'SOIEC';
   const buildOiPayloadData = React.useCallback(() => {
     if (!ordreData) return null;
     const commandLevel = type === 'group' ? 'CDG' : type === 'column' ? 'CDC' : type === 'site' ? 'CDS' : 'CDG';
+    const situationText = getSimpleSectionText(ordreData.S);
+    const commandementText = getSimpleSectionText(ordreData.C);
+    const objectifsList = getSimpleSectionContentList(ordreData.O);
+    const anticipationList = getSimpleSectionContentList(ordreData.A);
+    const logistiqueList = getSimpleSectionContentList(ordreData.L);
+    const ideeManoeuvre = ordreData.I.filter((idea) => idea?.type !== 'separator' && idea?.type !== 'empty');
+    const execution = Array.isArray(ordreData.E)
+      ? ordreData.E.filter((entry) => {
+          if (!entry || typeof entry !== 'object') return true;
+          const record = entry as Record<string, unknown>;
+          return record.type !== 'separator' && record.type !== 'empty';
+        })
+      : ordreData.E ?? '';
     return {
       schema_version: 1,
       command_level: commandLevel,
       command_level_key: type,
+      ordreData,
       address: {
         address,
         city,
@@ -713,13 +832,13 @@ const DictationInput = () => {
         street_name: streetName || undefined
       },
       soiec: {
-        situation: ordreData.S || '',
-        objectifs: ordreData.O || [],
-        idee_manoeuvre: ordreData.I || [],
-        execution: ordreData.E ?? '',
-        commandement: ordreData.C || '',
-        anticipation: ordreData.A ?? [],
-        logistique: ordreData.L ?? []
+        situation: situationText,
+        objectifs: objectifsList,
+        idee_manoeuvre: ideeManoeuvre,
+        execution,
+        commandement: commandementText,
+        anticipation: anticipationList,
+        logistique: logistiqueList
       },
       meta: {
         soiec_type: soiecLabel,
@@ -743,6 +862,128 @@ const DictationInput = () => {
     if (activeTab === 'soiec') {
       return (
         <div className="flex flex-col gap-4 md:gap-5">
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-[1.4fr,0.6fr] gap-3">
+              <div className="space-y-1 md:w-[70%]">
+                <label className="text-sm font-medium text-slate-600 dark:text-gray-400 ml-2">Adresse de l'intervention</label>
+                <input
+                  value={address}
+                  onChange={(e) => {
+                    setAddress(e.target.value);
+                    setSoiecAddressValidated(false);
+                  }}
+                  placeholder="Ex: 12 rue de la Paix"
+                  disabled={isOiLocked}
+                  className="w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-slate-600 dark:text-gray-400 ml-2">Ville</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    value={city}
+                    onChange={(e) => {
+                      setCity(e.target.value);
+                      setSoiecAddressValidated(false);
+                    }}
+                    placeholder="Ville de l'intervention"
+                    disabled={isOiLocked}
+                    className="flex-1 md:flex-[0.7] bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleLocateAddress}
+                    disabled={isGeolocating || isOiLocked}
+                    className="p-3 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-red-300 dark:hover:border-red-500/40 text-slate-600 dark:text-gray-300 hover:text-red-500 dark:hover:text-red-400 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                    aria-label="Utiliser ma position"
+                    title="Utiliser ma position"
+                  >
+                    <LocateFixed className={`w-4 h-4 ${isGeolocating ? 'animate-spin' : ''}`} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSoiecAddressValidated(true)}
+                    disabled={!fullAddress.trim() || isOiLocked}
+                    className={`inline-flex items-center gap-2 px-3 py-2.5 rounded-2xl border text-sm font-semibold transition ${
+                      soiecAddressValidated
+                        ? 'bg-emerald-600/15 text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-500/40'
+                        : 'bg-slate-200 text-slate-700 border-slate-300 hover:bg-slate-300 dark:bg-white/5 dark:text-gray-200 dark:border-white/10 dark:hover:bg-white/10'
+                    } ${!fullAddress.trim() ? 'opacity-60 cursor-not-allowed' : ''}`}
+                  >
+                    <Check className="w-4 h-4" />
+                    Valider
+                  </button>
+                </div>
+                {geoError && (
+                  <div className="text-xs text-red-500">{geoError}</div>
+                )}
+                {soiecAddressValidated && (
+                  <div className="text-xs text-emerald-600 dark:text-emerald-400">Adresse validée.</div>
+                )}
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-[1.4fr,0.6fr] gap-3">
+              <div className="space-y-1 md:w-[70%]">
+                <label className="text-sm font-medium text-slate-600 dark:text-gray-400 ml-2">Renseignements complémentaires</label>
+                <input
+                  value={additionalInfo}
+                  onChange={(e) => setAdditionalInfo(e.target.value)}
+                  placeholder={ADDITIONAL_INFO_PLACEHOLDER}
+                  disabled={isOiLocked}
+                  className="w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-slate-600 dark:text-gray-400 ml-2">Groupe horaire</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="datetime-local"
+                    value={orderTime}
+                    onChange={(e) => {
+                      setOrderTime(e.target.value);
+                      setSoiecTimeValidated(false);
+                    }}
+                    disabled={isOiLocked}
+                    className="flex-1 md:flex-[0.7] bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOrderTime(getLocalDateTime(new Date()));
+                      setSoiecTimeValidated(false);
+                    }}
+                    disabled={isOiLocked}
+                    className="p-3 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-blue-300 dark:hover:border-blue-500/40 text-slate-600 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                    aria-label="Utiliser l'heure actuelle"
+                    title="Utiliser l'heure actuelle"
+                  >
+                    <Clock className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nowValue = getLocalDateTime(new Date());
+                      setOrderTime((prev) => prev || nowValue);
+                      setSoiecTimeValidated(true);
+                    }}
+                    disabled={isOiLocked}
+                    className={`inline-flex items-center gap-2 px-3 py-2.5 rounded-2xl border text-sm font-semibold transition ${
+                      soiecTimeValidated
+                        ? 'bg-emerald-600/15 text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-500/40'
+                        : 'bg-slate-200 text-slate-700 border-slate-300 hover:bg-slate-300 dark:bg-white/5 dark:text-gray-200 dark:border-white/10 dark:hover:bg-white/10'
+                    }`}
+                  >
+                    <Check className="w-4 h-4" />
+                    Valider
+                  </button>
+                </div>
+                {soiecTimeValidated && (
+                  <div className="text-xs text-emerald-600 dark:text-emerald-400">Groupe horaire validé.</div>
+                )}
+              </div>
+            </div>
+          </div>
+
           <div className="flex flex-col gap-2 flex-1 min-w-[260px]">
             <label className="text-sm font-medium text-slate-600 dark:text-gray-400 ml-2 mb-1 block">
               Séléction du domaine de l'intervention (1er = principal, suivants = secondaires)
@@ -771,16 +1012,16 @@ const DictationInput = () => {
                         <button onClick={() => handleShareText('whatsapp')} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200">WhatsApp</button>
                         <button onClick={() => handleShareText('mail')} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200">Mail</button>
                         <button onClick={handleCopyDraft} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200 flex items-center gap-1"><ClipboardCopy className="w-4 h-4" />Copier</button>
+                      </div>
+                      <div className="text-xs text-slate-500 dark:text-gray-400 pt-1">Téléchargements</div>
+                      <div className="flex flex-wrap gap-2">
+                        <button onClick={handleDownloadImage} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200 flex items-center gap-1"><ImageDown className="w-4 h-4" />Image</button>
+                        <button onClick={() => handleShareFile('pdf')} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200">PDF</button>
+                        <button onClick={() => handleShareFile('word')} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200 flex items-center gap-1"><FileText className="w-4 h-4" />Word</button>
+                      </div>
+                      {showShareHint && <div className="text-[11px] text-red-400">Ajoutez au moins un élément avant de partager.</div>}
                     </div>
-                    <div className="text-xs text-slate-500 dark:text-gray-400 pt-1">Téléchargements</div>
-                    <div className="flex flex-wrap gap-2">
-                      <button onClick={handleDownloadImage} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200 flex items-center gap-1"><ImageDown className="w-4 h-4" />Image</button>
-                      <button onClick={() => handleShareFile('pdf')} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200">PDF</button>
-                      <button onClick={() => handleShareFile('word')} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200 flex items-center gap-1"><FileText className="w-4 h-4" />Word</button>
-                    </div>
-                    {showShareHint && <div className="text-[11px] text-red-400">Ajoutez au moins un élément avant de partager.</div>}
-                  </div>
-                )}
+                  )}
               </div>
               {hasHistory && (
                 <button
@@ -791,102 +1032,6 @@ const DictationInput = () => {
                 </button>
               )}
             </div>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-[1.4fr,0.6fr] gap-3">
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-600 dark:text-gray-400 ml-2">Adresse de l'intervention</label>
-                <input
-                  value={address}
-                  onChange={(e) => {
-                    setAddress(e.target.value);
-                    setSoiecAddressValidated(false);
-                  }}
-                  placeholder="Ex: 12 rue de la Paix"
-                  disabled={isOiLocked}
-                  className="w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-600 dark:text-gray-400 ml-2">Ville</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    value={city}
-                    onChange={(e) => {
-                      setCity(e.target.value);
-                      setSoiecAddressValidated(false);
-                    }}
-                    placeholder="Ville de l'intervention"
-                    disabled={isOiLocked}
-                    className="flex-1 bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setSoiecAddressValidated(true)}
-                    disabled={!fullAddress.trim() || isOiLocked}
-                    className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold transition ${
-                      soiecAddressValidated
-                        ? 'bg-emerald-600/15 text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-500/40'
-                        : 'bg-slate-200 text-slate-700 border-slate-300 hover:bg-slate-300 dark:bg-white/5 dark:text-gray-200 dark:border-white/10 dark:hover:bg-white/10'
-                    } ${!fullAddress.trim() ? 'opacity-60 cursor-not-allowed' : ''}`}
-                  >
-                    <Check className="w-4 h-4" />
-                    Valider
-                  </button>
-                </div>
-                {soiecAddressValidated && (
-                  <div className="text-xs text-emerald-600 dark:text-emerald-400">Adresse validée.</div>
-                )}
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-[1.4fr,0.6fr] gap-3">
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-600 dark:text-gray-400 ml-2">Renseignements complémentaires</label>
-                <input
-                  value={additionalInfo}
-                  onChange={(e) => setAdditionalInfo(e.target.value)}
-                  placeholder={ADDITIONAL_INFO_PLACEHOLDER}
-                  disabled={isOiLocked}
-                  className="w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-slate-600 dark:text-gray-400 ml-2">Groupe horaire</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="datetime-local"
-                    value={orderTime}
-                    onChange={(e) => {
-                      setOrderTime(e.target.value);
-                      setSoiecTimeValidated(false);
-                    }}
-                    disabled={isOiLocked}
-                    className="flex-1 bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const nowValue = getLocalDateTime(new Date());
-                      setOrderTime((prev) => prev || nowValue);
-                      setSoiecTimeValidated(true);
-                    }}
-                    disabled={isOiLocked}
-                    className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold transition ${
-                      soiecTimeValidated
-                        ? 'bg-emerald-600/15 text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-500/40'
-                        : 'bg-slate-200 text-slate-700 border-slate-300 hover:bg-slate-300 dark:bg-white/5 dark:text-gray-200 dark:border-white/10 dark:hover:bg-white/10'
-                    }`}
-                  >
-                    <Check className="w-4 h-4" />
-                    Valider
-                  </button>
-                </div>
-                {soiecTimeValidated && (
-                  <div className="text-xs text-emerald-600 dark:text-emerald-400">Groupe horaire validé.</div>
-                )}
-              </div>
             </div>
           </div>
 
@@ -903,6 +1048,8 @@ const DictationInput = () => {
             type={type as 'group' | 'column' | 'site' | 'communication'}
             boardRef={boardRef}
             readOnly={isOiLocked}
+            interventionId={currentInterventionId}
+            aiEventType="SOIEC_AI_GENERATED"
           />
         </div>
       );
@@ -1819,8 +1966,30 @@ const DictationInput = () => {
       const dominante = selectedRisks.length > 0 ? selectedRisks[0] : 'Incendie';
 
       if (type === 'communication') {
+        const situationText = getSimpleSectionText(ordreData.S);
+        const objectifsList = getSimpleSectionContentList(ordreData.O);
+        const ideeList = ordreData.I
+          .filter((idea) => idea?.type !== 'separator' && idea?.type !== 'empty')
+          .map((idea) => idea.mission);
+        const executionText = Array.isArray(ordreData.E)
+          ? ordreData.E
+              .filter((entry) => {
+                if (!entry || typeof entry !== 'object') return true;
+                const record = entry as Record<string, unknown>;
+                return record.type !== 'separator' && record.type !== 'empty';
+              })
+              .map((entry) => {
+                if (typeof entry === 'string') return entry;
+                const record = (entry ?? {}) as Record<string, unknown>;
+                const mission = typeof record.mission === 'string' ? record.mission : '';
+                const moyen = typeof record.moyen === 'string' ? record.moyen : '';
+                return mission || moyen ? `${mission}: ${moyen}`.trim() : JSON.stringify(entry);
+              })
+              .join('\\n')
+          : ordreData.E || '';
+        const commandementText = getSimpleSectionText(ordreData.C);
         const communicationData = {
-          situation: `S: ${ordreData.S}\\nO: ${ordreData.O.join(', ')}\\nI: ${ordreData.I.map(i => i.mission).join(', ')}\\nE: ${ordreData.E}\\nC: ${ordreData.C}`,
+          situation: `S: ${situationText}\\nO: ${objectifsList.join(', ')}\\nI: ${ideeList.join(', ')}\\nE: ${executionText}\\nC: ${commandementText}`,
           groupe_horaire: new Date(),
           Engagement_secours: '',
           Situation_appel: '',
@@ -1850,23 +2019,37 @@ const DictationInput = () => {
           }
         });
       } else {
-        const anticipation = Array.isArray(ordreData.A) ? ordreData.A.join('\\n') : undefined;
-        const logistique = Array.isArray(ordreData.L) ? ordreData.L.join('\\n') : undefined;
+        const anticipationItems = getSimpleSectionContentList(ordreData.A);
+        const logistiqueItems = getSimpleSectionContentList(ordreData.L);
+        const anticipation = anticipationItems.length > 0 ? anticipationItems.join('\\n') : undefined;
+        const logistique = logistiqueItems.length > 0 ? logistiqueItems.join('\\n') : undefined;
+        const situationText = getSimpleSectionText(ordreData.S);
+        const objectifsList = getSimpleSectionContentList(ordreData.O);
+        const commandementText = getSimpleSectionText(ordreData.C);
         const dataToSave = {
           type: type as 'group' | 'column' | 'site',
-          situation: ordreData.S || '',
-          objectifs: ordreData.O.join('\\n') || '',
-          idees: ordreData.I.map(i => i.mission).join('\\n') || '',
+          situation: situationText || '',
+          objectifs: objectifsList.join('\\n') || '',
+          idees: ordreData.I
+            .filter((idea) => idea?.type !== 'separator' && idea?.type !== 'empty')
+            .map((idea) => idea.mission)
+            .join('\\n') || '',
           execution: Array.isArray(ordreData.E)
-            ? ordreData.E.map((entry) => {
-                if (typeof entry === 'string') return entry;
-                const record = (entry ?? {}) as Record<string, unknown>;
-                const mission = typeof record.mission === 'string' ? record.mission : '';
-                const moyen = typeof record.moyen === 'string' ? record.moyen : '';
-                return mission || moyen ? `${mission}: ${moyen}`.trim() : JSON.stringify(entry);
-              }).join('\\n')
+            ? ordreData.E
+                .filter((entry) => {
+                  if (!entry || typeof entry !== 'object') return true;
+                  const record = entry as Record<string, unknown>;
+                  return record.type !== 'separator' && record.type !== 'empty';
+                })
+                .map((entry) => {
+                  if (typeof entry === 'string') return entry;
+                  const record = (entry ?? {}) as Record<string, unknown>;
+                  const mission = typeof record.mission === 'string' ? record.mission : '';
+                  const moyen = typeof record.moyen === 'string' ? record.moyen : '';
+                  return mission || moyen ? `${mission}: ${moyen}`.trim() : JSON.stringify(entry);
+                }).join('\\n')
             : ordreData.E || '',
-          commandement: ordreData.C || '',
+          commandement: commandementText || '',
           ...(anticipation !== undefined ? { anticipation } : {}),
           ...(logistique !== undefined ? { logistique } : {}),
           groupe_horaire: new Date(),
@@ -1998,6 +2181,45 @@ const DictationInput = () => {
     setShowShareMenu(false);
     setShowShareHint(false);
     void handleGenerateShare();
+  };
+
+  const handleConfirmCloseIntervention = async () => {
+    if (!currentInterventionId) {
+      setCloseError('Aucune intervention en cours.');
+      return;
+    }
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setCloseError('Configuration Supabase manquante.');
+      return;
+    }
+    setCloseStatus('loading');
+    setCloseError(null);
+    try {
+      const { error } = await supabase
+        .from('interventions')
+        .update({ status: 'closed' })
+        .eq('id', currentInterventionId);
+      if (error) throw error;
+      logInterventionEventSafe(
+        'INTERVENTION_CLOSED',
+        {
+          order_time: orderTime,
+          closed_at: new Date().toISOString()
+        },
+        buildInterventionMetrics('dictation.intervention.close')
+      );
+      setCloseDialogOpen(false);
+      setIsInterventionClosed(true);
+      setCloseNotice("Intervention clôturée.");
+      window.setTimeout(() => setCloseNotice(null), 4000);
+    } catch (error) {
+      console.error('Erreur clôture intervention', error);
+      const message = error instanceof Error ? error.message : 'Impossible de clôturer l’intervention.';
+      setCloseError(message);
+    } finally {
+      setCloseStatus('idle');
+    }
   };
 
   const canNativeShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
@@ -2164,6 +2386,11 @@ const DictationInput = () => {
                     )}
                   </div>
                 )}
+                {closeNotice && (
+                  <div className="text-[11px] text-emerald-600 dark:text-emerald-300">
+                    {closeNotice}
+                  </div>
+                )}
                 <button
                   onClick={handleOpenShareModal}
                   className="px-3 py-2 rounded-xl text-sm font-semibold bg-white/70 hover:bg-white border border-slate-200 text-slate-700 dark:bg-white/10 dark:hover:bg-white/20 dark:border-white/15 dark:text-gray-200 transition flex items-center gap-2"
@@ -2176,6 +2403,21 @@ const DictationInput = () => {
                   className="px-3 py-2 rounded-xl text-sm font-semibold bg-slate-200 hover:bg-slate-300 border border-slate-300 text-slate-700 dark:bg-white/10 dark:hover:bg-white/20 dark:border-white/15 dark:text-gray-200 transition"
                 >
                   Réinitialiser
+                </button>
+                <button
+                  onClick={() => {
+                    setCloseError(null);
+                    if (!isInterventionClosed) setCloseDialogOpen(true);
+                  }}
+                  disabled={isCloseDisabled}
+                  className={`px-3 py-2 rounded-xl text-sm font-semibold border text-white transition flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed ${
+                    isInterventionClosed
+                      ? 'bg-emerald-600/90 border-emerald-500/70'
+                      : 'bg-red-600/90 hover:bg-red-500 border-red-500/70'
+                  }`}
+                >
+                  <Archive className="w-4 h-4" />
+                  {closeButtonLabel}
                 </button>
               </div>
             </div>
@@ -2293,6 +2535,18 @@ const DictationInput = () => {
                               }}
                               className="flex-1 bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
                             />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setConduiteOrderTime(getLocalDateTime(new Date()));
+                                setConduiteTimeValidated(false);
+                              }}
+                              className="p-3 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-blue-300 dark:hover:border-blue-500/40 text-slate-600 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 transition"
+                              aria-label="Utiliser l'heure actuelle"
+                              title="Utiliser l'heure actuelle"
+                            >
+                              <Clock className="w-4 h-4" />
+                            </button>
                             <button
                               type="button"
                               onClick={() => {
@@ -2504,7 +2758,9 @@ const DictationInput = () => {
                         <div className="mt-3 grid gap-3 text-xs">
                           <div>
                             <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Situation</div>
-                            <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">{entry.payload.ordreData?.S || '-'}</div>
+                            <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">
+                              {getSimpleSectionText(entry.payload.ordreData?.S) || '-'}
+                            </div>
                           </div>
                           <div>
                             <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Objectifs</div>
@@ -2520,15 +2776,17 @@ const DictationInput = () => {
                           </div>
                           <div>
                             <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Commandement</div>
-                            <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">{entry.payload.ordreData?.C || '-'}</div>
+                            <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">
+                              {getSimpleSectionText(entry.payload.ordreData?.C) || '-'}
+                            </div>
                           </div>
-                          {Array.isArray(entry.payload.ordreData?.A) && entry.payload.ordreData.A.length > 0 && (
+                          {getSimpleSectionContentList(entry.payload.ordreData?.A).length > 0 && (
                             <div>
                               <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Anticipation</div>
                               <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">{formatList(entry.payload.ordreData?.A)}</div>
                             </div>
                           )}
-                          {Array.isArray(entry.payload.ordreData?.L) && entry.payload.ordreData.L.length > 0 && (
+                          {getSimpleSectionContentList(entry.payload.ordreData?.L).length > 0 && (
                             <div>
                               <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Logistique</div>
                               <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">{formatList(entry.payload.ordreData?.L)}</div>
@@ -2568,6 +2826,51 @@ const DictationInput = () => {
                 className="px-3 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-sm text-slate-700 dark:bg-white/5 dark:hover:bg-white/10 dark:text-gray-200 transition"
               >
                 Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {closeDialogOpen && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white dark:bg-[#0f121a] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Clôturer l’intervention</h3>
+              <button
+                onClick={() => {
+                  setCloseDialogOpen(false);
+                  setCloseError(null);
+                }}
+                className="text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              <p className="text-sm text-slate-600 dark:text-gray-300">
+                Êtes-vous sûr de vouloir clôturer cette intervention ? Elle restera accessible dans l&apos;historique.
+              </p>
+              {closeError && (
+                <div className="text-sm text-red-600 dark:text-red-300">{closeError}</div>
+              )}
+            </div>
+            <div className="px-4 py-3 border-t border-slate-200 dark:border-white/10 flex justify-end gap-2">
+              <button
+                onClick={() => {
+                  setCloseDialogOpen(false);
+                  setCloseError(null);
+                }}
+                className="px-3 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-sm text-slate-700 dark:bg-white/5 dark:hover:bg-white/10 dark:text-gray-200 transition"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleConfirmCloseIntervention}
+                disabled={closeStatus === 'loading'}
+                className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-sm text-white transition disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {closeStatus === 'loading' ? 'Clôture…' : 'Clôturer'}
               </button>
             </div>
           </div>

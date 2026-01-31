@@ -16,7 +16,7 @@ interface AuthContextValue {
   initError: AuthInitError | null;
   retryInit: () => void;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string, profile?: { firstName?: string; lastName?: string }) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -147,12 +147,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (error) throw error;
   }, []);
 
-  const register = useCallback(async (email: string, password: string) => {
+  const register = useCallback(async (email: string, password: string, profile?: { firstName?: string; lastName?: string }) => {
     const supabase = getSupabaseClient();
     if (!supabase) {
       throw new Error('Configuration Supabase manquante.');
     }
-    const { error } = await supabase.auth.signUp({ email, password });
+    const data = {
+      first_name: profile?.firstName?.trim() || undefined,
+      last_name: profile?.lastName?.trim() || undefined
+    };
+    const hasProfileData = Boolean(data.first_name || data.last_name);
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: hasProfileData ? { data } : undefined
+    });
     if (error) throw error;
   }, []);
 

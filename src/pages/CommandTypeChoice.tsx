@@ -1,5 +1,5 @@
 import React from 'react';
-import { LocateFixed, Loader2, Camera } from 'lucide-react';
+import { LocateFixed, Loader2, Camera, History } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import CommandIcon from '../components/CommandIcon';
 import { useInterventionStore } from '../stores/useInterventionStore';
@@ -15,6 +15,28 @@ const ROLE_OPTIONS_BASE = [
   { value: 'officier_moyens', label: 'Officier moyens' },
   { value: 'officier_renseignements', label: 'Officier renseignements' }
 ];
+
+const COMMAND_LEVEL_LABELS: Record<string, string> = {
+  group: 'Chef de groupe',
+  column: 'Chef de colonne',
+  site: 'Chef de site',
+  communication: 'Communication OPS'
+};
+
+type InterventionHistoryItem = {
+  id: string;
+  status: string;
+  title: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  address_line1: string | null;
+  street_number: string | null;
+  street_name: string | null;
+  city: string | null;
+  incident_number: string | null;
+  command_level: string | null;
+  role: string | null;
+};
 
 const CommandTypeChoice = () => {
   const navigate = useNavigate();
@@ -33,6 +55,11 @@ const CommandTypeChoice = () => {
     : ROLE_OPTIONS_BASE;
   const [showInterventionModal, setShowInterventionModal] = React.useState(false);
   const [showMetadataModal, setShowMetadataModal] = React.useState(false);
+  const [showHistoryModal, setShowHistoryModal] = React.useState(false);
+  const [historyStatus, setHistoryStatus] = React.useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [historyError, setHistoryError] = React.useState<string | null>(null);
+  const [historyItems, setHistoryItems] = React.useState<InterventionHistoryItem[]>([]);
+  const [historyActionId, setHistoryActionId] = React.useState<string | null>(null);
   const [interventionMeta, setInterventionMeta] = React.useState({
     streetNumber: '',
     streetName: '',
@@ -77,6 +104,7 @@ const CommandTypeChoice = () => {
     }
   }, [currentType, navigate]);
 
+
   const handlePrimaryAction = () => {
     if (!currentType) return;
     if (type === 'communication') {
@@ -117,11 +145,111 @@ const CommandTypeChoice = () => {
     if (field === 'role') setStoredRole(value);
   };
 
+  const buildAddressLine = (item: InterventionHistoryItem) => (
+    item.address_line1?.trim()
+    || [item.street_number, item.street_name].filter(Boolean).join(' ').trim()
+  );
+
+  const buildCityLine = (item: InterventionHistoryItem) => item.city?.trim();
+
+  const formatHistoryDate = (value: string | null) => {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  };
+
+  const fetchHistory = React.useCallback(async () => {
+    if (!currentType) return;
+    setHistoryStatus('loading');
+    setHistoryError(null);
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setHistoryStatus('error');
+      setHistoryError('Configuration Supabase manquante.');
+      return;
+    }
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError) throw authError;
+      const userId = authData.user?.id;
+      if (!userId) throw new Error('Utilisateur non authentifié.');
+      const { data, error } = await supabase
+        .from('intervention_members')
+        .select('intervention_id, role, command_level, interventions ( id, title, status, created_at, updated_at, address_line1, street_number, street_name, city, incident_number )')
+        .eq('user_id', userId);
+      if (error) throw error;
+      const normalized = (data ?? []).map((row) => {
+        const intervention = (row as { interventions?: Record<string, unknown> }).interventions ?? {};
+        return {
+          id: (intervention.id as string) || row.intervention_id,
+          status: (intervention.status as string) || 'open',
+          title: (intervention.title as string) ?? null,
+          created_at: (intervention.created_at as string) ?? null,
+          updated_at: (intervention.updated_at as string) ?? null,
+          address_line1: (intervention.address_line1 as string) ?? null,
+          street_number: (intervention.street_number as string) ?? null,
+          street_name: (intervention.street_name as string) ?? null,
+          city: (intervention.city as string) ?? null,
+          incident_number: (intervention.incident_number as string) ?? null,
+          command_level: row.command_level ?? null,
+          role: row.role ?? null
+        } satisfies InterventionHistoryItem;
+      }).filter((item) => item.id && (!item.command_level || item.command_level === currentType));
+      normalized.sort((a, b) => {
+        const dateA = new Date(a.updated_at || a.created_at || 0).getTime();
+        const dateB = new Date(b.updated_at || b.created_at || 0).getTime();
+        return dateB - dateA;
+      });
+      setHistoryItems(normalized);
+      setHistoryStatus('ready');
+    } catch (error) {
+      console.error('Erreur chargement historique', error);
+      const message = error instanceof Error ? error.message : 'Impossible de charger l’historique.';
+      setHistoryError(message);
+      setHistoryStatus('error');
+    }
+  }, [currentType]);
+
   const handleResumeIntervention = () => {
     if (!currentType) return;
     clearCurrentIntervention();
     setShowInterventionModal(false);
-    navigate(`/situation/${currentType}/dictate`, { state: { mode: 'resume' } });
+    setShowHistoryModal(true);
+    void fetchHistory();
+  };
+
+  const handleResumeFromHistory = async (item: InterventionHistoryItem) => {
+    const targetType = (item.command_level || currentType) as typeof currentType;
+    if (!targetType) return;
+    setHistoryActionId(item.id);
+    setHistoryError(null);
+    const supabase = getSupabaseClient();
+    try {
+      if (!supabase) {
+        throw new Error('Configuration Supabase manquante.');
+      }
+      const canUpdate = item.role === 'owner' || item.role === 'admin';
+      if (item.status === 'closed' && canUpdate) {
+        const { error } = await supabase.from('interventions').update({ status: 'open' }).eq('id', item.id);
+        if (error) throw error;
+        await logInterventionEvent(
+          item.id,
+          'INTERVENTION_REOPENED',
+          { reopened_at: new Date().toISOString() },
+          { ui_context: 'intervention.history' }
+        );
+      }
+      const startedAtMs = item.created_at ? new Date(item.created_at).getTime() : Date.now();
+      navigate(`/situation/${targetType}/dictate`, { state: { mode: 'resume', interventionId: item.id, startedAtMs } });
+      setShowHistoryModal(false);
+    } catch (error) {
+      console.error('Erreur reprise intervention', error);
+      const message = error instanceof Error ? error.message : 'Impossible de rouvrir l’intervention.';
+      setHistoryError(message);
+    } finally {
+      setHistoryActionId(null);
+    }
   };
 
   const stopScanner = React.useCallback(() => {
@@ -518,8 +646,9 @@ const CommandTypeChoice = () => {
                   <button
                     type="button"
                     onClick={handleResumeIntervention}
-                    className="w-full py-3 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-900 dark:bg-white/10 dark:hover:bg-white/20 dark:text-white transition font-semibold"
+                    className="w-full py-3 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-900 dark:bg-white/10 dark:hover:bg-white/20 dark:text-white transition font-semibold flex items-center justify-center gap-2"
                   >
+                    <History className="w-4 h-4" />
                     Reprendre une intervention
                   </button>
                   <button
@@ -532,6 +661,108 @@ const CommandTypeChoice = () => {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showHistoryModal && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
+          <div className="w-full max-w-3xl bg-white dark:bg-[#121212] border border-slate-200 dark:border-white/10 rounded-3xl shadow-2xl p-6 space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs uppercase text-slate-500 dark:text-gray-400 tracking-[0.3em]">Historique</p>
+                <h3 className="text-2xl font-bold">Interventions enregistrées</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowHistoryModal(false)}
+                className="text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white transition"
+                aria-label="Fermer la fenêtre"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="space-y-4 max-h-[70vh] overflow-y-auto">
+              {historyError && (
+                <div className="text-sm text-red-600 dark:text-red-300">{historyError}</div>
+              )}
+              {historyStatus === 'loading' && (
+                <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-gray-300">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Chargement des interventions…
+                </div>
+              )}
+              {historyStatus === 'error' && !historyError && (
+                <div className="text-sm text-red-600 dark:text-red-300">Erreur de chargement.</div>
+              )}
+              {historyStatus === 'ready' && historyItems.length === 0 && (
+                <div className="text-sm text-slate-600 dark:text-gray-300">Aucune intervention enregistrée.</div>
+              )}
+              {historyStatus === 'ready' && historyItems.length > 0 && (
+                <div className="space-y-3">
+                  {historyItems.map((item) => {
+                    const addressLine = buildAddressLine(item);
+                    const cityLine = buildCityLine(item);
+                    const title = item.incident_number
+                      ? `Intervention #${item.incident_number}`
+                      : (item.title || 'Intervention ATLAS');
+                    const statusLabel = item.status === 'closed' ? 'Clôturée' : 'En cours';
+                    const statusClasses = item.status === 'closed'
+                      ? 'bg-slate-200 text-slate-700 dark:bg-white/10 dark:text-gray-200'
+                      : 'bg-emerald-600/15 text-emerald-700 dark:text-emerald-300';
+                    const commandLabel = item.command_level ? (COMMAND_LEVEL_LABELS[item.command_level] || item.command_level) : null;
+                    const isBusy = historyActionId === item.id;
+                    const canUpdate = item.role === 'owner' || item.role === 'admin';
+                    const actionLabel = item.status === 'closed' && canUpdate ? 'Réouvrir et reprendre' : 'Reprendre';
+                    return (
+                      <div key={item.id} className="rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 px-4 py-3 space-y-3">
+                        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+                          <div className="space-y-1">
+                            <div className="text-sm font-semibold text-slate-900 dark:text-white">{title}</div>
+                            {(addressLine || cityLine) && (
+                              <div className="text-xs text-slate-500 dark:text-gray-400">
+                                {[addressLine, cityLine].filter(Boolean).join(', ')}
+                              </div>
+                            )}
+                            <div className="text-[11px] text-slate-400 dark:text-gray-500">
+                              {formatHistoryDate(item.updated_at || item.created_at)}
+                              {commandLabel ? ` • ${commandLabel}` : ''}
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-start md:items-end gap-2">
+                            <span className={`text-[10px] px-2 py-1 rounded-full ${statusClasses}`}>{statusLabel}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleResumeFromHistory(item)}
+                              disabled={isBusy}
+                              className="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition disabled:opacity-60"
+                            >
+                              {isBusy ? 'Ouverture…' : actionLabel}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => void fetchHistory()}
+                className="px-3 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm dark:bg-white/10 dark:hover:bg-white/20 dark:text-white transition"
+              >
+                Rafraîchir
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowHistoryModal(false)}
+                className="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm transition"
+              >
+                Fermer
+              </button>
             </div>
           </div>
         </div>

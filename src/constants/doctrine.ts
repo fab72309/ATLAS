@@ -43,7 +43,7 @@ export const DOCTRINE_CONTEXT = {
             "CCEM (Camion Citerne Eau Mousse): 9500L d'eau 2500L d'émulseur, 240L d'additif, 1 lance canon sur toit 4000L/min (portée 55m), 1 lance canon mobile 4000L/min (portée 55m), 1 bâche de 12 000L",
             "CCEMs (Camion Citerne Eau Mousse Super): 11 000L d'eau 2500L d'émulseur, 500L d'additif, 1 lance canon sur toit 4000l/min (portée 55m), 1 lance canon mobile 4000l/min (portée 55m), 1 bâche de 11 000l",
             "BEAA (Bras Elevateur Aérien Automobile) : Travail en hauteur à 46m, 1 lance canon eau et mousse 4500L/min",
-            "--- GROUPES CONSTITUÉS (RENFORTS) ---",
+            "GROUPES CONSTITUÉS (RENFORTS)",
             "G.INC (Groupe Incendie) : Constitué de 1 CDG + 1 EPC + 2 FPT. Capacité : Reconnaissances sous ARI, Sauvetages, Etablissement de 4 LDV 500 (à 200m) ou 1 LDV 1000 (à 400m).",
             "G.ALIM (Groupe Alimentation) : Constitué de 1 CDG + 1 CCEM + 2 CDHR + 1 FPT. Capacité : Alimenter 4000 L/min à 1000m, Stock tampon 8000L.",
             "G.FIND (Groupe Feu Industriel) : Constitué de 1 CDG + 1 BEAA (ou EPC) + 1 CCEM + 1 CDHR + 1 FPT. Capacité : 1 Canon 4000 L/min à 500m ou 2 Canons 2000 L/min.",
@@ -101,13 +101,12 @@ export const DOCTRINE_CONTEXT = {
         "moyens_standards_td": [
             "FPT",
             "VLCg",
-            "Technicien GRDF (demandé)"
+            "Technicien GRDF"
         ]
     },
     "incendie_vegetation": {
         "principes_cles": [
             "Attaque flanc / tête",
-            "LACES (Lookout, Anchor, Communication, Escape, Safety)",
             "Autoprotection prioritaire si cerné"
         ],
         "objectifs": [
