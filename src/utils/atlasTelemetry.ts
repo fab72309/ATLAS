@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from './supabaseClient';
+import { getDeviceContext } from './deviceContext';
 
 export type TelemetrySource = 'keyboard' | 'stt' | 'dictation' | 'template';
 
@@ -93,6 +94,22 @@ const buildPayload = <TData>(
   return payload;
 };
 
+const buildBatchPayload = (
+  data: TelemetryBatchPayload['data'],
+  metrics: TelemetryBatchMetrics,
+  context?: Record<string, unknown>
+): TelemetryBatchPayload => ({
+  schema_version: 1,
+  data,
+  metrics,
+  context
+});
+
+const withDeviceContext = (context?: Record<string, unknown>) => ({
+  ...(context ?? {}),
+  device: getDeviceContext()
+});
+
 const requireUserId = async (supabase: SupabaseClient): Promise<string> => {
   const { data, error } = await supabase.auth.getUser();
   if (error) throw error;
@@ -121,7 +138,8 @@ export const logUserEvent = async <TData>(
     return;
   }
   const userId = await requireUserId(supabase);
-  const payload = buildPayload(data, metrics, context);
+  const nextContext = withDeviceContext(context);
+  const payload = buildPayload(data, metrics, nextContext);
   const { error } = await supabase.from('user_events').insert({
     user_id: userId,
     event_type,
@@ -152,7 +170,8 @@ export const logInterventionEvent = async <TData>(
     throw new Error('intervention_events requires is_validated = true (append-only)');
   }
   const userId = await requireUserId(supabase);
-  const payload = buildPayload(data, metrics, context);
+  const nextContext = withDeviceContext(context);
+  const payload = buildPayload(data, metrics, nextContext);
   const insertPayload: Record<string, unknown> = {
     intervention_id,
     user_id: userId,
@@ -195,17 +214,15 @@ export const logTelemetryBatch = async (
     ui_context: ui_context ?? 'unknown',
     ...rest
   };
-  const payload: TelemetryBatchPayload = {
-    schema_version: 1,
-    data: {
+  const nextContext = withDeviceContext(context);
+  const payload = buildBatchPayload(
+    {
       stream,
       samples: batchPayload.samples
     },
-    metrics: normalizedMetrics
-  };
-  if (context && Object.keys(context).length > 0) {
-    payload.context = context;
-  }
+    normalizedMetrics,
+    nextContext
+  );
   const insertPayload: Record<string, unknown> = {
     intervention_id,
     user_id: userId,

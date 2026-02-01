@@ -279,7 +279,7 @@ export const hydrateIntervention = async (interventionId: string): Promise<Hydra
   try {
     const { data: interventionRows, error } = await supabase
       .from('interventions')
-      .select('created_at, address_line1, street_number, street_name, postal_code, city, incident_number, oi_logical_id, conduite_logical_id')
+      .select('created_at, status, is_training, training_set_at, training_set_by, address_line1, street_number, street_name, postal_code, city, incident_number, oi_logical_id, conduite_logical_id')
       .eq('id', interventionId)
       .limit(1);
     if (error) throw error;
@@ -302,6 +302,12 @@ export const hydrateIntervention = async (interventionId: string): Promise<Hydra
         city: row?.city ?? null
       });
     }
+    interventionStore.setInterventionMeta({
+      status: typeof row?.status === 'string' ? row.status : null,
+      isTraining: typeof row?.is_training === 'boolean' ? row.is_training : null,
+      trainingSetAt: typeof row?.training_set_at === 'string' ? row.training_set_at : null,
+      trainingSetBy: typeof row?.training_set_by === 'string' ? row.training_set_by : null
+    });
     interventionStore.setLogicalIds({
       oiLogicalId: row?.oi_logical_id ?? null,
       conduiteLogicalId: row?.conduite_logical_id ?? null

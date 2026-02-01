@@ -267,7 +267,7 @@ const formatExecution = (value: OrdreInitial['E']) => {
   if (Array.isArray(value)) {
     const filtered = value.filter((entry) => {
       if (!entry || typeof entry !== 'object') return true;
-      const record = entry as Record<string, unknown>;
+      const record = entry as unknown as Record<string, unknown>;
       return record.type !== 'separator' && record.type !== 'empty';
     });
     if (filtered.length === 0) return '-';
@@ -275,9 +275,10 @@ const formatExecution = (value: OrdreInitial['E']) => {
       .map((entry, index) => {
         if (typeof entry === 'string') return `${index + 1}. ${entry}`;
         if (entry && typeof entry === 'object') {
-          const title = typeof entry.title === 'string' ? entry.title : '';
-          const mission = typeof entry.mission === 'string' ? entry.mission : '';
-          const observation = typeof entry.observation === 'string' ? entry.observation : '';
+          const record = entry as unknown as Record<string, unknown>;
+          const title = typeof record.title === 'string' ? record.title : '';
+          const mission = typeof record.mission === 'string' ? record.mission : '';
+          const observation = typeof record.observation === 'string' ? record.observation : '';
           const details = [title || mission, observation].filter(Boolean).join(' — ');
           return `${index + 1}. ${details || '-'}`;
         }
@@ -801,7 +802,8 @@ const Settings = () => {
       if (error) throw error;
       const normalized = (data ?? [])
         .map((row) => {
-          const intervention = (row as { interventions?: Record<string, unknown> }).interventions ?? {};
+          const rawIntervention = (row as { interventions?: Record<string, unknown> | Record<string, unknown>[] }).interventions;
+          const intervention = Array.isArray(rawIntervention) ? rawIntervention[0] ?? {} : rawIntervention ?? {};
           return {
             id: (intervention.id as string) || row.intervention_id,
             status: (intervention.status as string) || 'open',
