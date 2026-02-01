@@ -856,11 +856,12 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
           color: nextColor,
           chief: canPickColor(editor.type) ? editor.chief : n.chief
         };
+        const cascadeColor = nextNode.color;
         const shouldCascade =
           (nextNode.type === 'sector' || nextNode.type === 'subsector') &&
-          nextNode.color &&
-          (n.color || null) !== (nextNode.color || null);
-        return shouldCascade ? applyColorToSubtree(nextNode, nextNode.color) : nextNode;
+          cascadeColor &&
+          (n.color || null) !== (cascadeColor || null);
+        return shouldCascade ? applyColorToSubtree(nextNode, cascadeColor) : nextNode;
       })
     );
     setEditor(null);

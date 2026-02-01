@@ -28,6 +28,8 @@ import { readUserScopedJSON, writeUserScopedJSON, removeUserScopedItem } from '.
 import { getSupabaseClient } from '../utils/supabaseClient';
 import { normalizeMeanItems } from '../utils/means';
 import { hydrateIntervention } from '../utils/interventionHydration';
+import { enqueue, flush, startOutboxSync } from '../utils/offlineOutbox';
+import { useIsaPrompt } from '../utils/useIsaPrompt';
 
 const getNowStamp = () => {
   const now = new Date();
@@ -225,7 +227,7 @@ const createCompteRenduMessage = (): CompteRenduMessage => {
 
 const normalizeSelections = (input: unknown): MessageSelections => {
   if (!input || typeof input !== 'object') return {};
-  const record = input as Record<string, unknown>;
+  const record = input as unknown as Record<string, unknown>;
   return Object.keys(record).reduce<MessageSelections>((acc, key) => {
     if (typeof record[key] === 'boolean') acc[key] = Boolean(record[key]);
     return acc;
@@ -235,7 +237,7 @@ const normalizeSelections = (input: unknown): MessageSelections => {
 const normalizeDemandes = (input: unknown): MessageDemandes => {
   const base = createMessageDemandes();
   if (!input || typeof input !== 'object') return base;
-  const record = input as Record<string, unknown>;
+  const record = input as unknown as Record<string, unknown>;
   const selections = record.selections && typeof record.selections === 'object'
     ? normalizeSelections(record.selections)
     : normalizeSelections(record);
@@ -255,7 +257,7 @@ const normalizeDemandes = (input: unknown): MessageDemandes => {
 const normalizeSurLesLieux = (input: unknown): MessageSurLesLieux => {
   const base = createMessageSurLesLieux();
   if (!input || typeof input !== 'object') return base;
-  const record = input as Record<string, unknown>;
+  const record = input as unknown as Record<string, unknown>;
   const selections = record.selections && typeof record.selections === 'object'
     ? normalizeSelections(record.selections)
     : normalizeSelections(record);
@@ -423,6 +425,7 @@ const SurLesLieuxSection: React.FC<SurLesLieuxSectionProps> = ({ value, onChange
 };
 
 const ADDITIONAL_INFO_PLACEHOLDER = 'Exemples : type de bâtiment, ETARE, raison sociale';
+const ISA_PROMPT_ENABLED = false;
 
 const DictationInput = () => {
   const { type } = useParams();
@@ -445,6 +448,8 @@ const DictationInput = () => {
   const setLocation = useInterventionStore((s) => s.setLocation);
   const currentInterventionId = useInterventionStore((s) => s.currentInterventionId);
   const interventionStartedAtMs = useInterventionStore((s) => s.interventionStartedAtMs);
+  const interventionStatus = useInterventionStore((s) => s.interventionStatus);
+  const setInterventionMetaState = useInterventionStore((s) => s.setInterventionMeta);
   const setCurrentIntervention = useInterventionStore((s) => s.setCurrentIntervention);
   const clearCurrentIntervention = useInterventionStore((s) => s.clearCurrentIntervention);
   const [additionalInfo, setAdditionalInfo] = useState('');
@@ -497,6 +502,19 @@ const DictationInput = () => {
   const lastAppliedHydrationRef = React.useRef<string | null>(null);
   const lastAppliedConduiteRef = React.useRef<string | null>(null);
   const lastMeansStateRef = React.useRef<string>('');
+  const draftSnapshotStateRef = React.useRef<{
+    lastSentAt: number;
+    pendingTimer: number | null;
+    failureCount: number;
+    lastQueuedHash: string;
+    lastSentHash: string;
+  }>({
+    lastSentAt: 0,
+    pendingTimer: null,
+    failureCount: 0,
+    lastQueuedHash: '',
+    lastSentHash: ''
+  });
   const skipMeansSyncRef = React.useRef<{ interventionId: string | null; hydrationId: number }>({
     interventionId: currentInterventionId,
     hydrationId: meansHydrationId
@@ -512,6 +530,10 @@ const DictationInput = () => {
   const [sitacResetKey, setSitacResetKey] = useState(0);
   const setExternalSearch = useSitacStore((s) => s.setExternalSearch);
   const { settings } = useSessionSettings();
+  const { submitIsa } = useIsaPrompt({
+    interventionId: currentInterventionId,
+    enabled: ISA_PROMPT_ENABLED
+  });
   const fullAddress = React.useMemo(
     () => [address, city].filter(Boolean).join(', '),
     [address, city]
@@ -538,11 +560,12 @@ const DictationInput = () => {
         if (!isActive || error) return;
         const status = data?.[0]?.status;
         setIsInterventionClosed(status === 'closed');
+        setInterventionMetaState({ status: typeof status === 'string' ? status : null });
       });
     return () => {
       isActive = false;
     };
-  }, [currentInterventionId]);
+  }, [currentInterventionId, setInterventionMetaState]);
   const formatHistoryTimestamp = React.useCallback((value: string) => {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return value;
@@ -571,14 +594,14 @@ const DictationInput = () => {
     if (Array.isArray(value)) {
       const filtered = value.filter((entry) => {
         if (!entry || typeof entry !== 'object') return true;
-        const record = entry as Record<string, unknown>;
+        const record = entry as unknown as Record<string, unknown>;
         return record.type !== 'separator' && record.type !== 'empty';
       });
       if (filtered.length === 0) return '-';
       return filtered.map((entry, index) => {
         if (typeof entry === 'string') return `${index + 1}. ${entry}`;
         if (entry && typeof entry === 'object') {
-          const record = entry as Record<string, unknown>;
+          const record = entry as unknown as Record<string, unknown>;
           const mission = typeof record.mission === 'string' ? record.mission : '';
           const moyen = typeof record.moyen === 'string' ? ` (${record.moyen})` : '';
           const moyenSupp = typeof record.moyen_supp === 'string' ? ` + ${record.moyen_supp}` : '';
@@ -816,7 +839,7 @@ const DictationInput = () => {
     const execution = Array.isArray(ordreData.E)
       ? ordreData.E.filter((entry) => {
           if (!entry || typeof entry !== 'object') return true;
-          const record = entry as Record<string, unknown>;
+          const record = entry as unknown as Record<string, unknown>;
           return record.type !== 'separator' && record.type !== 'empty';
         })
       : ordreData.E ?? '';
@@ -1038,6 +1061,21 @@ const DictationInput = () => {
           <div className="w-full text-xs text-slate-500 dark:text-gray-500">
             Brouillon sauvegardé automatiquement sur cet appareil (adresse, heure, contenu).
           </div>
+          {import.meta.env.DEV && (
+            <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 dark:text-gray-500">
+              <span>ISA (dev)</span>
+              {[1, 2, 3, 4, 5].map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => void submitIsa(value as 1 | 2 | 3 | 4 | 5, 'manual')}
+                  className="px-2 py-1 rounded-md bg-slate-200 hover:bg-slate-300 text-slate-700 dark:bg-white/10 dark:hover:bg-white/20 dark:text-gray-200 transition"
+                >
+                  {value}
+                </button>
+              ))}
+            </div>
+          )}
 
           <OrdreInitialView
             ordre={ordreData}
@@ -1683,6 +1721,123 @@ const DictationInput = () => {
     }
   }, [ordreData, selectedRisks, address, city, additionalInfo, orderTime, ordreConduite, showConduite, selectedMeans, ambianceMessage, compteRenduMessage, validatedAmbiance, validatedCompteRendu, ordreValidatedAt, conduiteValidatedAt, conduiteSelectedRisks, conduiteAddress, conduiteCity, conduiteAdditionalInfo, conduiteOrderTime]);
 
+  const canUploadDraftSnapshot = Boolean(
+    currentInterventionId
+    && interventionStatus === 'open'
+  );
+
+  const sendDraftSnapshot = React.useCallback(async (snapshot: Record<string, unknown>, snapshotHash: string) => {
+    const state = draftSnapshotStateRef.current;
+    if (!currentInterventionId || interventionStatus !== 'open') return;
+    if (state.failureCount >= 3) return;
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      console.warn('[draft] Supabase client missing; snapshot disabled.');
+      return;
+    }
+    startOutboxSync(supabase);
+    try {
+      const { data, error } = await supabase.auth.getUser();
+      if (error) throw error;
+      const userId = data.user?.id;
+      if (!userId) return;
+      const snapshotId =
+        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const row = {
+        id: snapshotId,
+        intervention_id: currentInterventionId,
+        user_id: userId,
+        recorded_at: new Date().toISOString(),
+        draft: snapshot,
+        source: 'oi_draft'
+      };
+      await enqueue('intervention_draft_snapshots', row);
+      await flush(supabase);
+      state.lastSentAt = Date.now();
+      state.lastSentHash = snapshotHash;
+      state.failureCount = 0;
+    } catch (error) {
+      state.failureCount += 1;
+      console.warn('[draft] Failed to upload snapshot', error);
+    }
+  }, [currentInterventionId, interventionStatus]);
+
+  const scheduleDraftSnapshot = React.useCallback((snapshot: Record<string, unknown>, snapshotHash: string) => {
+    const state = draftSnapshotStateRef.current;
+    if (state.failureCount >= 3) return;
+    const now = Date.now();
+    if (state.lastSentHash === snapshotHash && now - state.lastSentAt < 60_000) return;
+    if (state.pendingTimer !== null) {
+      window.clearTimeout(state.pendingTimer);
+    }
+    const elapsed = now - state.lastSentAt;
+    const delay = elapsed >= 60_000 ? 3_000 : Math.max(60_000 - elapsed, 3_000);
+    state.pendingTimer = window.setTimeout(() => {
+      state.pendingTimer = null;
+      void sendDraftSnapshot(snapshot, snapshotHash);
+    }, delay);
+  }, [sendDraftSnapshot]);
+
+  React.useEffect(() => {
+    const state = draftSnapshotStateRef.current;
+    if (!canUploadDraftSnapshot) {
+      if (state.pendingTimer !== null) {
+        window.clearTimeout(state.pendingTimer);
+        state.pendingTimer = null;
+      }
+      return;
+    }
+    const snapshot: Record<string, unknown> = {
+      ordreData,
+      selectedRisks,
+      address,
+      city,
+      orderTime,
+      selectedMeans,
+      ambianceMessage,
+      compteRenduMessage,
+      validatedAmbiance,
+      validatedCompteRendu,
+      ordreConduite
+    };
+    let snapshotHash = '';
+    try {
+      snapshotHash = JSON.stringify(snapshot);
+    } catch (error) {
+      console.warn('[draft] Failed to serialize snapshot', error);
+      return;
+    }
+    if (snapshotHash === state.lastQueuedHash) return;
+    state.lastQueuedHash = snapshotHash;
+    scheduleDraftSnapshot(snapshot, snapshotHash);
+  }, [
+    address,
+    ambianceMessage,
+    canUploadDraftSnapshot,
+    compteRenduMessage,
+    city,
+    ordreConduite,
+    ordreData,
+    orderTime,
+    selectedMeans,
+    selectedRisks,
+    validatedAmbiance,
+    validatedCompteRendu,
+    scheduleDraftSnapshot
+  ]);
+
+  React.useEffect(() => {
+    const state = draftSnapshotStateRef.current;
+    return () => {
+      if (state.pendingTimer !== null) {
+        window.clearTimeout(state.pendingTimer);
+        state.pendingTimer = null;
+      }
+    };
+  }, []);
+
   React.useEffect(() => {
     const state = location.state as {
       meta?: { address?: string; city?: string; date?: string; time?: string; role?: string };
@@ -1975,12 +2130,12 @@ const DictationInput = () => {
           ? ordreData.E
               .filter((entry) => {
                 if (!entry || typeof entry !== 'object') return true;
-                const record = entry as Record<string, unknown>;
+                const record = entry as unknown as Record<string, unknown>;
                 return record.type !== 'separator' && record.type !== 'empty';
               })
               .map((entry) => {
                 if (typeof entry === 'string') return entry;
-                const record = (entry ?? {}) as Record<string, unknown>;
+                const record = (entry ?? {}) as unknown as Record<string, unknown>;
                 const mission = typeof record.mission === 'string' ? record.mission : '';
                 const moyen = typeof record.moyen === 'string' ? record.moyen : '';
                 return mission || moyen ? `${mission}: ${moyen}`.trim() : JSON.stringify(entry);
@@ -2038,12 +2193,12 @@ const DictationInput = () => {
             ? ordreData.E
                 .filter((entry) => {
                   if (!entry || typeof entry !== 'object') return true;
-                  const record = entry as Record<string, unknown>;
+                  const record = entry as unknown as Record<string, unknown>;
                   return record.type !== 'separator' && record.type !== 'empty';
                 })
                 .map((entry) => {
                   if (typeof entry === 'string') return entry;
-                  const record = (entry ?? {}) as Record<string, unknown>;
+                  const record = (entry ?? {}) as unknown as Record<string, unknown>;
                   const mission = typeof record.mission === 'string' ? record.mission : '';
                   const moyen = typeof record.moyen === 'string' ? record.moyen : '';
                   return mission || moyen ? `${mission}: ${moyen}`.trim() : JSON.stringify(entry);

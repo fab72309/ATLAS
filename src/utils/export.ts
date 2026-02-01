@@ -233,7 +233,7 @@ export const exportOrdreToPdf = async (ordre: OrdreInitial, opts?: { adresse?: s
     if (Array.isArray(ordre.E)) {
         const executionItems = ordre.E.filter((entry) => {
             if (!entry || typeof entry !== 'object') return true;
-            const record = entry as Record<string, unknown>;
+            const record = entry as unknown as Record<string, unknown>;
             return record.type !== 'separator' && record.type !== 'empty';
         });
         if (executionItems.length > 0) {
@@ -242,7 +242,7 @@ export const exportOrdreToPdf = async (ordre: OrdreInitial, opts?: { adresse?: s
                     addText(`${index + 1}. ${entry}`);
                     return;
                 }
-                const record = entry as Record<string, unknown>;
+                const record = entry as unknown as Record<string, unknown>;
                 const mission = typeof record.mission === 'string' ? record.mission : '';
                 const moyen = typeof record.moyen === 'string' ? ` (${record.moyen})` : '';
                 const moyenSupp = typeof record.moyen_supp === 'string' ? ` + ${record.moyen_supp}` : '';
@@ -463,12 +463,12 @@ const buildBoardHtmlTemplate = (ordre: OrdreInitial, opts?: { adresse?: string; 
         ? ordre.E
             .filter((entry) => {
                 if (!entry || typeof entry !== 'object') return true;
-                const record = entry as Record<string, unknown>;
+                const record = entry as unknown as Record<string, unknown>;
                 return record.type !== 'separator' && record.type !== 'empty';
             })
             .map((entry) => {
                 if (typeof entry === 'string') return entry;
-                const record = (entry ?? {}) as Record<string, unknown>;
+                const record = (entry ?? {}) as unknown as Record<string, unknown>;
                 const mission = typeof record.mission === 'string' ? record.mission : '';
                 const moyen = typeof record.moyen === 'string' ? record.moyen : '';
                 return `${mission} – ${moyen}`.trim();

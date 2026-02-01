@@ -534,25 +534,29 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
           ideeOrderByObjective[objectiveId] = (ideeOrderByObjective[objectiveId] ?? 0) + 1;
           orderInObjective = ideeOrderByObjective[objectiveId];
         }
+        const kind = (i as { kind?: string }).kind;
         return {
           mission: i.content || i.mission || '',
           moyen: i.moyen || '',
           moyen_supp: i.moyen_supp || '',
           details: i.details || '',
           color: i.color,
-          type: i.kind === 'separator' || i.kind === 'empty' ? i.kind : undefined,
+          type: kind === 'separator' || kind === 'empty' ? kind : undefined,
           objective_id: objectiveId,
           order_in_objective: orderInObjective
         };
       }) || [],
-      E: columns.E?.items?.map(i => ({
-        mission: i.mission || '',
-        moyen: i.moyen || '',
-        moyen_supp: i.moyen_supp || '',
-        details: i.details || '',
-        color: i.color,
-        type: i.kind === 'separator' || i.kind === 'empty' ? i.kind : undefined
-      })) || [],
+      E: columns.E?.items?.map((i) => {
+        const kind = (i as { kind?: string }).kind;
+        return {
+          mission: i.mission || '',
+          moyen: i.moyen || '',
+          moyen_supp: i.moyen_supp || '',
+          details: i.details || '',
+          color: i.color,
+          type: kind === 'separator' || kind === 'empty' ? kind : undefined
+        };
+      }) || [],
       C: commandItems,
       ...(useExtendedLayout ? { L: logistiqueItems } : {})
     };
@@ -704,7 +708,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
     setColumns(prev => {
       const column = prev[colId];
       if (!column) return prev;
-      let nextItems = [...column.items, newItem];
+      const nextItems = [...column.items, newItem];
       if (isIdea && resolvedObjectiveId) {
         let insertIndex = nextItems.length - 1;
         let lastMatchIndex = -1;

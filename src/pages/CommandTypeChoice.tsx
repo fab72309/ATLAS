@@ -68,6 +68,7 @@ const CommandTypeChoice = () => {
     time: '',
     role: ''
   });
+  const [isTraining, setIsTraining] = React.useState(true);
   const [isCreatingIntervention, setIsCreatingIntervention] = React.useState(false);
   const [createInterventionError, setCreateInterventionError] = React.useState<string | null>(null);
   const [isGeolocating, setIsGeolocating] = React.useState(false);
@@ -84,6 +85,7 @@ const CommandTypeChoice = () => {
   const setStoredRole = useInterventionStore((s) => s.setRole);
   const setStoredLocation = useInterventionStore((s) => s.setLocation);
   const setCurrentIntervention = useInterventionStore((s) => s.setCurrentIntervention);
+  const setInterventionMetaState = useInterventionStore((s) => s.setInterventionMeta);
   const clearCurrentIntervention = useInterventionStore((s) => s.clearCurrentIntervention);
   const [showScanModal, setShowScanModal] = React.useState(false);
   const [scanStatus, setScanStatus] = React.useState<'idle' | 'scanning' | 'loading'>('idle');
@@ -119,6 +121,7 @@ const CommandTypeChoice = () => {
     const now = new Date();
     const defaultDate = getLocalDate(now);
     const defaultTime = getLocalTime(now);
+    setIsTraining(true);
     setInterventionMeta((prev) => ({
       streetNumber: storedStreetNumber || prev.streetNumber || '',
       streetName: storedStreetName || prev.streetName || '',
@@ -180,7 +183,8 @@ const CommandTypeChoice = () => {
         .eq('user_id', userId);
       if (error) throw error;
       const normalized = (data ?? []).map((row) => {
-        const intervention = (row as { interventions?: Record<string, unknown> }).interventions ?? {};
+        const rawIntervention = (row as { interventions?: Record<string, unknown> | Record<string, unknown>[] }).interventions;
+        const intervention = Array.isArray(rawIntervention) ? rawIntervention[0] ?? {} : rawIntervention ?? {};
         return {
           id: (intervention.id as string) || row.intervention_id,
           status: (intervention.status as string) || 'open',
@@ -350,18 +354,43 @@ const CommandTypeChoice = () => {
       const userId = authData.user.id;
 
       const title = payload.address || payload.city ? `Intervention - ${payload.address || payload.city}` : 'Intervention ATLAS';
-      const { data: created, error: createErr } = await supabase
+      const trainingSetAt = new Date().toISOString();
+      const basePayload = {
+        title,
+        created_by: userId,
+        address_line1: address || null,
+        street_number: interventionMeta.streetNumber || null,
+        street_name: interventionMeta.streetName || null,
+        city: interventionMeta.city || null,
+        is_training: isTraining
+      };
+      const createWithTraining = {
+        ...basePayload,
+        training_set_at: trainingSetAt,
+        training_set_by: userId
+      };
+      let created: { id?: string; oi_logical_id?: string | null; conduite_logical_id?: string | null } | null = null;
+      let createErr: Error | null = null;
+      const { data: createdWithTraining, error: firstErr } = await supabase
         .from('interventions')
-        .insert({
-          title,
-          created_by: userId,
-          address_line1: address || null,
-          street_number: interventionMeta.streetNumber || null,
-          street_name: interventionMeta.streetName || null,
-          city: interventionMeta.city || null
-        })
+        .insert(createWithTraining)
         .select('id, oi_logical_id, conduite_logical_id')
         .single();
+      const trainingMetaApplied = !firstErr;
+      if (firstErr) {
+        console.warn('Intervention creation with training metadata failed, retrying without training_set_by.', firstErr);
+        const { data: createdFallback, error: fallbackErr } = await supabase
+          .from('interventions')
+          .insert(basePayload)
+          .select('id, oi_logical_id, conduite_logical_id')
+          .single();
+        created = createdFallback;
+        if (fallbackErr) {
+          createErr = new Error(fallbackErr.message);
+        }
+      } else {
+        created = createdWithTraining;
+      }
 
       if (createErr) throw createErr;
       const interventionId = created?.id as string | undefined;
@@ -374,6 +403,12 @@ const CommandTypeChoice = () => {
 
       const startedAtMs = Date.now();
       setCurrentIntervention(interventionId, startedAtMs);
+      setInterventionMetaState({
+        status: 'open',
+        isTraining,
+        trainingSetAt: trainingMetaApplied ? trainingSetAt : null,
+        trainingSetBy: trainingMetaApplied ? userId : null
+      });
       setInterventionAddress({
         address,
         streetNumber: interventionMeta.streetNumber,
@@ -919,18 +954,32 @@ const CommandTypeChoice = () => {
               </div>
               <div className="space-y-2 md:col-span-2">
                 <label className="text-xs uppercase tracking-wide text-slate-500 dark:text-gray-400">Fonction</label>
-                <select
-                  value={interventionMeta.role}
-                  onChange={(e) => handleMetadataChange('role', e.target.value)}
-                  className="w-full px-4 py-3 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-red-500/40 text-slate-800 dark:text-gray-200"
-                >
-                  <option value="">Sélectionner une fonction</option>
-                  {roleOptions.map((role) => (
-                    <option key={role.value} value={role.value}>
-                      {role.label}
-                    </option>
-                  ))}
-                </select>
+                  <select
+                    value={interventionMeta.role}
+                    onChange={(e) => handleMetadataChange('role', e.target.value)}
+                    className="w-full px-4 py-3 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-red-500/40 text-slate-800 dark:text-gray-200"
+                  >
+                    <option value="">Sélectionner une fonction</option>
+                    {roleOptions.map((role) => (
+                      <option key={role.value} value={role.value}>
+                        {role.label}
+                      </option>
+                    ))}
+                  </select>
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-xs uppercase tracking-wide text-slate-500 dark:text-gray-400">Formation / exercice</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={isTraining}
+                    onChange={(e) => setIsTraining(e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+                  />
+                  <span className="text-sm text-slate-700 dark:text-gray-200">
+                    Coché par défaut. Décochez en opération (collecte réduite).
+                  </span>
+                </div>
               </div>
             </div>
             <div className="flex flex-wrap gap-3 justify-end">

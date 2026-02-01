@@ -44,6 +44,10 @@ type InterventionState = {
   role: string;
   currentInterventionId: string | null;
   interventionStartedAtMs: number | null;
+  interventionStatus: string | null;
+  isTraining: boolean | null;
+  trainingSetAt: string | null;
+  trainingSetBy: string | null;
   hydratedOrdreInitial: HydratedOrdreInitial | null;
   hydratedOrdreConduite: HydratedOrdreConduite | null;
   ordreInitialHistory: InterventionHistoryEntry<HydratedOrdreInitial>[];
@@ -74,6 +78,12 @@ type InterventionState = {
   clearLocation: () => void;
   setCurrentIntervention: (interventionId: string, startedAtMs?: number) => void;
   clearCurrentIntervention: () => void;
+  setInterventionMeta: (payload: {
+    status?: string | null;
+    isTraining?: boolean | null;
+    trainingSetAt?: string | null;
+    trainingSetBy?: string | null;
+  }) => void;
   setHydratedOrdreInitial: (payload: HydratedOrdreInitial | null, interventionId?: string) => void;
   setHydratedOrdreConduite: (payload: HydratedOrdreConduite | null, interventionId?: string) => void;
   setOrdersHistory: (payload: {
@@ -174,6 +184,10 @@ export const useInterventionStore = create<InterventionState>((set, get) => ({
   ...readStored(),
   currentInterventionId: null,
   interventionStartedAtMs: null,
+  interventionStatus: null,
+  isTraining: null,
+  trainingSetAt: null,
+  trainingSetBy: null,
   hydratedOrdreInitial: null,
   hydratedOrdreConduite: null,
   ordreInitialHistory: [],
@@ -330,10 +344,22 @@ export const useInterventionStore = create<InterventionState>((set, get) => ({
       interventionStartedAtMs: startedAtMs ?? Date.now()
     });
   },
+  setInterventionMeta: ({ status, isTraining, trainingSetAt, trainingSetBy }) => {
+    set((state) => ({
+      interventionStatus: status !== undefined ? status : state.interventionStatus,
+      isTraining: isTraining !== undefined ? isTraining : state.isTraining,
+      trainingSetAt: trainingSetAt !== undefined ? trainingSetAt : state.trainingSetAt,
+      trainingSetBy: trainingSetBy !== undefined ? trainingSetBy : state.trainingSetBy
+    }));
+  },
   clearCurrentIntervention: () => {
     set({
       currentInterventionId: null,
       interventionStartedAtMs: null,
+      interventionStatus: null,
+      isTraining: null,
+      trainingSetAt: null,
+      trainingSetBy: null,
       hydratedOrdreInitial: null,
       hydratedOrdreConduite: null,
       ordreInitialHistory: [],
@@ -389,6 +415,10 @@ export const useInterventionStore = create<InterventionState>((set, get) => ({
       ...DEFAULT_META,
       currentInterventionId: null,
       interventionStartedAtMs: null,
+      interventionStatus: null,
+      isTraining: null,
+      trainingSetAt: null,
+      trainingSetBy: null,
       hydratedOrdreInitial: null,
       hydratedOrdreConduite: null,
       ordreInitialHistory: [],
@@ -405,6 +435,10 @@ export const useInterventionStore = create<InterventionState>((set, get) => ({
       ...stored,
       currentInterventionId: null,
       interventionStartedAtMs: null,
+      interventionStatus: null,
+      isTraining: null,
+      trainingSetAt: null,
+      trainingSetBy: null,
       hydratedOrdreInitial: null,
       hydratedOrdreConduite: null,
       ordreInitialHistory: [],
