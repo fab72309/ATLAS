@@ -9,6 +9,7 @@ import {
   SHORTCUT_OPTIONS,
   type ShortcutKey
 } from '../constants/profile';
+import { buildDevBypassProfile, isDevAuthBypassEnabled } from '../utils/devBypass';
 import { useAuth } from './AuthContext';
 
 export type ProfileRow = Database['public']['Tables']['profiles']['Row'];
@@ -72,6 +73,13 @@ export const ProfileProvider = ({ children }: { children: React.ReactNode }) => 
   const [error, setError] = useState<string | null>(null);
 
   const ensureProfile = useCallback(async (targetUser: User): Promise<ProfileRow | null> => {
+    if (isDevAuthBypassEnabled()) {
+      void targetUser;
+      const mockProfile = buildDevBypassProfile();
+      setProfile(mockProfile);
+      setError(null);
+      return mockProfile;
+    }
     const supabase = getSupabaseClient();
     if (!supabase) {
       setError('Configuration Supabase manquante.');
@@ -95,6 +103,16 @@ export const ProfileProvider = ({ children }: { children: React.ReactNode }) => 
   }, []);
 
   const updateProfile = useCallback(async (updates: ProfileUpdate) => {
+    if (isDevAuthBypassEnabled()) {
+      const nextProfile = {
+        ...(profile ?? buildDevBypassProfile()),
+        ...updates,
+        updated_at: new Date().toISOString()
+      } as ProfileRow;
+      setProfile(nextProfile);
+      setError(null);
+      return nextProfile;
+    }
     if (!user) return null;
     const supabase = getSupabaseClient();
     if (!supabase) {
@@ -117,7 +135,7 @@ export const ProfileProvider = ({ children }: { children: React.ReactNode }) => 
     setProfile(normalized);
     setError(null);
     return normalized;
-  }, [user]);
+  }, [profile, user]);
 
   const applyProfileDefaults = useCallback(async (nextProfile: ProfileRow) => {
     if (!shouldApplyDefaults(nextProfile)) return nextProfile;
@@ -126,6 +144,12 @@ export const ProfileProvider = ({ children }: { children: React.ReactNode }) => 
   }, [updateProfile]);
 
   const fetchProfile = useCallback(async () => {
+    if (isDevAuthBypassEnabled()) {
+      setProfile(buildDevBypassProfile());
+      setLoading(false);
+      setError(null);
+      return;
+    }
     if (!user) {
       setProfile(null);
       setLoading(false);

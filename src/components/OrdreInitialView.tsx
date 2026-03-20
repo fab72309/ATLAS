@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { OrdreInitial, SimpleSectionItem } from '../types/soiec';
 import { SpeechRecognitionService } from '../utils/speechRecognition';
 import { DominanteType } from './DominantSelector';
-import { DOCTRINE_CONTEXT } from '../constants/doctrine';
+import { OFFLINE_DOCTRINE_SUGGESTIONS } from '../constants/offlineDoctrine';
 import { Sparkles, Mic, MicOff, PaintBucket } from 'lucide-react';
 import { analyzeEmergency } from '../utils/openai';
 import { logInterventionEvent } from '../utils/atlasTelemetry';
@@ -69,17 +69,6 @@ const findFirstCos = (node: OctTreeNode | null): OctTreeNode | null => {
     if (found) return found;
   }
   return null;
-};
-
-const DOCTRINE_DOMINANTE_MAP: Partial<Record<DominanteType, keyof typeof DOCTRINE_CONTEXT>> = {
-  Incendie: 'incendie_structure',
-  'Risque Gaz': 'fuite_gaz',
-  'Accident de circulation': 'secours_routier',
-  SMV: 'secours_personne_complexe',
-  SUAP: 'secours_personne_complexe',
-  NRBC: 'secours_personne_complexe',
-  'Risque Chimique': 'fuite_gaz',
-  'Risque Radiologique': 'secours_personne_complexe',
 };
 
 const ITEM_COLORS = ['red', 'green', 'violet', 'blue', 'orange'] as const;
@@ -391,11 +380,10 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
   const [speechError, setSpeechError] = useState<string | null>(null);
   const speechServiceRef = useRef<SpeechRecognitionService | null>(null);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
-  const doctrineKey = useMemo(
-    () => (dominante ? DOCTRINE_DOMINANTE_MAP[dominante] : undefined),
+  const doctrineData = useMemo(
+    () => (dominante ? OFFLINE_DOCTRINE_SUGGESTIONS[dominante as keyof typeof OFFLINE_DOCTRINE_SUGGESTIONS] ?? null : null),
     [dominante]
   );
-  const doctrineData = doctrineKey ? DOCTRINE_CONTEXT[doctrineKey] : null;
   const useExtendedLayout = type === 'column' || type === 'site';
   const soiecLabel = useMemo(
     () => (useExtendedLayout ? 'SAOIECL' : 'SOIEC'),
@@ -1061,11 +1049,11 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
 
   const getSuggestions = React.useCallback((colId: string, query: string) => {
     if (!doctrineData) return [];
-    const base: string[] =
+    const base =
       colId === 'O'
-        ? doctrineData.objectifs || []
+        ? [...(doctrineData.objectifs || [])]
         : (colId === 'I' || colId === 'E')
-          ? doctrineData.idees_manoeuvre || []
+          ? [...(doctrineData.idees_manoeuvre || [])]
           : [];
     if (!base.length) return [];
     const q = query.trim().toLowerCase();
@@ -1227,7 +1215,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
             <div className="min-h-[20px]" />
           ) : isExecution ? (
             <div className="space-y-1">
-              <div className={`font-bold ${resolvedMissionClass}`}>{missionValue}</div>
+              <div className={`text-sm font-semibold whitespace-pre-wrap ${resolvedMissionClass}`}>{missionValue}</div>
               <div className={`text-xs ${resolvedDetailClass}`}>
                 {item.moyen && <div>Moyen: {item.moyen}</div>}
                 {item.moyen_supp && item.moyen_supp.trim() && item.moyen_supp.trim().toLowerCase() !== 'renfort' && (
@@ -1326,11 +1314,11 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
       {/* Barre d'outils */}
       {!hideToolbar && (
         <div className="flex gap-3 p-2 bg-white/70 dark:bg-gray-900/50 rounded-lg border border-slate-200/80 dark:border-white/5 backdrop-blur-md shadow-sm dark:shadow-none">
-          <button className="px-4 py-2 bg-red-500/80 hover:bg-red-500 text-white text-xs font-bold rounded transition-colors">Réinitialiser</button>
-          <button className="px-4 py-2 bg-cyan-500/80 hover:bg-cyan-500 text-white text-xs font-bold rounded transition-colors">Exporter en image</button>
-          <button className="px-4 py-2 bg-blue-600/80 hover:bg-blue-600 text-white text-xs font-bold rounded transition-colors">Générer avec IA</button>
+          <button className="px-4 py-2 btn-danger text-xs font-bold rounded transition-colors">Réinitialiser</button>
+          <button className="px-4 py-2 btn-neutral text-xs font-bold rounded transition-colors">Exporter en image</button>
+          <button className="px-4 py-2 btn-neutral text-xs font-bold rounded transition-colors">Générer avec IA</button>
           <div className="flex-1"></div>
-          <button className="px-4 py-2 bg-green-600/80 hover:bg-green-600 text-white text-xs font-bold rounded transition-colors">Enregistrer</button>
+          <button className="px-4 py-2 btn-success text-xs font-bold rounded transition-colors">Enregistrer</button>
         </div>
       )}
 
@@ -1423,12 +1411,12 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
                     onClick={handleGenerateAI}
                     disabled={isGeneratingAI}
                     data-export-hide="true"
-                    className="w-full p-3 mt-auto rounded-lg border backdrop-blur-sm transition-all duration-200 bg-blue-50 border-blue-200 hover:bg-blue-100 hover:border-blue-300 text-blue-700 shadow-sm dark:bg-blue-900/25 dark:border-blue-500/40 dark:hover:bg-blue-800/40 dark:hover:border-blue-300/60 dark:text-blue-50 dark:shadow-inner flex items-center justify-center gap-2 font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="w-full p-3 mt-auto rounded-lg border backdrop-blur-sm transition-all duration-200 btn-neutral shadow-sm dark:shadow-inner flex items-center justify-center gap-2 font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {isGeneratingAI ? (
-                      <div className="w-5 h-5 border-2 border-blue-300 border-t-transparent dark:border-blue-200/50 rounded-full animate-spin" />
+                      <div className="w-5 h-5 border-2 border-slate-300 border-t-transparent dark:border-white/30 rounded-full animate-spin" />
                     ) : (
-                      <Sparkles className="w-5 h-5 text-blue-600 dark:text-blue-200" />
+                      <Sparkles className="w-5 h-5 text-slate-600 dark:text-gray-200" />
                     )}
                     <span>{aiGenerateLabel}</span>
                   </button>
@@ -1439,9 +1427,9 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
                   <button
                     type="button"
                     data-export-hide="true"
-                    className="w-full p-3 mt-auto rounded-lg border backdrop-blur-sm transition-all duration-200 bg-purple-50 border-purple-200 hover:bg-purple-100 hover:border-purple-300 text-purple-700 shadow-sm dark:bg-purple-900/25 dark:border-purple-500/40 dark:hover:bg-purple-800/40 dark:hover:border-purple-300/60 dark:text-purple-50 dark:shadow-inner flex items-center justify-center gap-2 font-semibold"
+                    className="w-full p-3 mt-auto rounded-lg border backdrop-blur-sm transition-all duration-200 btn-neutral shadow-sm dark:shadow-inner flex items-center justify-center gap-2 font-semibold"
                   >
-                    <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-200" />
+                    <Sparkles className="w-5 h-5 text-slate-600 dark:text-gray-200" />
                     <span>Générer un message de CR avec l&apos;IA</span>
                   </button>
                 )}
@@ -1587,7 +1575,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
                     }}
                     onFocus={() => clearAutoPlaceholder('content')}
                     rows={4}
-                    className="w-full bg-black/30 border border-white/10 rounded p-2 text-white text-sm focus:border-blue-500 outline-none"
+                    className="atlas-resizable-textarea w-full bg-black/30 border border-white/10 rounded p-2 text-white text-sm focus:border-blue-500 outline-none"
                   />
                   {suggestions.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-2">
@@ -1630,7 +1618,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
                     }}
                     onFocus={() => clearAutoPlaceholder('content')}
                     rows={5}
-                    className="w-full bg-black/30 border border-white/10 rounded p-2 text-white text-sm focus:border-blue-500 outline-none"
+                    className="atlas-resizable-textarea w-full bg-black/30 border border-white/10 rounded p-2 text-white text-sm focus:border-blue-500 outline-none"
                   />
                   {suggestions.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-2">
@@ -1651,7 +1639,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
               {speechError && <div className="text-xs text-red-300">{speechError}</div>}
               <div className="flex justify-end gap-2 mt-6">
                 <button onClick={() => setEditingItem(null)} className="px-4 py-2 text-gray-400 hover:text-white text-sm">Annuler</button>
-                <button onClick={handleSaveEdit} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded text-sm font-bold">Enregistrer</button>
+                <button onClick={handleSaveEdit} className="px-4 py-2 btn-success rounded text-sm font-bold">Enregistrer</button>
               </div>
             </div>
           </div>

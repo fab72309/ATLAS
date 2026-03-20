@@ -22,6 +22,9 @@ export type MeanCatalogItem = {
   id: string;
   name: string;
   category: MeansCategoryKey;
+  fullName?: string;
+  capabilities?: string;
+  isGroup?: boolean;
 };
 
 export type OctFrequencyDefaults = Record<OctNodeType, { up: string; down: string }>;
@@ -94,7 +97,7 @@ const getDefaultSettings = (): SessionSettings => ({
 const sanitizeMeansCatalog = (input: unknown): MeanCatalogItem[] => {
   if (!Array.isArray(input)) return [];
   return input
-    .map((entry) => {
+    .map((entry): MeanCatalogItem | null => {
       if (!entry || typeof entry !== 'object') return null;
       const item = entry as Partial<MeanCatalogItem>;
       const name = typeof item.name === 'string' ? item.name.trim() : '';
@@ -103,9 +106,19 @@ const sanitizeMeansCatalog = (input: unknown): MeanCatalogItem[] => {
         : null;
       if (!name || !category) return null;
       const id = typeof item.id === 'string' && item.id ? item.id : generateId();
-      return { id, name, category };
+      const fullName = typeof item.fullName === 'string' ? item.fullName.trim() : '';
+      const capabilities = typeof item.capabilities === 'string' ? item.capabilities.trim() : '';
+      const isGroup = typeof item.isGroup === 'boolean' ? item.isGroup : undefined;
+      return {
+        id,
+        name,
+        category,
+        fullName: fullName || undefined,
+        capabilities: capabilities || undefined,
+        isGroup
+      };
     })
-    .filter((item): item is MeanCatalogItem => Boolean(item));
+    .filter((item): item is MeanCatalogItem => item !== null);
 };
 
 const sanitizeOctDefaults = (input: unknown): OctFrequencyDefaults => {

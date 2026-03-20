@@ -1,11 +1,13 @@
 import React from 'react';
 import { ArrowRight, Check, CheckCircle2, ChevronDown, Clock, Filter, MapPin, Plus, Trash2, X } from 'lucide-react';
-import { DOCTRINE_CONTEXT } from '../constants/doctrine';
+import { MEANS_DOCTRINE_LABELS } from '../constants/meansDoctrine';
 import { useSessionSettings } from '../utils/sessionSettings';
 import { OctColor, OctTreeNode, useOctTree } from '../utils/octTreeStore';
 import { readUserScopedJSON, writeUserScopedJSON } from '../utils/userStorage';
 import type { MeanItem } from '../types/means';
 import { generateMeanId } from '../utils/means';
+import { buildDoctrineMeans } from '../utils/meansCatalog';
+import type { MeansCategoryKey } from '../utils/sessionSettings';
 
 interface MeansModalProps {
   isOpen?: boolean;
@@ -19,41 +21,36 @@ const DEFAULT_SECTOR_LABELS = ['SECTEUR 1', 'SECTEUR 2'];
 const SECTOR_VALIDATION_KEY = 'atlas-oct-sector-validation';
 type CategoryStyle = {
   label: string;
-  key: keyof typeof DOCTRINE_CONTEXT;
   color: string;
   fill: string;
   statusClass: string;
   dashedClass: string;
 };
 
-const CATEGORIES: Record<string, CategoryStyle> = {
+const CATEGORIES: Record<MeansCategoryKey, CategoryStyle> = {
   incendie: {
-    label: 'Incendie',
-    key: 'incendie_structure',
+    label: MEANS_DOCTRINE_LABELS.incendie,
     color: 'border-red-300/70 bg-red-50 text-red-700 dark:border-red-500/60 dark:bg-red-500/10 dark:text-red-200',
     fill: 'bg-red-50/80 dark:bg-red-500/10',
     statusClass: 'outline-red-400',
     dashedClass: 'border-red-300/70 dark:border-red-400/80'
   },
   suap: {
-    label: 'SUAP',
-    key: 'secours_personne_complexe',
+    label: MEANS_DOCTRINE_LABELS.suap,
     color: 'border-green-300/70 bg-green-50 text-green-700 dark:border-green-500/60 dark:bg-green-500/10 dark:text-green-200',
     fill: 'bg-green-50/80 dark:bg-green-500/10',
     statusClass: 'outline-green-400',
     dashedClass: 'border-green-300/70 dark:border-green-400/80'
   },
   speciaux: {
-    label: 'Engins spéciaux',
-    key: 'fuite_gaz',
+    label: MEANS_DOCTRINE_LABELS.speciaux,
     color: 'border-orange-300/70 bg-orange-50 text-orange-700 dark:border-orange-400/60 dark:bg-orange-500/10 dark:text-orange-200',
     fill: 'bg-orange-50/80 dark:bg-orange-500/10',
     statusClass: 'outline-orange-400',
     dashedClass: 'border-orange-300/70 dark:border-orange-400/80'
   },
   commandement: {
-    label: 'Commandement',
-    key: 'secours_personne_complexe',
+    label: MEANS_DOCTRINE_LABELS.commandement,
     color: 'border-purple-300/70 bg-purple-50 text-purple-700 dark:border-purple-500/60 dark:bg-purple-500/10 dark:text-purple-200',
     fill: 'bg-purple-50/80 dark:bg-purple-500/10',
     statusClass: 'outline-purple-400',
@@ -132,6 +129,7 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
     assigned: false
   });
   const [isFilterOpen, setIsFilterOpen] = React.useState(false);
+  const [openInfoCard, setOpenInfoCard] = React.useState<string | null>(null);
   const [sectorValidated, setSectorValidated] = React.useState<Record<string, boolean>>(() => {
     try {
       const parsed = readUserScopedJSON<Record<string, boolean>>(SECTOR_VALIDATION_KEY, 'local');
@@ -180,31 +178,37 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
   }, [selected, onChange]);
 
   const meansList = React.useMemo(() => {
-    const merged = new Map<string, { name: string; category: string }>();
-    const addItem = (name: string, category: string) => {
-      const trimmed = name.trim();
-      if (!trimmed) return;
-      merged.set(`${category}:${trimmed.toLowerCase()}`, { name: trimmed, category });
-    };
+    const merged = new Map<string, {
+      name: string;
+      category: string;
+      fullName?: string;
+      capabilities?: string;
+      isGroup?: boolean;
+    }>();
 
-    Object.entries(CATEGORIES).forEach(([catKey, meta]) => {
-      const ctx = DOCTRINE_CONTEXT[meta.key as keyof typeof DOCTRINE_CONTEXT];
-      const moyens = ctx?.moyens_standards_td || [];
-      moyens.forEach((m: string) => {
-        const title = m.split(':')[0].trim();
-        addItem(title, catKey);
-      });
+    buildDoctrineMeans(
+      Object.keys(CATEGORIES).map((key) => ({ key: key as keyof typeof CATEGORIES }))
+    ).forEach((item) => {
+      merged.set(`${item.category}:${item.name.toLowerCase()}`, item);
     });
 
     settings.meansCatalog.forEach((item) => {
-      addItem(item.name, item.category);
+      const trimmed = item.name.trim();
+      if (!trimmed) return;
+      merged.set(`${item.category}:${trimmed.toLowerCase()}`, {
+        name: trimmed,
+        category: item.category,
+        fullName: item.fullName,
+        capabilities: item.capabilities,
+        isGroup: item.isGroup
+      });
     });
 
     return Array.from(merged.values());
   }, [settings.meansCatalog]);
 
   const meansByCategory = React.useMemo(() => {
-    const grouped: Record<string, { name: string; category: string }[]> = {};
+    const grouped: Record<string, typeof meansList> = {};
     meansList.forEach((item) => {
       if (!item.name) return;
       if (!grouped[item.category]) grouped[item.category] = [];
@@ -513,7 +517,7 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
                 <div className="text-slate-500 dark:text-gray-500 text-sm">Aucun moyen pour ces filtres.</div>
               )}
               {filteredSelected.map((s) => {
-                const colorMeta = CATEGORIES[s.category || ''] || {
+                const colorMeta = (s.category ? CATEGORIES[s.category as MeansCategoryKey] : undefined) || {
                   statusClass: 'outline-slate-300',
                   color: 'border-slate-200 bg-white text-slate-700 dark:border-white/20 dark:bg-white/5 dark:text-white',
                   fill: 'bg-slate-50/80 dark:bg-white/5',
@@ -645,13 +649,13 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
                   <div className="flex items-center justify-between gap-2 pt-1">
                     <button
                       onClick={resetSelectionFilters}
-                      className="text-[12px] px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:border-slate-300 dark:bg-white/5 dark:border-white/10 dark:text-gray-200 transition"
+                      className="text-[12px] px-3 py-1.5 rounded-lg btn-danger transition"
                     >
                       Réinitialiser
                     </button>
                     <button
                       onClick={() => setIsFilterOpen(false)}
-                      className="text-[12px] px-3 py-1.5 rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition"
+                      className="text-[12px] px-3 py-1.5 rounded-lg btn-neutral transition"
                     >
                       Fermer
                     </button>
@@ -675,23 +679,76 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
                 <div className={`text-[11px] font-semibold mb-1 inline-block px-2 py-1 rounded ${meta.color}`}>
                   {meta.label}
                 </div>
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-                  {moyens.map((m) => {
-                    const title = m.name;
-                    const already = selected.find((s) => s.name === title);
-                    const isRequested = already?.status === 'demande';
-                    return (
-                      <button
-                        key={`${catKey}-${title}`}
-                        onClick={() => addMean({ name: title, category: catKey })}
-                        className={`w-full text-left px-3 py-2 rounded-lg border ${already ? `border-dashed ${meta.dashedClass}` : 'border-slate-200 dark:border-white/15'} ${meta.color} hover:bg-slate-100 dark:hover:bg-white/10 transition`}
-                      >
-                        <div className="text-sm leading-tight">{title}</div>
-                        {already && <div className="text-[11px] text-slate-500 dark:text-gray-300 mt-0.5">{isRequested ? 'Demandé' : 'Sur place'}</div>}
-                      </button>
-                    );
-                  })}
-                </div>
+                {(() => {
+                  const standalone = moyens.filter((item) => !item.isGroup);
+                  const groups = moyens.filter((item) => item.isGroup);
+                  const sections = [
+                    { id: 'standalone', label: 'Moyens seuls', items: standalone },
+                    { id: 'groups', label: 'Groupes constitués', items: groups }
+                  ].filter((section) => section.items.length > 0);
+
+                  return sections.map((section) => (
+                    <div key={`${catKey}-${section.id}`} className="space-y-2">
+                      {sections.length > 1 && (
+                        <div className="text-[11px] uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400">
+                          {section.label}
+                        </div>
+                      )}
+                      <div className="grid grid-cols-2 xl:grid-cols-4 lg:grid-cols-3 gap-2">
+                        {section.items.map((m) => {
+                          const title = m.name;
+                          const already = selected.find((s) => s.name === title);
+                          const isRequested = already?.status === 'demande';
+                          const infoId = `${catKey}:${section.id}:${title}`;
+                          return (
+                            <div
+                              key={infoId}
+                              onClick={() => addMean({ name: title, category: catKey })}
+                              className={`relative w-full text-left px-2.5 py-2 rounded-lg border cursor-pointer min-h-[44px] ${already ? `border-dashed ${meta.dashedClass}` : 'border-slate-200 dark:border-white/15'} ${meta.color} hover:bg-slate-100 dark:hover:bg-white/10 transition`}
+                            >
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.preventDefault();
+                                  event.stopPropagation();
+                                  setOpenInfoCard((prev) => (prev === infoId ? null : infoId));
+                                }}
+                                className="absolute top-2 right-2 z-10 w-5 h-5 rounded-full border border-current/30 bg-white/70 dark:bg-black/20 flex items-center justify-center text-[12px] font-serif italic leading-none opacity-80 hover:opacity-100"
+                                aria-label={`Informations sur ${title}`}
+                                title={`Informations sur ${title}`}
+                              >
+                                i
+                              </button>
+                              <div className="pr-6">
+                                <div className="text-[13px] leading-tight font-medium">{title}</div>
+                                {already && <div className="text-[11px] text-slate-500 dark:text-gray-300 mt-0.5">{isRequested ? 'Demandé' : 'Sur place'}</div>}
+                              </div>
+                              {openInfoCard === infoId && (
+                                <div
+                                  className="absolute top-8 right-2 z-20 w-72 max-w-[calc(100%-1rem)] rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#10141d] shadow-xl p-3 text-left"
+                                  onClick={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                  }}
+                                >
+                                  <div className="text-sm font-semibold text-slate-900 dark:text-white">{title}</div>
+                                  {m.fullName && (
+                                    <div className="mt-1 text-xs text-slate-600 dark:text-gray-300">
+                                      {m.fullName}
+                                    </div>
+                                  )}
+                                  <div className="mt-2 text-[11px] leading-relaxed text-slate-600 dark:text-gray-300">
+                                    {m.capabilities || 'Aucune capacité renseignée.'}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ));
+                })()}
               </div>
             );
           })}

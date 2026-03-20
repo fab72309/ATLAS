@@ -4,6 +4,7 @@ import type { User } from '@supabase/supabase-js';
 import { getSupabaseClient } from '../utils/supabaseClient';
 import { clearUserScopedStorage, getCurrentUserId, setActiveUserId } from '../utils/userStorage';
 import { hydrateAllStores, resetAllStores } from '../utils/storeReset';
+import { buildDevBypassUser, isDevAuthBypassEnabled } from '../utils/devBypass';
 
 type AuthInitError = {
   kind: 'missing-env' | 'timeout' | 'error';
@@ -62,6 +63,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     setInitializing(true);
     setInitError(null);
+
+    if (isDevAuthBypassEnabled()) {
+      const mockUser = buildDevBypassUser();
+      setActiveUserId(mockUser.id);
+      hydrateAllStores(mockUser.id);
+      previousUserId.current = mockUser.id;
+      setUser(mockUser);
+      setInitError(null);
+      setInitializing(false);
+      return () => {
+        active = false;
+      };
+    }
 
     const supabase = getSupabaseClient();
     if (!supabase) {
@@ -139,6 +153,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, [initAttempt]);
 
   const login = useCallback(async (email: string, password: string) => {
+    if (isDevAuthBypassEnabled()) {
+      void email;
+      void password;
+      setUser(buildDevBypassUser());
+      return;
+    }
     const supabase = getSupabaseClient();
     if (!supabase) {
       throw new Error('Configuration Supabase manquante.');
@@ -148,6 +168,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const register = useCallback(async (email: string, password: string, profile?: { firstName?: string; lastName?: string }) => {
+    if (isDevAuthBypassEnabled()) {
+      void email;
+      void password;
+      void profile;
+      setUser(buildDevBypassUser());
+      return;
+    }
     const supabase = getSupabaseClient();
     if (!supabase) {
       throw new Error('Configuration Supabase manquante.');
@@ -166,6 +193,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const logout = useCallback(async () => {
+    if (isDevAuthBypassEnabled()) {
+      return;
+    }
     const supabase = getSupabaseClient();
     if (!supabase) {
       throw new Error('Configuration Supabase manquante.');
