@@ -1,0 +1,127 @@
+DOCTRINE MOYENS - ENGINS, GROUPES CONSTITUES ET CAPACITES
+
+But de ce document
+- Fournir des references sur les moyens tactiques utilisables pour construire E - Execution.
+- Aider a choisir des moyens coherents avec les objectifs et les idees de manoeuvre.
+- Favoriser l usage des groupes constitues lorsqu ils existent doctrinalement.
+
+Regles transverses
+- Si un groupe constitue existe pour le besoin tactique identifie, preferer la nomenclature du groupe a une liste d engins unitaires.
+- Le moyen doit rester coherent avec la mission, la capacite hydraulique, la fonction de sauvetage ou la capacite medicale attendue.
+- Les renforts doivent rester compatibles avec le niveau chef de groupe.
+
+================================================================
+DOMAINE: incendie_structure
+================================================================
+
+Moyens standards
+- FPT (Fourgon Pompe Tonne) : armement 6 pax, capacite hydraulique 2000 L/min, echelles a mains, ARI, capacite a etablir 3 LDV 500 ou 1 LDV 1000, reconnaissance et sauvetage de victimes
+- EPC (Echelle Pivotante a mouvements Combines) : sauvetage aerien, reconnaissance hauteur, etablissement de lance 950 L/min, portee 40 m
+- VSAV (Vehicule de Secours et d Assistance aux Victimes) : prise en charge victimes, soutien sanitaire
+- VLCg (Vehicule de Liaison Chef de Groupe) : commandement
+- CDHR (Camion Devidoir Hors Route) : alimentation en eau eloignee, renfort hydraulique
+- CCEM (Camion Citerne Eau Mousse) : 9500 L d eau, 2500 L d emulseur, 240 L d additif, 1 canon toit 4000 L/min, 1 canon mobile 4000 L/min, bache de 12 000 L
+- CCEMs (Camion Citerne Eau Mousse Super) : 11 000 L d eau, 2500 L d emulseur, 500 L d additif, 1 canon toit 4000 L/min, 1 canon mobile 4000 L/min, bache de 11 000 L
+- BEAA (Bras Elevateur Aerien Automobile) : travail en hauteur a 46 m, 1 lance canon eau et mousse 4500 L/min
+
+Groupes constitues
+- G.INC (Groupe Incendie) : 1 CDG + 1 EPC + 2 FPT. Capacite : reconnaissances sous ARI, sauvetages, etablissement de 4 LDV 500 a 200 m ou 1 LDV 1000 a 400 m
+- G.ALIM (Groupe Alimentation) : 1 CDG + 1 CCEM + 2 CDHR + 1 FPT. Capacite : alimenter 4000 L/min a 1000 m, stock tampon 8000 L
+- G.FIND (Groupe Feu Industriel) : 1 CDG + 1 BEAA (ou EPC) + 1 CCEM + 1 CDHR + 1 FPT. Capacite : 1 canon 4000 L/min a 500 m ou 2 canons 2000 L/min
+- G.LINF (Groupe Liquides Inflammables) : 1 CDG + 1 VPCE/CEM + 1 CCEM + 1 CDHR + 1 FPT. Capacite : 4000 L/min de solution moussante a 500 m, couverture 800 m2 hydrocarbure
+- G.RS (Groupe Renfort Secours) : 1 CDG + 1 FPT + 1 G.ELD + 1 VSAV + 1 VLI + 1 GDMED. Capacite : renforcer un dispositif desorganise, soutien sanitaire lourd
+
+Quand les utiliser
+- Sauvetage aerien ou reconnaissance en facade : EPC ou BEAA
+- Attaque du foyer et reconnaissance sous ARI : FPT
+- Alimentation hydraulique lointaine : CDHR ou G.ALIM
+- Feu developpe ou besoin de gros debit / canon : CCEM, CCEMs, G.FIND
+- Feu de liquides inflammables : G.LINF
+
+================================================================
+DOMAINE: secours_routier
+================================================================
+
+Moyens standards
+- VSR (Vehicule Secours Routier) : balisage et desincarceration lourde
+- VSU (Vehicule de Securisation d Urgence) : balisage et desincarceration legere
+- CEMF (Cellule Manoeuvre de Force) : desincarceration lourde sur poids lourds, bus et trains
+- VSAV : prise en charge victimes
+- VLCg : commandement
+
+Groupes constitues
+- G.RSR (Groupe Renfort Secours Routier) : 1 CDG + 1 CEMF + 2 MF2 + 4 MF1 + 1 VSR + 1 SDE3. Capacite : operations de securisation d urgence, desincarceration lourde, manoeuvres de force
+- G.SUAP (Groupe Secours d Urgences aux Personnes) : 1 CDG + 4 VSAV. Capacite : prendre en charge 8 victimes et en evacuer 4 a 8 selon leur etat
+- G.RAM (Groupe Ramassage) : 1 CDG + 2 FPT + 2 VSAV + 1 VLHR + MULE. Capacite : completer un dispositif de prise en compte de victimes sur evenement NOVI
+- G.PRV (Groupe Point de Regroupement des Victimes) : 1 CDG + 1 CDG SINUS + 1 VPRV + 3 VSAV + 1 FPT + 1 VLI + 1 GDMED + 1 GD PHARM. Capacite : accueillir entre 10 et 20 victimes
+- G.PMA (Groupe Poste Medical Avance) : 1 CDG + 1 CDG SINUS + 1 VPRV + 3 VSAV + 1 FPT + 1 VLI + 1 GDMED + 1 GD PHARM. Capacite : autonomie pour le montage du PMA, accueil et conditionnement de 20 blesses, mise en oeuvre autonome de SINUS
+- G.EVAC (Groupe Evacuation) : 1 CDG + 4 VSAV + 1 VTPox. Capacite : evacuation de 4 a 8 victimes par VSAV selon etat et 6 victimes par VTP
+
+Quand les utiliser
+- Desincarceration lourde : VSR, CEMF ou G.RSR
+- Nombreuses victimes : G.SUAP, G.RAM, G.PRV, G.PMA, G.EVAC
+- Balisage et securisation initiale : VSU ou VSR
+
+================================================================
+DOMAINE: fuite_gaz
+================================================================
+
+Moyens standards
+- FPT : protection, reconnaissance, lance de protection, perimetre initial
+- VLCg : commandement
+- Technicien GRDF (demande) : coupure et expertise reseau
+
+Quand les utiliser
+- Mesures, protection et perimetre initial : FPT
+- Coordination et commandement : VLCg
+- Barrage conduite / intervention reseau : technicien GRDF
+
+================================================================
+DOMAINE: incendie_vegetation
+================================================================
+
+Moyens standards
+- CCF (Camion Citerne Feux de Forets) : attaque feu de vegetation, souvent en GIFF
+- VLHR (Vehicule de Liaison Hors Route) : liaison et appui tout-terrain
+- CCEM (Camion Citerne Eau Mousse) : reserve importante et gros debit
+- CCEMs (Camion Citerne Eau Mousse Super) : reserve importante et gros debit
+- RCGC (Remorque Citerne Grande Capacite) : 25 000 L d eau, motopompe 150 m3/h
+
+Quand les utiliser
+- Attaque directe et defense de lisiere : CCF
+- Liaison et acces degrade : VLHR
+- Besoin de stock d eau ou d appui debit : CCEM, CCEMs, RCGC
+
+================================================================
+DOMAINE: secours_personne_complexe
+================================================================
+
+Moyens standards
+- Multiples VSAV : prise en charge et evacuation des victimes
+- VLCg : commandement
+- SMUR : medicalisation
+
+Groupes constitues
+- G.SUAP (Groupe Secours d Urgences aux Personnes) : 1 CDG + 4 VSAV. Capacite : prendre en charge 8 victimes et en evacuer 4 a 8 selon leur etat
+- G.RAM (Groupe Ramassage) : 1 CDG + 2 FPT + 2 VSAV + 1 VLHR + MULE. Capacite : completer un dispositif de prise en compte de victimes sur evenement NOVI
+- G.PRV (Groupe Point de Regroupement des Victimes) : 1 CDG + 1 CDG SINUS + 1 VPRV + 3 VSAV + 1 FPT + 1 VLI + 1 GDMED + 1 GD PHARM. Capacite : accueillir entre 10 et 20 victimes
+- G.PMA (Groupe Poste Medical Avance) : 1 CDG + 1 CDG SINUS + 1 VPRV + 3 VSAV + 1 FPT + 1 VLI + 1 GDMED + 1 GD PHARM. Capacite : autonomie pour le montage du PMA, accueil et conditionnement de 20 blesses, mise en oeuvre autonome de SINUS
+- G.EVAC (Groupe Evacuation) : 1 CDG + 4 VSAV + 1 VTPox. Capacite : evacuation de 4 a 8 victimes par VSAV selon etat et 6 victimes par VTP
+- G.REX (Groupe Extraction) : 1 CDG + 1 FPT + 1 VF + lot protection balistique. Capacite : assurer l extraction de victimes sous l appui des FSI
+
+Quand les utiliser
+- Plusieurs victimes sans dispositif lourd : G.SUAP ou G.PRV
+- Regroupement des victimes : G.PRV
+- Poste medical avance : G.PMA
+- Evacuation organisee : G.EVAC
+- Extraction en contexte degrade : G.REX
+
+================================================================
+GUIDE D USAGE POUR LE MODELE
+================================================================
+
+Pour E - Execution
+- Associer chaque mission a un moyen plausible.
+- Si un groupe constitue est doctrinalement adapte, preferer le groupe au detail des engins unitaires.
+- Si le moyen exact n est pas connu, laisser le champ moyen vide plutot que d inventer.
+- Garder des missions courtes, directives et exploitables par un chef de groupe.

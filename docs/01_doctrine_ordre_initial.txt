@@ -1,0 +1,200 @@
+DOCTRINE ORDRE INITIAL - RAISONNEMENT TACTIQUE ET FORMULATIONS
+
+But de ce document
+- Fournir des formulations doctrinales pour construire S, O, I et C dans un ordre initial SOIEC.
+- Aider a raisonner selon Source -> Flux -> Cibles.
+- Prioriser les formulations tactiques reutilisables par type de risque.
+
+Regles transverses
+- Ne pas inventer de fait non observe ou non fourni.
+- Si une information critique manque, la traiter comme une incertitude a lever.
+- Priorites tactiques: sauvetage / mise en securite des personnes, reduction de la source ou des flux, protection des biens et de l environnement.
+- Favoriser les verbes d action a l infinitif pour les objectifs.
+- Les idees de manoeuvre doivent rester doctrinales, courtes et compatibles entre elles.
+- Le commandement reste au niveau chef de groupe.
+
+================================================================
+DOMAINE: incendie_structure
+================================================================
+
+Principes cles
+- Marche en avant
+- Controle des ouvrants et maitrise de l air (anti-ventilation tant que l attaque n est pas prete)
+- Securite des binomes (regle des 20 minutes, liaison personnelle, binome de securite)
+- Ventilation operationnelle precoce des que le feu est maitrise
+- Sauvetage prioritaire sur l extinction sauf si l extinction est le seul moyen de realiser le sauvetage
+- Soutien Sanitaire Operationnel (SSO) des que le nombre de moyens sur place est important, de la durée effective ou prévisionnelle de l'intervention est importante, ou en raison des conditions meteorologiques 
+
+Objectifs doctrinaux
+- Sauver les occupants menaces immediatement
+- Mettre en securite les personnes exposees aux fumees
+- Confiner les personnes des etages superieurs
+- Evacuer les habitants des etages superieurs
+- Enrayer la propagation
+- Stopper la propagation verticale (facades, cages d escalier, gaines)
+- Stopper la propagation horizontale (cloisonnement, combles)
+- Eviter la propagation verticale (facades, cages d escalier, gaines)
+- Eviter la propagation horizontale (cloisonnement, combles)
+- Attaquer le foyer principal
+- Proteger les biens environnants
+- Proteger les biens menaces par les eaux d extinction ou les fumees
+- Eviter le risque de reprise de feu
+
+Idees de manoeuvre doctrinales
+- Reconnaissance sous ARI avec une LDV et camera thermique
+- Sauvetage par l exterieur au moyen des echelles aeriennes (EPA) ou a mains
+- Sauvetage par les communications existantes (cagoule d evacuation)
+- Mise en securite par confinement (si evacuation impossible ou dangereuse)
+- Attaque massive et rapide depuis l exterieur (technique d attenuation)
+- Attaque directe du foyer (lance a debit variable, jet droit ou diffuse)
+- Etablissement d une lance sur colonne seche
+- Creation d un exutoire en partie haute (desenfumage)
+- Ventilation par surpression (VPP) pour proteger la cage d escalier
+- Mise en place d un perimetre de securite
+
+Mots cles de redaction
+- propagation verticale
+- propagation horizontale
+- attaque du foyer
+- attaque massive
+- desenfumage
+- reconnaissance sous ARI
+- mise en securite
+- sauvetage
+
+================================================================
+DOMAINE: secours_routier
+================================================================
+
+Principes cles
+- Protection - Balisage - Calage - Abord
+- Golden Hour
+- Technique de desincarceration adaptee a l etat de la victime
+
+Objectifs doctrinaux
+- Proteger les victimes et les intervenants (suraccident)
+- Extraire la ou les victimes incarceres
+- Assurer la prise en charge medicale
+- Preserver l environnement (pollutions)
+
+Idees de manoeuvre doctrinales
+- Etablir un perimetre de securite et un balisage d urgence
+- Stabiliser et caler le ou les vehicules
+- Realiser l abord medical
+- Proceder a la desincarceration (pavillon, portiere, charniere)
+- Assurer la protection incendie (lance en attente)
+- Obturer les fuites d hydrocarbures
+
+Mots cles de redaction
+- balisage
+- calage
+- abord medical
+- desincarceration
+- protection incendie
+- fuite d hydrocarbures
+
+================================================================
+DOMAINE: fuite_gaz
+================================================================
+
+Principes cles
+- Procedure Gaz Renforcee (PGR) vs Procedure Gaz Classique (PGC)
+- Ne pas manoeuvrer d interrupteurs electriques
+- Approche dos au vent
+
+Objectifs doctrinaux
+- Soustraire les personnes au risque d explosion
+- Supprimer la source de gaz
+- Abaisser la limite inferieure d explosivite (LIE)
+
+Idees de manoeuvre doctrinales
+- Etablir un perimetre de securite elargi (zone d exclusion)
+- Evacuer les populations en zone de danger
+- Confiner les populations hors zone directe
+- Barrer la conduite de gaz (organes de coupure)
+- Realiser des mesures d explosimetrie en continu
+- Ventiler les locaux (naturellement ou mecaniquement si moteur antideflagrant)
+- Proteger les intervenants (lance en rideau d eau si fuite enflammee)
+
+Mots cles de redaction
+- zone d exclusion
+- explosimetrie
+- organe de coupure
+- confinement
+- evacuation
+- rideau d eau
+
+================================================================
+DOMAINE: incendie_vegetation
+================================================================
+
+Principes cles
+- Attaque de flanc / attaque de tete
+- Approche dos au vent
+- Autoprotection prioritaire si cerne
+
+Objectifs doctrinaux
+- Proteger les points sensibles (habitations)
+- Limiter la propagation du front de feu
+- Noyer les lisieres
+
+Idees de manoeuvre doctrinales
+- Attaque directe sur le front de feu
+- Attaque de flanc pour reduire l intensite
+- Defense de points sensibles (DPS)
+- Etablissement de lignes d appui
+- Reconnaissance aerienne (drone ou helico)
+
+Mots cles de redaction
+- front de feu
+- attaque de flanc
+- defense de points sensibles
+- lignes d appui
+- autoprotection
+
+================================================================
+DOMAINE: secours_personne_complexe
+================================================================
+
+Contexte doctrinal
+- Nombreuses victimes ou risques particuliers (intoxication CO, evenement NOVI, extraction complexe, contexte degrade)
+
+Objectifs doctrinaux
+- Trier et categoriser les victimes
+- Regrouper les victimes en zone securisee
+- Evacuer vers les centres hospitaliers
+
+Idees de manoeuvre doctrinales
+- Mettre en place un PRV (Point de Rassemblement des Victimes)
+- Realiser un tri visuel rapide
+- Mettre en oeuvre une chaine de decontamination (si NRBC)
+- Securiser la zone d intervention
+
+Mots cles de redaction
+- PRV
+- tri visuel
+- regroupement des victimes
+- evacuation
+- chaine de decontamination
+- securisation de zone
+
+================================================================
+GUIDE D USAGE POUR LE MODELE
+================================================================
+
+Pour S - Situation
+- Decrire uniquement les faits, la dynamique du danger, les risques et les menaces.
+- Ne pas donner d ordre ni de moyen engage sauf si c est un fait explicitement fourni.
+
+Pour O - Objectifs
+- Formuler au maximum trois objectifs.
+- Commencer par un verbe a l infinitif.
+- Prioriser les personnes, puis la source ou les flux, puis les biens et l environnement.
+
+Pour I - Idees de manoeuvre
+- Reprendre les formulations doctrinales adaptees au domaine.
+- Ne pas lister les moyens dans I, sauf si c est indispensable a la comprehension tactique.
+
+Pour C - Commandement
+- Rester simple, lisible et directement exploitable.
+- Eviter les secteurs complexes incompatibles avec le niveau chef de groupe.
