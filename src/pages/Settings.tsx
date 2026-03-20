@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ChevronDown, ChevronUp, Info, Bell, Shield, LogOut, Sun, Plus, Trash2, User, History } from 'lucide-react';
+import { ChevronDown, ChevronUp, Info, Bell, Shield, LogOut, Sun, Plus, Trash2, User, History, Sliders, Bot, RefreshCw, CheckCircle2, AlertTriangle, Link2 } from 'lucide-react';
 import { RELEASE_NOTES } from '../constants/releaseNotes';
+import { MEANS_DOCTRINE_LABELS } from '../constants/meansDoctrine';
 import { useAuth } from '../contexts/AuthContext';
 import { useProfile } from '../contexts/ProfileContext';
 import { APP_NAME, APP_VERSION } from '../constants/appInfo';
 import ThemeSelector from '../components/ThemeSelector';
 import { useTheme } from '../contexts/ThemeContext';
-import { DOCTRINE_CONTEXT } from '../constants/doctrine';
 import {
   EMPLOYMENT_LEVEL_OPTIONS,
   normalizeEmploymentLevel,
@@ -27,21 +27,24 @@ import {
   OctLabelKey,
   useSessionSettings
 } from '../utils/sessionSettings';
+import { useAppSettings, type OperationalTabId } from '../utils/appSettings';
 import { OctTreeNode, createInitialOctTree, setOctTree } from '../utils/octTreeStore';
 import { getSupabaseClient } from '../utils/supabaseClient';
+import { checkOpenAIProxyHealth, getOpenAIProxyConfig, type OpenAIProxyHealth } from '../utils/openai';
 import { normalizeMeanItems } from '../utils/means';
 import { isOctTreeNode, parseConduitePayload, parseOiPayload } from '../utils/interventionHydration';
 import { normalizeSymbolProps } from '../utils/sitacSymbolPersistence';
 import { getSimpleSectionContentList, getSimpleSectionText } from '../utils/soiec';
+import { buildDoctrineMeans } from '../utils/meansCatalog';
 import type { MeanItem } from '../types/means';
 import type { OrdreInitial } from '../types/soiec';
 import type { HydratedOrdreConduite, HydratedOrdreInitial, InterventionHistoryEntry } from '../stores/useInterventionStore';
 
-const MEANS_CATEGORIES: Array<{ key: MeansCategoryKey; label: string; doctrineKey: keyof typeof DOCTRINE_CONTEXT }> = [
-  { key: 'incendie', label: 'Incendie', doctrineKey: 'incendie_structure' },
-  { key: 'suap', label: 'SUAP', doctrineKey: 'secours_personne_complexe' },
-  { key: 'speciaux', label: 'Engins spéciaux', doctrineKey: 'fuite_gaz' },
-  { key: 'commandement', label: 'Commandement', doctrineKey: 'secours_personne_complexe' }
+const MEANS_CATEGORIES: Array<{ key: MeansCategoryKey; label: string }> = [
+  { key: 'incendie', label: MEANS_DOCTRINE_LABELS.incendie },
+  { key: 'suap', label: MEANS_DOCTRINE_LABELS.suap },
+  { key: 'speciaux', label: MEANS_DOCTRINE_LABELS.speciaux },
+  { key: 'commandement', label: MEANS_DOCTRINE_LABELS.commandement }
 ];
 
 const OCT_LABEL_OPTIONS: Array<{ key: OctLabelKey; label: string; slots: number }> = [
@@ -53,6 +56,21 @@ const OCT_LABEL_OPTIONS: Array<{ key: OctLabelKey; label: string; slots: number 
   { key: 'airSol', label: 'AIR/SOL', slots: 1 },
   { key: 'crm', label: 'CRM', slots: 1 }
 ];
+
+const DEFAULT_TAB_OPTIONS: Array<{ value: OperationalTabId; label: string }> = [
+  { value: 'moyens', label: 'Moyens' },
+  { value: 'message', label: 'Messages' },
+  { value: 'soiec', label: 'SOIEC / SAOIECL' },
+  { value: 'oct', label: 'OCT' },
+  { value: 'sitac', label: 'SITAC' },
+  { value: 'aide', label: 'Aide opérationnelle' }
+];
+
+const formatProxySourceLabel = (source: 'settings' | 'env' | 'missing') => {
+  if (source === 'settings') return 'Settings';
+  if (source === 'env') return 'Environnement';
+  return 'Non configuré';
+};
 
 type InterventionHistoryItem = {
   id: string;
@@ -301,21 +319,14 @@ const createMessageOptionId = () => {
 };
 
 const buildDefaultMeansCatalog = () => {
-  const entries: Array<{ id: string; name: string; category: MeansCategoryKey }> = [];
-  const seen = new Set<string>();
-  MEANS_CATEGORIES.forEach((cat) => {
-    const ctx = DOCTRINE_CONTEXT[cat.doctrineKey];
-    const moyens = ctx?.moyens_standards_td || [];
-    moyens.forEach((m: string) => {
-      const title = m.split(':')[0].trim();
-      if (!title) return;
-      const key = `${cat.key}:${title}`;
-      if (seen.has(key)) return;
-      seen.add(key);
-      entries.push({ id: createMeanId(), name: title, category: cat.key });
-    });
-  });
-  return entries;
+  return buildDoctrineMeans(MEANS_CATEGORIES.map((entry) => ({ key: entry.key }))).map((entry) => ({
+    id: createMeanId(),
+    name: entry.name,
+    category: entry.category,
+    fullName: entry.fullName,
+    capabilities: entry.capabilities,
+    isGroup: entry.isGroup
+  }));
 };
 
 const normalizeFrequencyValues = (values?: string[]) =>
@@ -418,6 +429,7 @@ const Settings = () => {
   const { theme, resolvedTheme } = useTheme();
 
   const { settings, updateSettings } = useSessionSettings();
+  const { settings: appSettings, updateSettings: updateAppSettings } = useAppSettings();
   const [meanDraft, setMeanDraft] = useState<{ name: string; category: MeansCategoryKey }>({
     name: '',
     category: MEANS_CATEGORIES[0]?.key || 'incendie'
@@ -454,6 +466,14 @@ const Settings = () => {
   const [historyDetailError, setHistoryDetailError] = useState<string | null>(null);
   const [historyDeleteId, setHistoryDeleteId] = useState<string | null>(null);
   const [historyDeleteError, setHistoryDeleteError] = useState<string | null>(null);
+  const [aiProxyDraft, setAiProxyDraft] = useState(() => appSettings.openaiProxyUrlOverride || '');
+  const [aiProxyStatus, setAiProxyStatus] = useState<'idle' | 'checking' | 'ready' | 'error'>('idle');
+  const [aiProxyHealth, setAiProxyHealth] = useState<OpenAIProxyHealth | null>(null);
+
+  const aiProxyConfig = useMemo(
+    () => getOpenAIProxyConfig({ overrideUrl: appSettings.openaiProxyUrlOverride }),
+    [appSettings.openaiProxyUrlOverride]
+  );
 
   const meansCatalog = useMemo(() => settings.meansCatalog || [], [settings.meansCatalog]);
   const messageDemandeOptions = settings.messageDemandeOptions || [];
@@ -508,6 +528,10 @@ const Settings = () => {
     });
     setProfileStatus(null);
   }, [profile]);
+
+  useEffect(() => {
+    setAiProxyDraft(appSettings.openaiProxyUrlOverride || '');
+  }, [appSettings.openaiProxyUrlOverride]);
 
   useEffect(() => {
     if (!isOctDefaultsDirty) {
@@ -731,6 +755,32 @@ const Settings = () => {
       console.error('Error signing out:', error);
     }
   };
+
+  const handleSaveAiProxyUrl = () => {
+    updateAppSettings((prev) => ({
+      ...prev,
+      openaiProxyUrlOverride: aiProxyDraft.trim()
+    }));
+    setAiProxyHealth(null);
+    setAiProxyStatus('idle');
+  };
+
+  const handleClearAiProxyUrl = () => {
+    setAiProxyDraft('');
+    updateAppSettings((prev) => ({
+      ...prev,
+      openaiProxyUrlOverride: ''
+    }));
+    setAiProxyHealth(null);
+    setAiProxyStatus('idle');
+  };
+
+  const handleCheckAiProxy = useCallback(async () => {
+    setAiProxyStatus('checking');
+    const result = await checkOpenAIProxyHealth({ overrideUrl: aiProxyDraft.trim() });
+    setAiProxyHealth(result);
+    setAiProxyStatus(result.ok ? 'ready' : 'error');
+  }, [aiProxyDraft]);
 
   const getHistoryType = (item: InterventionHistoryItem) =>
     normalizeEmploymentLevel(item.command_level) || normalizeEmploymentLevel(profile?.employment_level) || 'group';
@@ -1104,7 +1154,7 @@ const Settings = () => {
                       type="button"
                       onClick={handleSaveProfile}
                       disabled={!isProfileDirty || profileSaving}
-                      className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-blue-600/90 hover:bg-blue-600 text-white text-sm font-semibold shadow-sm transition disabled:opacity-60"
+                      className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl btn-success text-sm font-semibold shadow-sm transition disabled:opacity-60"
                     >
                       {profileSaving ? 'Enregistrement...' : 'Enregistrer le profil'}
                     </button>
@@ -1143,6 +1193,58 @@ const Settings = () => {
             {openSections.theme && (
               <div className="px-6 pb-6">
                 <ThemeSelector />
+              </div>
+            )}
+          </div>
+
+          {/* Préférences */}
+          <div className="bg-white/80 border border-slate-200 dark:bg-[#151515] dark:border-white/10 rounded-2xl transition-all duration-300 hover:border-slate-300 dark:hover:border-white/20">
+            <button
+              type="button"
+              onClick={() => toggleSection('preferences')}
+              aria-expanded={Boolean(openSections.preferences)}
+              className="w-full px-6 py-4 flex items-center justify-between gap-4 text-left"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-slate-200/60 dark:bg-white/10 rounded-lg">
+                  <Sliders className="w-5 h-5 text-slate-600 dark:text-gray-300" />
+                </div>
+                <div>
+                  <div className="font-medium text-lg">Préférences</div>
+                  <div className="text-xs text-slate-500 dark:text-gray-400">
+                    Choisissez l’onglet affiché par défaut dans l’espace opérationnel.
+                  </div>
+                </div>
+              </div>
+              {openSections.preferences ? (
+                <ChevronUp className="w-5 h-5 text-slate-500 dark:text-gray-400" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-slate-500 dark:text-gray-400" />
+              )}
+            </button>
+
+            {openSections.preferences && (
+              <div className="px-6 pb-6 space-y-3">
+                <div className="space-y-1">
+                  <label className="text-xs uppercase tracking-wide text-slate-500 dark:text-gray-400">Onglet par défaut</label>
+                  <select
+                    value={appSettings.defaultOperationalTab}
+                    onChange={(e) => {
+                      const nextValue = e.target.value as OperationalTabId;
+                      updateAppSettings((prev) => ({ ...prev, defaultOperationalTab: nextValue }));
+                    }}
+                    className="w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-slate-400/50 focus:ring-1 focus:ring-slate-400/20 text-sm"
+                  >
+                    {DEFAULT_TAB_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-gray-400">
+                  Préférence enregistrée sur l’appareil.
+                </p>
               </div>
             )}
           </div>
@@ -1201,7 +1303,7 @@ const Settings = () => {
                   </div>
                   <button
                     onClick={handleSaveMean}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-blue-600/90 hover:bg-blue-600 text-white text-sm font-semibold shadow-sm transition"
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl btn-success text-sm font-semibold shadow-sm transition"
                   >
                     <Plus className="w-4 h-4" />
                     {editingMeanId ? 'Mettre à jour' : 'Ajouter'}
@@ -1211,13 +1313,13 @@ const Settings = () => {
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={handleLoadDefaultMeans}
-                    className="px-3 py-2 rounded-xl text-xs font-semibold bg-slate-200 hover:bg-slate-300 border border-slate-300 text-slate-700 dark:bg-white/10 dark:hover:bg-white/20 dark:border-white/15 dark:text-gray-200 transition"
+                    className="px-3 py-2 rounded-xl text-xs font-semibold btn-neutral transition"
                   >
                     Charger les moyens standards
                   </button>
                   <button
                     onClick={handleClearMeans}
-                    className="px-3 py-2 rounded-xl text-xs font-semibold bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50 dark:bg-white/5 dark:border-white/10 dark:text-gray-300 dark:hover:text-white transition"
+                    className="px-3 py-2 rounded-xl text-xs font-semibold btn-danger transition"
                   >
                     Vider le recueil
                   </button>
@@ -1306,7 +1408,7 @@ const Settings = () => {
                   </div>
                   <button
                     onClick={handleSaveDemandeOption}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-blue-600/90 hover:bg-blue-600 text-white text-sm font-semibold shadow-sm transition"
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl btn-success text-sm font-semibold shadow-sm transition"
                   >
                     <Plus className="w-4 h-4" />
                     {editingDemandeId ? 'Mettre à jour' : 'Ajouter'}
@@ -1316,7 +1418,7 @@ const Settings = () => {
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={handleResetDemandeOptions}
-                    className="px-3 py-2 rounded-xl text-xs font-semibold bg-slate-200 hover:bg-slate-300 border border-slate-300 text-slate-700 dark:bg-white/10 dark:hover:bg-white/20 dark:border-white/15 dark:text-gray-200 transition"
+                    className="px-3 py-2 rounded-xl text-xs font-semibold btn-danger transition"
                   >
                     Réinitialiser la liste
                   </button>
@@ -1369,7 +1471,7 @@ const Settings = () => {
                   </div>
                   <button
                     onClick={handleSaveSurLesLieuxOption}
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-blue-600/90 hover:bg-blue-600 text-white text-sm font-semibold shadow-sm transition"
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl btn-success text-sm font-semibold shadow-sm transition"
                   >
                     <Plus className="w-4 h-4" />
                     {editingSurLesLieuxId ? 'Mettre à jour' : 'Ajouter'}
@@ -1379,7 +1481,7 @@ const Settings = () => {
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={handleResetSurLesLieuxOptions}
-                    className="px-3 py-2 rounded-xl text-xs font-semibold bg-slate-200 hover:bg-slate-300 border border-slate-300 text-slate-700 dark:bg-white/10 dark:hover:bg-white/20 dark:border-white/15 dark:text-gray-200 transition"
+                    className="px-3 py-2 rounded-xl text-xs font-semibold btn-danger transition"
                   >
                     Réinitialiser la liste
                   </button>
@@ -1470,7 +1572,7 @@ const Settings = () => {
                 <div className="flex flex-wrap justify-end items-center gap-2">
                   <button
                     onClick={handleResetOctDefaults}
-                    className="px-3 py-2 rounded-xl text-xs font-semibold bg-slate-200 hover:bg-slate-300 border border-slate-300 text-slate-700 dark:bg-white/10 dark:hover:bg-white/20 dark:border-white/15 dark:text-gray-200 transition"
+                    className="px-3 py-2 rounded-xl text-xs font-semibold btn-danger transition"
                   >
                     Réinitialiser
                   </button>
@@ -1479,7 +1581,7 @@ const Settings = () => {
                     disabled={!isOctDefaultsDirty}
                     className={`px-3 py-2 rounded-xl text-xs font-semibold border transition ${
                       isOctDefaultsDirty
-                        ? 'bg-blue-600/90 hover:bg-blue-600 border-blue-600 text-white'
+                        ? 'btn-success'
                         : 'bg-slate-200 border-slate-200 text-slate-400 cursor-not-allowed dark:bg-white/5 dark:border-white/5 dark:text-gray-500'
                     }`}
                   >
@@ -1564,7 +1666,7 @@ const Settings = () => {
                             </div>
                             <button
                               onClick={() => handleToggleHistoryItem(item.id)}
-                              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-900 text-white hover:bg-slate-800 transition"
+                              className="px-3 py-1.5 rounded-lg text-xs font-semibold btn-neutral transition"
                             >
                               {historySelectedId === item.id ? 'Masquer le détail' : 'Voir le détail'}
                             </button>
@@ -1587,7 +1689,7 @@ const Settings = () => {
                                     <div className="flex items-center gap-2">
                                       <button
                                         onClick={() => handleOpenHistoryIntervention(item)}
-                                        className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white transition"
+                                        className="px-3 py-1.5 rounded-lg text-xs font-semibold btn-neutral transition"
                                       >
                                         Ouvrir l’intervention
                                       </button>
@@ -1595,7 +1697,7 @@ const Settings = () => {
                                         <button
                                           onClick={() => handleDeleteIntervention(item)}
                                           disabled={historyDeleteId === item.id}
-                                          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-600 hover:bg-red-500 text-white transition disabled:opacity-60 disabled:cursor-not-allowed"
+                                          className="px-3 py-1.5 rounded-lg text-xs font-semibold btn-danger transition disabled:opacity-60 disabled:cursor-not-allowed"
                                         >
                                           {historyDeleteId === item.id ? 'Suppression…' : 'Supprimer'}
                                         </button>
@@ -1784,6 +1886,142 @@ const Settings = () => {
                     })}
                   </div>
                 )}
+              </div>
+            )}
+          </div>
+
+          <div className="bg-white/80 border border-slate-200 dark:bg-[#151515] dark:border-white/10 rounded-2xl overflow-hidden transition-all duration-300 hover:border-slate-300 dark:hover:border-white/20">
+            <button
+              type="button"
+              onClick={() => toggleSection('assistant-ia')}
+              className="w-full px-6 py-4 flex items-center justify-between bg-slate-100/80 hover:bg-slate-200/80 dark:bg-white/5 dark:hover:bg-white/10 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-cyan-100 dark:bg-cyan-500/20 rounded-lg">
+                  <Bot className="w-5 h-5 text-cyan-700 dark:text-cyan-300" />
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="font-medium text-lg">Assistant IA</span>
+                  <span className={`text-[11px] px-2 py-1 rounded-full border ${
+                    aiProxyConfig.url
+                      ? 'border-emerald-200 text-emerald-700 bg-emerald-50 dark:border-emerald-500/30 dark:text-emerald-300 dark:bg-emerald-500/10'
+                      : 'border-amber-200 text-amber-700 bg-amber-50 dark:border-amber-500/30 dark:text-amber-300 dark:bg-amber-500/10'
+                  }`}>
+                    {aiProxyConfig.url ? 'Proxy configuré' : 'Proxy manquant'}
+                  </span>
+                </div>
+              </div>
+              {openSections['assistant-ia'] ? (
+                <ChevronUp className="w-5 h-5 text-slate-500 dark:text-gray-400" />
+              ) : (
+                <ChevronDown className="w-5 h-5 text-slate-500 dark:text-gray-400" />
+              )}
+            </button>
+
+            {openSections['assistant-ia'] && (
+              <div className="px-6 py-5 space-y-5 bg-slate-50/80 dark:bg-[#0A0A0A]/50">
+                <div className="grid gap-3 md:grid-cols-3">
+                  <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-4 py-3">
+                    <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Source active</div>
+                    <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white">{formatProxySourceLabel(aiProxyConfig.source)}</div>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-4 py-3">
+                    <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">URL effective</div>
+                    <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white break-all">{aiProxyConfig.url || 'Aucune URL résolue'}</div>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 px-4 py-3">
+                    <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Env VITE_OPENAI_PROXY_URL</div>
+                    <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-white break-all">{aiProxyConfig.envUrl || 'Non définie'}</div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 p-4 space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
+                    <Link2 className="w-4 h-4 text-slate-500 dark:text-gray-400" />
+                    URL du proxy IA
+                  </div>
+                  <input
+                    type="url"
+                    value={aiProxyDraft}
+                    onChange={(event) => setAiProxyDraft(event.target.value)}
+                    placeholder="http://127.0.0.1:8787/analyze"
+                    className="w-full rounded-xl border border-slate-300 dark:border-white/10 bg-white dark:bg-[#101010] px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSaveAiProxyUrl}
+                      className="px-4 py-2 rounded-xl text-sm font-semibold btn-neutral"
+                    >
+                      Enregistrer l’URL
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleClearAiProxyUrl}
+                      className="px-4 py-2 rounded-xl text-sm font-semibold border border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:text-gray-200 dark:hover:bg-white/10 transition-colors"
+                    >
+                      Effacer l’override
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleCheckAiProxy()}
+                      disabled={aiProxyStatus === 'checking'}
+                      className="px-4 py-2 rounded-xl text-sm font-semibold border border-cyan-300 text-cyan-700 hover:bg-cyan-50 disabled:opacity-60 disabled:cursor-not-allowed dark:border-cyan-500/30 dark:text-cyan-300 dark:hover:bg-cyan-500/10 transition-colors inline-flex items-center gap-2"
+                    >
+                      <RefreshCw className={`w-4 h-4 ${aiProxyStatus === 'checking' ? 'animate-spin' : ''}`} />
+                      Tester la connexion
+                    </button>
+                  </div>
+                  <div className="text-xs text-slate-500 dark:text-gray-400">
+                    L’override Settings est prioritaire sur `VITE_OPENAI_PROXY_URL`. Cela permet de rebrancher l’assistant sans rebuild.
+                  </div>
+                </div>
+
+                {aiProxyHealth && (
+                  <div className={`rounded-2xl border px-4 py-4 ${
+                    aiProxyHealth.ok
+                      ? 'border-emerald-200 bg-emerald-50/80 dark:border-emerald-500/30 dark:bg-emerald-500/10'
+                      : 'border-amber-200 bg-amber-50/80 dark:border-amber-500/30 dark:bg-amber-500/10'
+                  }`}>
+                    <div className="flex items-start gap-3">
+                      {aiProxyHealth.ok ? (
+                        <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-300 mt-0.5" />
+                      ) : (
+                        <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-300 mt-0.5" />
+                      )}
+                      <div className="space-y-2 min-w-0">
+                        <div className="text-sm font-semibold text-slate-900 dark:text-white">
+                          {aiProxyHealth.ok ? 'Proxy joignable' : 'Diagnostic proxy'}
+                        </div>
+                        <div className="text-sm text-slate-700 dark:text-gray-200">{aiProxyHealth.message}</div>
+                        <div className="flex flex-wrap gap-2 text-xs">
+                          <span className="px-2 py-1 rounded-full bg-white/80 border border-black/5 dark:bg-black/20 dark:border-white/10">
+                            Source: {formatProxySourceLabel(aiProxyHealth.source)}
+                          </span>
+                          <span className="px-2 py-1 rounded-full bg-white/80 border border-black/5 dark:bg-black/20 dark:border-white/10">
+                            HTTP: {aiProxyHealth.status ?? 'n/a'}{aiProxyHealth.statusText ? ` ${aiProxyHealth.statusText}` : ''}
+                          </span>
+                          <span className="px-2 py-1 rounded-full bg-white/80 border border-black/5 dark:bg-black/20 dark:border-white/10">
+                            Token Supabase: {aiProxyHealth.hasAuthToken ? 'présent' : 'absent'}
+                          </span>
+                          <span className="px-2 py-1 rounded-full bg-white/80 border border-black/5 dark:bg-black/20 dark:border-white/10">
+                            Réseau: {aiProxyHealth.reachable ? 'joignable' : 'échec'}
+                          </span>
+                        </div>
+                        {aiProxyHealth.url && (
+                          <div className="text-xs text-slate-500 dark:text-gray-400 break-all">
+                            {aiProxyHealth.url}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="rounded-xl border border-dashed border-slate-300 dark:border-white/10 px-4 py-3 text-xs text-slate-600 dark:text-gray-300 space-y-1">
+                  <div>Local recommandé: lancer `npm run ai-proxy:dev`, puis utiliser `http://127.0.0.1:8787/analyze`.</div>
+                  <div>Le point de santé répond sur `http://127.0.0.1:8787/health`.</div>
+                </div>
               </div>
             )}
           </div>

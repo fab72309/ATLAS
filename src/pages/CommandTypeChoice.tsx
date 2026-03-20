@@ -7,6 +7,7 @@ import { INTERVENTION_INVITE_PREFIX } from '../constants/intervention';
 import { getLocalDate, getLocalTime } from '../utils/dateTime';
 import { getSupabaseClient } from '../utils/supabaseClient';
 import { logInterventionEvent } from '../utils/atlasTelemetry';
+import { isDevAuthBypassEnabled } from '../utils/devBypass';
 
 const ROLE_OPTIONS_BASE = [
   { value: 'chef_site', label: 'Chef de site' },
@@ -166,6 +167,11 @@ const CommandTypeChoice = () => {
     if (!currentType) return;
     setHistoryStatus('loading');
     setHistoryError(null);
+    if (isDevAuthBypassEnabled()) {
+      setHistoryItems([]);
+      setHistoryStatus('ready');
+      return;
+    }
     const supabase = getSupabaseClient();
     if (!supabase) {
       setHistoryStatus('error');
@@ -329,12 +335,6 @@ const CommandTypeChoice = () => {
     if (!currentType) return;
     setIsCreatingIntervention(true);
     setCreateInterventionError(null);
-    const supabase = getSupabaseClient();
-    if (!supabase) {
-      setCreateInterventionError('Configuration Supabase manquante.');
-      setIsCreatingIntervention(false);
-      return;
-    }
     try {
       const now = new Date();
       const date = interventionMeta.date || getLocalDate(now);
@@ -347,6 +347,36 @@ const CommandTypeChoice = () => {
         date,
         time
       };
+
+      if (isDevAuthBypassEnabled()) {
+        const startedAtMs = Date.now();
+        setInterventionMetaState({
+          status: null,
+          isTraining,
+          trainingSetAt: isTraining ? new Date(startedAtMs).toISOString() : null,
+          trainingSetBy: null
+        });
+        setInterventionAddress({
+          address,
+          streetNumber: interventionMeta.streetNumber,
+          streetName: interventionMeta.streetName,
+          city: interventionMeta.city
+        });
+        setLogicalIds({
+          oiLogicalId: null,
+          conduiteLogicalId: null
+        });
+        setShowMetadataModal(false);
+        navigate(`/situation/${currentType}/dictate`, {
+          state: { mode: 'create', meta: payload, startedAtMs }
+        });
+        return;
+      }
+
+      const supabase = getSupabaseClient();
+      if (!supabase) {
+        throw new Error('Configuration Supabase manquante.');
+      }
 
       const { data: authData, error: authError } = await supabase.auth.getUser();
       if (authError) throw authError;
@@ -664,14 +694,15 @@ const CommandTypeChoice = () => {
                 <p className="text-sm text-slate-600 dark:text-gray-400 mb-4">
                   Démarrer un nouveau raisonnement {soiecLabel} et configurer vos moyens.
                 </p>
-                <button
-                  type="button"
-                  onClick={handleCreateIntervention}
-                  className="w-full py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white transition font-semibold"
-                >
-                  Créer une intervention
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={handleCreateIntervention}
+                data-no-pill
+                className="w-full py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white transition font-semibold"
+              >
+                Créer une intervention
+              </button>
+            </div>
               <div className="bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl p-4">
                 <h4 className="text-lg font-semibold mb-1">Reprendre une intervention existante</h4>
                 <p className="text-sm text-slate-600 dark:text-gray-400 mb-4">
@@ -681,7 +712,7 @@ const CommandTypeChoice = () => {
                   <button
                     type="button"
                     onClick={handleResumeIntervention}
-                    className="w-full py-3 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-900 dark:bg-white/10 dark:hover:bg-white/20 dark:text-white transition font-semibold flex items-center justify-center gap-2"
+                    className="w-full py-3 rounded-xl btn-neutral transition font-semibold flex items-center justify-center gap-2"
                   >
                     <History className="w-4 h-4" />
                     Reprendre une intervention
@@ -689,6 +720,7 @@ const CommandTypeChoice = () => {
                   <button
                     type="button"
                     onClick={handleOpenScanModal}
+                    data-no-pill
                     className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white transition font-semibold flex items-center justify-center gap-2"
                   >
                     <Camera className="w-4 h-4" />
@@ -771,7 +803,7 @@ const CommandTypeChoice = () => {
                               type="button"
                               onClick={() => handleResumeFromHistory(item)}
                               disabled={isBusy}
-                              className="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition disabled:opacity-60"
+                              className="px-3 py-2 rounded-xl btn-neutral text-xs font-semibold transition disabled:opacity-60"
                             >
                               {isBusy ? 'Ouverture…' : actionLabel}
                             </button>
@@ -787,14 +819,14 @@ const CommandTypeChoice = () => {
               <button
                 type="button"
                 onClick={() => void fetchHistory()}
-                className="px-3 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 text-sm dark:bg-white/10 dark:hover:bg-white/20 dark:text-white transition"
+                className="px-3 py-2 rounded-xl btn-neutral text-sm transition"
               >
                 Rafraîchir
               </button>
               <button
                 type="button"
                 onClick={() => setShowHistoryModal(false)}
-                className="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm transition"
+                className="px-3 py-2 rounded-xl btn-neutral text-sm transition"
               >
                 Fermer
               </button>
@@ -851,6 +883,7 @@ const CommandTypeChoice = () => {
                     type="button"
                     onClick={() => handleConsumeInvite(scanManualCode)}
                     disabled={scanStatus === 'loading'}
+                    data-no-pill
                     className="px-4 py-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-semibold transition disabled:opacity-60"
                   >
                     Valider
@@ -892,7 +925,7 @@ const CommandTypeChoice = () => {
                     <input
                       value={interventionMeta.streetNumber}
                       onChange={(e) => handleMetadataChange('streetNumber', e.target.value)}
-                      className="w-full px-4 py-3 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-red-500/40"
+                      className="w-full px-4 py-2 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-red-500/40"
                       placeholder="12"
                       inputMode="numeric"
                     />
@@ -902,7 +935,7 @@ const CommandTypeChoice = () => {
                     <input
                       value={interventionMeta.streetName}
                       onChange={(e) => handleMetadataChange('streetName', e.target.value)}
-                      className="w-full px-4 py-3 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-red-500/40"
+                      className="w-full px-4 py-2 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-red-500/40"
                       placeholder="Rue des Secours"
                     />
                   </div>
@@ -912,7 +945,7 @@ const CommandTypeChoice = () => {
                       <input
                         value={interventionMeta.city}
                         onChange={(e) => handleMetadataChange('city', e.target.value)}
-                        className="flex-1 px-4 py-3 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-red-500/40"
+                        className="flex-1 px-4 py-2 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-red-500/40"
                         placeholder="Paris"
                       />
                       <button
@@ -940,7 +973,7 @@ const CommandTypeChoice = () => {
                   type="date"
                   value={interventionMeta.date}
                   onChange={(e) => handleMetadataChange('date', e.target.value)}
-                  className="w-full px-4 py-3 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-red-500/40"
+                  className="w-full px-4 py-2 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-red-500/40"
                 />
               </div>
               <div className="space-y-2">
@@ -949,7 +982,7 @@ const CommandTypeChoice = () => {
                   type="time"
                   value={interventionMeta.time}
                   onChange={(e) => handleMetadataChange('time', e.target.value)}
-                  className="w-full px-4 py-3 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-red-500/40"
+                  className="w-full px-4 py-2 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-red-500/40"
                 />
               </div>
               <div className="space-y-2 md:col-span-2">
@@ -957,7 +990,7 @@ const CommandTypeChoice = () => {
                   <select
                     value={interventionMeta.role}
                     onChange={(e) => handleMetadataChange('role', e.target.value)}
-                    className="w-full px-4 py-3 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-red-500/40 text-slate-800 dark:text-gray-200"
+                    className="w-full h-10 px-4 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-red-500/40 text-slate-800 dark:text-gray-200"
                   >
                     <option value="">Sélectionner une fonction</option>
                     {roleOptions.map((role) => (
@@ -969,16 +1002,19 @@ const CommandTypeChoice = () => {
               </div>
               <div className="space-y-2 md:col-span-2">
                 <label className="text-xs uppercase tracking-wide text-slate-500 dark:text-gray-400">Formation / exercice</label>
-                <div className="flex items-center gap-3">
+                <div className="flex items-start gap-3">
                   <input
                     type="checkbox"
                     checked={isTraining}
                     onChange={(e) => setIsTraining(e.target.checked)}
                     className="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
                   />
-                  <span className="text-sm text-slate-700 dark:text-gray-200">
-                    Coché par défaut. Décochez en opération (collecte réduite).
-                  </span>
+                  <div className="text-sm text-slate-700 dark:text-gray-200">
+                    <div>Mode formation</div>
+                    <div className="text-xs text-slate-500 dark:text-gray-400">
+                      L&apos;utilisation d&apos;Atlas en opération est sous votre responsabilité
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -992,7 +1028,7 @@ const CommandTypeChoice = () => {
                     setShowMetadataModal(false);
                     setShowInterventionModal(true);
                   }}
-                  className="px-4 py-2 rounded-xl bg-slate-200 text-slate-700 hover:bg-slate-300 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10 transition"
+                  className="px-4 py-2 rounded-xl btn-neutral transition"
                 >
                   Retour
                 </button>
@@ -1000,6 +1036,7 @@ const CommandTypeChoice = () => {
                 type="button"
                 onClick={handleConfirmMetadata}
                 disabled={isCreatingIntervention}
+                data-no-pill
                 className="px-6 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold transition"
               >
                 {isCreatingIntervention ? 'Création...' : 'Valider'}

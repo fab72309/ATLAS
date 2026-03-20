@@ -20,6 +20,7 @@ import { useSitacStore } from '../stores/useSitacStore';
 import { useMeansStore } from '../stores/useMeansStore';
 import { INTERVENTION_DRAFT_KEY } from '../constants/intervention';
 import { useSessionSettings, type MessageCheckboxOption } from '../utils/sessionSettings';
+import { useAppSettings, type OperationalTabId } from '../utils/appSettings';
 import { getLocalDate, getLocalDateTime, getLocalTime } from '../utils/dateTime';
 import { logInterventionEvent, type TelemetryMetrics } from '../utils/atlasTelemetry';
 import { telemetryBuffer } from '../utils/telemetryBuffer';
@@ -492,7 +493,9 @@ const DictationInput = () => {
   const setSelectedMeans = useMeansStore((s) => s.setSelectedMeans);
   const meansHydrationId = useMeansStore((s) => s.hydrationId);
   const { tree: octTree } = useOctTree();
-  const [activeTab, setActiveTab] = useState<'soiec' | 'moyens' | 'oct' | 'message' | 'sitac' | 'aide'>('soiec');
+  const { settings: appSettings } = useAppSettings();
+  const defaultTab = appSettings.defaultOperationalTab as OperationalTabId;
+  const [activeTab, setActiveTab] = useState<'soiec' | 'moyens' | 'oct' | 'message' | 'sitac' | 'aide'>(() => defaultTab || 'moyens');
   const [ambianceMessage, setAmbianceMessage] = useState<AmbianceMessage>(() => createAmbianceMessage());
   const [compteRenduMessage, setCompteRenduMessage] = useState<CompteRenduMessage>(() => createCompteRenduMessage());
   const [validatedAmbiance, setValidatedAmbiance] = useState<AmbianceMessage | null>(null);
@@ -873,10 +876,10 @@ const DictationInput = () => {
     };
   }, [ordreData, type, address, city, streetNumber, streetName, soiecLabel, selectedRisks, additionalInfo, orderTime, roleLabel]);
   const tabs = [
-    { id: 'soiec' as const, label: soiecLabel },
     { id: 'moyens' as const, label: 'Moyens' },
+    { id: 'message' as const, label: 'Messages' },
+    { id: 'soiec' as const, label: soiecLabel },
     { id: 'oct' as const, label: 'OCT' },
-    { id: 'message' as const, label: 'Message' },
     { id: 'sitac' as const, label: 'SITAC' },
     { id: 'aide' as const, label: 'Aide opérationnelle' }
   ];
@@ -927,10 +930,10 @@ const DictationInput = () => {
                     type="button"
                     onClick={() => setSoiecAddressValidated(true)}
                     disabled={!fullAddress.trim() || isOiLocked}
-                    className={`inline-flex items-center gap-2 px-3 py-2.5 rounded-2xl border text-sm font-semibold transition ${
+                    className={`inline-flex items-center gap-2 px-3 py-2.5 rounded-2xl border text-sm font-semibold transition btn-success ${
                       soiecAddressValidated
                         ? 'bg-emerald-600/15 text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-500/40'
-                        : 'bg-slate-200 text-slate-700 border-slate-300 hover:bg-slate-300 dark:bg-white/5 dark:text-gray-200 dark:border-white/10 dark:hover:bg-white/10'
+                        : ''
                     } ${!fullAddress.trim() ? 'opacity-60 cursor-not-allowed' : ''}`}
                   >
                     <Check className="w-4 h-4" />
@@ -990,10 +993,10 @@ const DictationInput = () => {
                       setSoiecTimeValidated(true);
                     }}
                     disabled={isOiLocked}
-                    className={`inline-flex items-center gap-2 px-3 py-2.5 rounded-2xl border text-sm font-semibold transition ${
+                    className={`inline-flex items-center gap-2 px-3 py-2.5 rounded-2xl border text-sm font-semibold transition btn-success ${
                       soiecTimeValidated
                         ? 'bg-emerald-600/15 text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-500/40'
-                        : 'bg-slate-200 text-slate-700 border-slate-300 hover:bg-slate-300 dark:bg-white/5 dark:text-gray-200 dark:border-white/10 dark:hover:bg-white/10'
+                        : ''
                     }`}
                   >
                     <Check className="w-4 h-4" />
@@ -1019,42 +1022,15 @@ const DictationInput = () => {
                 disabled={isOiLocked}
               />
               <div className="flex items-center gap-2">
-                <div className="relative">
+                {hasHistory && (
                   <button
-                    onClick={() => setShowShareMenu((v) => !v)}
-                    className="flex items-center gap-2 px-3 py-2 bg-slate-200 hover:bg-slate-300 border border-slate-300 dark:bg-white/5 dark:hover:bg-white/10 dark:border-white/10 rounded-xl text-sm text-slate-700 dark:text-gray-200"
+                    onClick={() => setHistoryModalOpen(true)}
+                    className="px-3 py-2 rounded-xl text-sm font-semibold bg-white/70 hover:bg-white border border-slate-200 text-slate-700 dark:bg-white/10 dark:hover:bg-white/20 dark:border-white/15 dark:text-gray-200 transition"
                   >
-                    <Share2 className="w-4 h-4" />
-                    Partage & export
+                    Historique
                   </button>
-                  {showShareMenu && (
-                    <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-[#0F121A] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl p-3 space-y-2 z-30">
-                      <div className="text-xs text-slate-500 dark:text-gray-400">Texte</div>
-                      <div className="flex flex-wrap gap-2">
-                        <button onClick={() => handleShareText('sms')} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200">SMS</button>
-                        <button onClick={() => handleShareText('whatsapp')} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200">WhatsApp</button>
-                        <button onClick={() => handleShareText('mail')} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200">Mail</button>
-                        <button onClick={handleCopyDraft} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200 flex items-center gap-1"><ClipboardCopy className="w-4 h-4" />Copier</button>
-                      </div>
-                      <div className="text-xs text-slate-500 dark:text-gray-400 pt-1">Téléchargements</div>
-                      <div className="flex flex-wrap gap-2">
-                        <button onClick={handleDownloadImage} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200 flex items-center gap-1"><ImageDown className="w-4 h-4" />Image</button>
-                        <button onClick={() => handleShareFile('pdf')} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200">PDF</button>
-                        <button onClick={() => handleShareFile('word')} className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-white/5 dark:hover:bg-white/10 rounded-lg text-xs text-slate-700 dark:text-gray-200 flex items-center gap-1"><FileText className="w-4 h-4" />Word</button>
-                      </div>
-                      {showShareHint && <div className="text-[11px] text-red-400">Ajoutez au moins un élément avant de partager.</div>}
-                    </div>
-                  )}
+                )}
               </div>
-              {hasHistory && (
-                <button
-                  onClick={() => setHistoryModalOpen(true)}
-                  className="px-3 py-2 rounded-xl text-sm font-semibold bg-white/70 hover:bg-white border border-slate-200 text-slate-700 dark:bg-white/10 dark:hover:bg-white/20 dark:border-white/15 dark:text-gray-200 transition"
-                >
-                  Historique
-                </button>
-              )}
-            </div>
             </div>
           </div>
 
@@ -1069,7 +1045,7 @@ const DictationInput = () => {
                   key={value}
                   type="button"
                   onClick={() => void submitIsa(value as 1 | 2 | 3 | 4 | 5, 'manual')}
-                  className="px-2 py-1 rounded-md bg-slate-200 hover:bg-slate-300 text-slate-700 dark:bg-white/10 dark:hover:bg-white/20 dark:text-gray-200 transition"
+                  className="px-2 py-1 rounded-md btn-neutral transition"
                 >
                   {value}
                 </button>
@@ -1303,10 +1279,10 @@ const DictationInput = () => {
                         time: prev.time || nowStamp.time
                       }));
                     }}
-                    className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-semibold transition ${
+                    className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-semibold transition btn-success ${
                       ambianceMessage.stamped
                         ? 'bg-emerald-600/15 text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-500/40'
-                        : 'bg-slate-200 text-slate-700 border-slate-300 hover:bg-slate-300 dark:bg-white/5 dark:text-gray-200 dark:border-white/10 dark:hover:bg-white/10'
+                        : ''
                     }`}
                   >
                     <Check className="w-4 h-4" />
@@ -1333,10 +1309,10 @@ const DictationInput = () => {
                         }));
                       }}
                       disabled={!isAddressAvailable}
-                      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold transition ${
+                      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold transition btn-success ${
                         ambianceMessage.addressConfirmed
                           ? 'bg-emerald-600/15 text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-500/40'
-                          : 'bg-slate-200 text-slate-700 border-slate-300 hover:bg-slate-300 dark:bg-white/5 dark:text-gray-200 dark:border-white/10 dark:hover:bg-white/10'
+                          : ''
                       } ${!isAddressAvailable ? 'opacity-60 cursor-not-allowed' : ''}`}
                     >
                       <Check className="w-4 h-4" />
@@ -1354,7 +1330,7 @@ const DictationInput = () => {
                     }
                     rows={2}
                     placeholder="Votre position, votre mission, votre action en cours."
-                    className="w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
+                    className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
                   />
                   {!isAddressAvailable && (
                     <div className="text-xs text-amber-600 dark:text-amber-400">
@@ -1383,7 +1359,7 @@ const DictationInput = () => {
                     onChange={(e) => setAmbianceMessage((prev) => ({ ...prev, jeDemande: e.target.value }))}
                     rows={2}
                     placeholder="Renforts, moyens, consignes."
-                    className="w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
+                    className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
                   />
                 </div>
                 <DemandesSection
@@ -1405,7 +1381,7 @@ const DictationInput = () => {
                   className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition border ${
                     validatedAmbiance
                       ? 'bg-emerald-600/15 text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-500/40'
-                      : 'bg-slate-900 text-white border-slate-900 hover:bg-slate-800 dark:bg-white/15 dark:text-white dark:border-white/30 dark:hover:bg-white/20'
+                      : 'btn-success'
                   }`}
                 >
                   <Check className="w-4 h-4" />
@@ -1465,10 +1441,10 @@ const DictationInput = () => {
                         time: prev.time || nowStamp.time
                       }));
                     }}
-                    className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-semibold transition ${
+                    className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-semibold transition btn-success ${
                       compteRenduMessage.stamped
                         ? 'bg-emerald-600/15 text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-500/40'
-                        : 'bg-slate-200 text-slate-700 border-slate-300 hover:bg-slate-300 dark:bg-white/5 dark:text-gray-200 dark:border-white/10 dark:hover:bg-white/10'
+                        : ''
                     }`}
                   >
                     <Check className="w-4 h-4" />
@@ -1495,10 +1471,10 @@ const DictationInput = () => {
                         }));
                       }}
                       disabled={!isAddressAvailable}
-                      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold transition ${
+                      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold transition btn-success ${
                         compteRenduMessage.addressConfirmed
                           ? 'bg-emerald-600/15 text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-500/40'
-                          : 'bg-slate-200 text-slate-700 border-slate-300 hover:bg-slate-300 dark:bg-white/5 dark:text-gray-200 dark:border-white/10 dark:hover:bg-white/10'
+                          : ''
                       } ${!isAddressAvailable ? 'opacity-60 cursor-not-allowed' : ''}`}
                     >
                       <Check className="w-4 h-4" />
@@ -1516,7 +1492,7 @@ const DictationInput = () => {
                     }
                     rows={2}
                     placeholder="Votre position, votre mission, votre action en cours."
-                    className="w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
+                    className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
                   />
                   {!isAddressAvailable && (
                     <div className="text-xs text-amber-600 dark:text-amber-400">
@@ -1536,7 +1512,7 @@ const DictationInput = () => {
                     onChange={(e) => setCompteRenduMessage((prev) => ({ ...prev, jeVois: e.target.value }))}
                     rows={2}
                     placeholder="Ce que vous constatez sur place."
-                    className="w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
+                    className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
                   />
                 </div>
                 <div className="space-y-1">
@@ -1546,7 +1522,7 @@ const DictationInput = () => {
                     onChange={(e) => setCompteRenduMessage((prev) => ({ ...prev, jePrevois: e.target.value }))}
                     rows={2}
                     placeholder="Hypothèses ou prochaines actions."
-                    className="w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
+                    className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
                   />
                 </div>
                 <div className="space-y-1">
@@ -1556,7 +1532,7 @@ const DictationInput = () => {
                     onChange={(e) => setCompteRenduMessage((prev) => ({ ...prev, jeFais: e.target.value }))}
                     rows={2}
                     placeholder="Actions en cours ou réalisées."
-                    className="w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
+                    className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
                   />
                 </div>
                 <div className="space-y-1">
@@ -1566,7 +1542,7 @@ const DictationInput = () => {
                     onChange={(e) => setCompteRenduMessage((prev) => ({ ...prev, jeDemande: e.target.value }))}
                     rows={2}
                     placeholder="Renforts, moyens, consignes."
-                    className="w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
+                    className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
                   />
                 </div>
                 <DemandesSection
@@ -1588,7 +1564,7 @@ const DictationInput = () => {
                   className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition border ${
                     validatedCompteRendu
                       ? 'bg-emerald-600/15 text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-500/40'
-                      : 'bg-slate-900 text-white border-slate-900 hover:bg-slate-800 dark:bg-white/15 dark:text-white dark:border-white/30 dark:hover:bg-white/20'
+                      : 'btn-success'
                   }`}
                 >
                   <Check className="w-4 h-4" />
@@ -2515,7 +2491,8 @@ const DictationInput = () => {
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}
-                      className={`px-3 py-2 rounded-xl text-sm font-semibold transition border ${isActive ? 'bg-slate-900/90 border-slate-300 text-white shadow-inner shadow-black/10 dark:bg-white/15 dark:border-white/40 dark:text-white dark:shadow-white/10' : 'bg-transparent border-transparent text-slate-500 hover:text-slate-900 hover:bg-slate-200 dark:text-gray-400 dark:hover:text-white dark:hover:bg-white/5'}`}
+                      aria-selected={isActive}
+                      className={`px-3 py-2 rounded-full text-sm font-semibold transition btn-neutral ${isActive ? 'text-slate-900 dark:text-white' : 'text-slate-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'}`}
                     >
                       {tab.label}
                     </button>
@@ -2546,16 +2523,48 @@ const DictationInput = () => {
                     {closeNotice}
                   </div>
                 )}
-                <button
-                  onClick={handleOpenShareModal}
-                  className="px-3 py-2 rounded-xl text-sm font-semibold bg-white/70 hover:bg-white border border-slate-200 text-slate-700 dark:bg-white/10 dark:hover:bg-white/20 dark:border-white/15 dark:text-gray-200 transition flex items-center gap-2"
-                >
-                  <QrCode className="w-4 h-4" />
-                  QR Code
-                </button>
+                {activeTab === 'soiec' && (
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowShareMenu((v) => !v)}
+                      className="flex items-center gap-2 px-3 py-2 btn-neutral rounded-xl text-sm"
+                    >
+                      <Share2 className="w-4 h-4" />
+                      Partage et export
+                    </button>
+                    {showShareMenu && (
+                      <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-[#0F121A] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl p-3 space-y-2 z-30">
+                        <div className="text-xs text-slate-500 dark:text-gray-400">Invitation</div>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            onClick={handleOpenShareModal}
+                            className="px-3 py-1.5 btn-neutral rounded-lg text-xs flex items-center gap-1"
+                          >
+                            <QrCode className="w-4 h-4" />
+                            QR Code
+                          </button>
+                        </div>
+                        <div className="text-xs text-slate-500 dark:text-gray-400 pt-1">Texte</div>
+                        <div className="flex flex-wrap gap-2">
+                          <button onClick={() => handleShareText('sms')} className="px-3 py-1.5 btn-neutral rounded-lg text-xs">SMS</button>
+                          <button onClick={() => handleShareText('whatsapp')} className="px-3 py-1.5 btn-neutral rounded-lg text-xs">WhatsApp</button>
+                          <button onClick={() => handleShareText('mail')} className="px-3 py-1.5 btn-neutral rounded-lg text-xs">Mail</button>
+                          <button onClick={handleCopyDraft} className="px-3 py-1.5 btn-neutral rounded-lg text-xs flex items-center gap-1"><ClipboardCopy className="w-4 h-4" />Copier</button>
+                        </div>
+                        <div className="text-xs text-slate-500 dark:text-gray-400 pt-1">Téléchargements</div>
+                        <div className="flex flex-wrap gap-2">
+                          <button onClick={handleDownloadImage} className="px-3 py-1.5 btn-neutral rounded-lg text-xs flex items-center gap-1"><ImageDown className="w-4 h-4" />Image</button>
+                          <button onClick={() => handleShareFile('pdf')} className="px-3 py-1.5 btn-neutral rounded-lg text-xs">PDF</button>
+                          <button onClick={() => handleShareFile('word')} className="px-3 py-1.5 btn-neutral rounded-lg text-xs flex items-center gap-1"><FileText className="w-4 h-4" />Word</button>
+                        </div>
+                        {showShareHint && <div className="text-[11px] text-red-400">Ajoutez au moins un élément avant de partager.</div>}
+                      </div>
+                    )}
+                  </div>
+                )}
                 <button
                   onClick={() => setResetDialogOpen(true)}
-                  className="px-3 py-2 rounded-xl text-sm font-semibold bg-slate-200 hover:bg-slate-300 border border-slate-300 text-slate-700 dark:bg-white/10 dark:hover:bg-white/20 dark:border-white/15 dark:text-gray-200 transition"
+                  className="px-3 py-2 rounded-xl text-sm font-semibold btn-danger transition"
                 >
                   Réinitialiser
                 </button>
@@ -2593,6 +2602,7 @@ const DictationInput = () => {
                 }
               }}
               disabled={isLoading}
+              data-no-pill
               className={`group w-full transition-all duration-300 text-white py-4 rounded-2xl text-lg font-bold shadow-lg hover:-translate-y-0.5 flex items-center justify-center gap-3 ${
                 ordreValidatedAt
                   ? 'bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 shadow-emerald-500/25 hover:shadow-emerald-500/40'
@@ -2620,6 +2630,7 @@ const DictationInput = () => {
                   type="button"
                   onClick={handleGenerateConduite}
                   disabled={isLoading}
+                  data-no-pill
                   className="group w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 disabled:from-gray-700 disabled:to-gray-800 transition-all duration-300 text-white py-4 rounded-2xl text-lg font-bold shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:-translate-y-0.5 flex items-center justify-center gap-3"
                 >
                   Rédiger un ordre de conduite
@@ -2712,7 +2723,7 @@ const DictationInput = () => {
                               className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-semibold transition ${
                                 conduiteTimeValidated
                                   ? 'bg-emerald-600/15 text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-500/40'
-                                  : 'bg-slate-200 text-slate-700 border-slate-300 hover:bg-slate-300 dark:bg-white/5 dark:text-gray-200 dark:border-white/10 dark:hover:bg-white/10'
+                                  : 'btn-success'
                               }`}
                             >
                               <Check className="w-4 h-4" />
@@ -2741,6 +2752,7 @@ const DictationInput = () => {
                     <button
                       type="button"
                       onClick={handleValidateConduite}
+                      data-no-pill
                       className={`group w-full transition-all duration-300 text-white py-3 rounded-2xl text-base font-bold shadow-lg hover:-translate-y-0.5 flex items-center justify-center gap-3 ${
                         conduiteValidatedAt
                           ? 'bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 shadow-emerald-500/25 hover:shadow-emerald-500/40'
@@ -2762,6 +2774,7 @@ const DictationInput = () => {
                     <button
                       type="button"
                       onClick={handleGenerateConduite}
+                      data-no-pill
                       className="group w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 transition-all duration-300 text-white py-3 rounded-2xl text-base font-bold shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:-translate-y-0.5 flex items-center justify-center gap-3"
                     >
                       Rédiger un ordre de conduite
@@ -2803,7 +2816,7 @@ const DictationInput = () => {
                   <p className="text-sm text-red-600 dark:text-red-300">{shareError || 'Une erreur est survenue.'}</p>
                   <button
                     onClick={handleGenerateShare}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 border border-slate-300 text-sm text-slate-700 dark:bg-white/10 dark:hover:bg-white/15 dark:border-white/15 dark:text-gray-100 transition"
+                    className="w-full px-3 py-2 rounded-xl btn-neutral text-sm transition"
                   >
                     Réessayer
                   </button>
@@ -2820,7 +2833,7 @@ const DictationInput = () => {
                   </div>
                   <button
                     onClick={handleShareInvite}
-                    className="px-3 py-2 rounded-xl bg-slate-900 text-sm text-white hover:bg-slate-800 transition flex items-center gap-2"
+                    className="px-3 py-2 rounded-xl btn-neutral text-sm transition flex items-center gap-2"
                   >
                     <Share2 className="w-4 h-4" />
                     Partager
@@ -2829,19 +2842,19 @@ const DictationInput = () => {
                     <div className="flex flex-wrap items-center justify-center gap-2">
                       <button
                         onClick={() => handleShareFallback('mail')}
-                        className="px-3 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 border border-slate-300 text-[11px] text-slate-700 dark:bg-white/10 dark:hover:bg-white/15 dark:border-white/15 dark:text-gray-100 transition"
+                        className="px-3 py-1.5 rounded-lg btn-neutral text-[11px] transition"
                       >
                         Email
                       </button>
                       <button
                         onClick={() => handleShareFallback('sms')}
-                        className="px-3 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 border border-slate-300 text-[11px] text-slate-700 dark:bg-white/10 dark:hover:bg-white/15 dark:border-white/15 dark:text-gray-100 transition"
+                        className="px-3 py-1.5 rounded-lg btn-neutral text-[11px] transition"
                       >
                         SMS
                       </button>
                       <button
                         onClick={() => handleShareFallback('whatsapp')}
-                        className="px-3 py-1.5 rounded-lg bg-slate-200 hover:bg-slate-300 border border-slate-300 text-[11px] text-slate-700 dark:bg-white/10 dark:hover:bg-white/15 dark:border-white/15 dark:text-gray-100 transition"
+                        className="px-3 py-1.5 rounded-lg btn-neutral text-[11px] transition"
                       >
                         WhatsApp
                       </button>
@@ -2854,14 +2867,14 @@ const DictationInput = () => {
             <div className="px-4 py-3 border-t border-slate-200 dark:border-white/10 flex justify-end gap-2">
               <button
                 onClick={() => setShareModalOpen(false)}
-                className="px-3 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-sm text-slate-700 dark:bg-white/5 dark:hover:bg-white/10 dark:text-gray-200 transition"
+                className="px-3 py-2 rounded-lg btn-neutral text-sm transition"
               >
                 Fermer
               </button>
               <button
                 onClick={handleGenerateShare}
                 disabled={shareStatus === 'loading'}
-                className="px-3 py-2 rounded-lg bg-slate-900 text-sm text-white hover:bg-slate-800 disabled:opacity-60 transition"
+                className="px-3 py-2 rounded-lg btn-neutral text-sm disabled:opacity-60 transition"
               >
                 Régénérer
               </button>
@@ -2905,7 +2918,7 @@ const DictationInput = () => {
                           </div>
                           <button
                             onClick={() => handleLoadOrdreInitialHistory(entry.payload)}
-                            className="px-3 py-1.5 rounded-lg bg-slate-900 text-xs text-white hover:bg-slate-800 transition"
+                            className="px-3 py-1.5 rounded-lg btn-neutral text-xs transition"
                           >
                             Charger cette version
                           </button>
@@ -2978,7 +2991,7 @@ const DictationInput = () => {
             <div className="px-4 py-3 border-t border-slate-200 dark:border-white/10 flex justify-end">
               <button
                 onClick={() => setHistoryModalOpen(false)}
-                className="px-3 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-sm text-slate-700 dark:bg-white/5 dark:hover:bg-white/10 dark:text-gray-200 transition"
+                className="px-3 py-2 rounded-lg btn-neutral text-sm transition"
               >
                 Fermer
               </button>
@@ -3016,14 +3029,14 @@ const DictationInput = () => {
                   setCloseDialogOpen(false);
                   setCloseError(null);
                 }}
-                className="px-3 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-sm text-slate-700 dark:bg-white/5 dark:hover:bg-white/10 dark:text-gray-200 transition"
+                className="px-3 py-2 rounded-lg btn-neutral text-sm transition"
               >
                 Annuler
               </button>
               <button
                 onClick={handleConfirmCloseIntervention}
                 disabled={closeStatus === 'loading'}
-                className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-500 text-sm text-white transition disabled:opacity-60 disabled:cursor-not-allowed"
+                className="px-3 py-2 rounded-lg btn-danger text-sm transition disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {closeStatus === 'loading' ? 'Clôture…' : 'Clôturer'}
               </button>
@@ -3045,13 +3058,13 @@ const DictationInput = () => {
               </p>
               <button
                 onClick={handleResetTab}
-                className="w-full px-3 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 border border-slate-300 text-sm text-slate-700 dark:bg-white/10 dark:hover:bg-white/15 dark:border-white/15 dark:text-gray-100 transition"
+                className="w-full px-3 py-2 rounded-xl btn-danger text-sm transition"
               >
                 Réinitialiser l&apos;onglet en cours
               </button>
               <button
                 onClick={handleResetAll}
-                className="w-full px-3 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-sm text-white transition"
+                className="w-full px-3 py-2 rounded-xl btn-danger text-sm transition"
               >
                 Réinitialiser toute l&apos;intervention
               </button>
@@ -3059,7 +3072,7 @@ const DictationInput = () => {
             <div className="px-4 py-3 border-t border-slate-200 dark:border-white/10 flex justify-end">
               <button
                 onClick={() => setResetDialogOpen(false)}
-                className="px-3 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-sm text-slate-700 dark:bg-white/5 dark:hover:bg-white/10 dark:text-gray-200 transition"
+                className="px-3 py-2 rounded-lg btn-neutral text-sm transition"
               >
                 Annuler
               </button>

@@ -1,7 +1,7 @@
 {
   "name": "emergency-command-app",
   "private": true,
-  "version": "0.2.5-alpha.1",
+  "version": "0.3.0-alpha.1",
   "type": "module",
   "scripts": {
     "dev": "vite --port 5174",
@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit",
     "preview": "vite preview",
+    "ai-proxy:dev": "node scripts/ai-proxy.mjs",
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",
     "supabase:reset": "supabase db reset",
