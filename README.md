@@ -46,7 +46,16 @@ Aide Tactique et Logique pour l'Action des Secours
      - `VITE_WEATHER_API_KEY=...`
      - `VITE_OPENAI_PROXY_URL=https://<votre-proxy>/analyze` (recommandé en prod)
 
-4. Lancer en mode développement :
+4. Si vous n'avez plus de backend IA, lancez le proxy local :
+   ```bash
+   cp scripts/ai-proxy.env.example .env.proxy
+   # renseigner OPENAI_API_KEY dans .env.proxy
+   npm run ai-proxy:dev
+   ```
+   Puis configurez `VITE_OPENAI_PROXY_URL=http://127.0.0.1:8787/analyze`
+   ou saisissez cette URL dans `Settings > Assistant IA`.
+
+5. Lancer en mode développement :
    ```bash
    npm run dev
    ```
@@ -83,13 +92,30 @@ npx cap open android  # ou 'npx cap open ios'
 
 ### Flux IA actuel (recommandé)
 - Le client appelle uniquement le proxy `analyze` via `VITE_OPENAI_PROXY_URL`.
-- Le proxy utilise **Chat Completions** et un **prompt côté serveur**.
+- Le proxy serveur local du repo est `scripts/ai-proxy.mjs`.
+- Le proxy utilise l'API **Responses** d'OpenAI.
+- Pour le flux SOIEC `group`, le proxy peut utiliser un prompt OpenAI hébergé avec `file_search` et un vector store.
 - Le schéma JSON attendu est défini côté serveur et impose le format SOIEC.
-- Le client envoie `doctrine_context` (calculé depuis la dominante) pour guider les formulations doctrinales.
+- Les autres flux conservent un prompt local côté proxy tant qu'ils ne sont pas migrés.
+- Une URL de proxy peut aussi être surchargée dans `Settings > Assistant IA` sans rebuild.
 
 ### Configuration
 - Définissez la clé OpenAI côté serveur (`OPENAI_API_KEY`).
 - Exposez l’URL HTTPS du proxy et renseignez `VITE_OPENAI_PROXY_URL` côté client.
+- En local, le proxy expose :
+  - `POST /analyze`
+  - `GET /health`
+- Variables utiles du proxy local :
+  - `OPENAI_MODEL`
+  - `OPENAI_COMMUNICATION_MODEL`
+  - `OPENAI_OPERATIONAL_PROMPT_ID`
+  - `OPENAI_OPERATIONAL_PROMPT_VERSION`
+  - `OPENAI_OPERATIONAL_VECTOR_STORE_ID`
+  - `AI_PROXY_PORT`
+  - `AI_PROXY_HOST`
+  - `AI_PROXY_REQUIRE_AUTH`
+  - `SUPABASE_URL`
+  - `SUPABASE_ANON_KEY`
 
 ## 🧩 Modifications notables (branche: optimisation-diverse-par-cursor)
 
