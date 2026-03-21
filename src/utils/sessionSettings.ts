@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import { readUserScopedJSON, writeUserScopedJSON } from './userStorage';
 import { OctNodeType } from './octTreeStore';
 
-export const MEANS_CATEGORY_KEYS = ['incendie', 'suap', 'speciaux', 'commandement'] as const;
-export type MeansCategoryKey = typeof MEANS_CATEGORY_KEYS[number];
+export type MeansCategoryKey = string;
 
 export const OCT_LABEL_KEYS = ['cdt', 'ope1', 'ope2', 'tact12', 'tact34', 'airSol', 'crm'] as const;
 export type OctLabelKey = typeof OCT_LABEL_KEYS[number];
@@ -101,9 +100,7 @@ const sanitizeMeansCatalog = (input: unknown): MeanCatalogItem[] => {
       if (!entry || typeof entry !== 'object') return null;
       const item = entry as Partial<MeanCatalogItem>;
       const name = typeof item.name === 'string' ? item.name.trim() : '';
-      const category = MEANS_CATEGORY_KEYS.includes(item.category as MeansCategoryKey)
-        ? (item.category as MeansCategoryKey)
-        : null;
+      const category = typeof item.category === 'string' ? item.category.trim() : '';
       if (!name || !category) return null;
       const id = typeof item.id === 'string' && item.id ? item.id : generateId();
       const fullName = typeof item.fullName === 'string' ? item.fullName.trim() : '';
