@@ -2,7 +2,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import type { Database } from '../types/supabase';
-import { getSupabaseClient } from '../utils/supabaseClient';
 import {
   EMPLOYMENT_LEVEL_OPTIONS,
   normalizeEmploymentLevel,
@@ -10,6 +9,12 @@ import {
   type ShortcutKey
 } from '../constants/profile';
 import { buildDevBypassProfile, isDevAuthBypassEnabled } from '../utils/devBypass';
+import {
+  buildProfileInsertFromUser,
+  createProfile,
+  fetchProfileById,
+  updateProfileById
+} from '../services/profileService';
 import { useAuth } from './AuthContext';
 
 export type ProfileRow = Database['public']['Tables']['profiles']['Row'];
@@ -26,21 +31,6 @@ const getDefaultShortcuts = (level: string | null | undefined): ShortcutKey[] =>
   const normalized = normalizeEmploymentLevel(level);
   const found = EMPLOYMENT_LEVEL_OPTIONS.find((option) => option.value === normalized);
   return normalizeShortcutKeys(found?.defaultShortcuts ?? []);
-};
-
-const buildProfileInsert = (user: User): Database['public']['Tables']['profiles']['Insert'] => {
-  const metadata = user.user_metadata || {};
-  const firstName = typeof metadata.first_name === 'string' ? metadata.first_name.trim() : '';
-  const lastName = typeof metadata.last_name === 'string' ? metadata.last_name.trim() : '';
-  const employmentLevel = normalizeEmploymentLevel(
-    typeof metadata.employment_level === 'string' ? metadata.employment_level : null
-  );
-  return {
-    id: user.id,
-    first_name: firstName || null,
-    last_name: lastName || null,
-    employment_level: employmentLevel
-  };
 };
 
 const normalizeProfile = (profile: ProfileRow): ProfileRow => ({
@@ -80,62 +70,49 @@ export const ProfileProvider = ({ children }: { children: React.ReactNode }) => 
       setError(null);
       return mockProfile;
     }
-    const supabase = getSupabaseClient();
-    if (!supabase) {
-      setError('Configuration Supabase manquante.');
-      return null;
-    }
-    const insertPayload = buildProfileInsert(targetUser);
-    const { data, error: insertError } = await supabase
-      .from('profiles')
-      .insert(insertPayload)
-      .select('*')
-      .single();
-    if (insertError) {
+    const insertPayload = buildProfileInsertFromUser(targetUser);
+    insertPayload.employment_level = normalizeEmploymentLevel(insertPayload.employment_level) ?? null;
+    try {
+      const data = await createProfile(insertPayload);
+      const normalized = normalizeProfile(data);
+      setProfile(normalized);
+      setError(null);
+      return normalized;
+    } catch (insertError) {
       console.error('Profile insert error', insertError);
       setError('Impossible de créer le profil.');
       return null;
     }
-    const normalized = normalizeProfile(data);
-    setProfile(normalized);
-    setError(null);
-    return normalized;
   }, []);
 
   const updateProfile = useCallback(async (updates: ProfileUpdate) => {
     if (isDevAuthBypassEnabled()) {
-      const nextProfile = {
-        ...(profile ?? buildDevBypassProfile()),
-        ...updates,
-        updated_at: new Date().toISOString()
-      } as ProfileRow;
-      setProfile(nextProfile);
+      let nextProfile: ProfileRow | null = null;
+      setProfile((currentProfile) => {
+        nextProfile = {
+          ...(currentProfile ?? buildDevBypassProfile()),
+          ...updates,
+          updated_at: new Date().toISOString()
+        } as ProfileRow;
+        return nextProfile;
+      });
       setError(null);
       return nextProfile;
     }
     if (!user) return null;
-    const supabase = getSupabaseClient();
-    if (!supabase) {
-      setError('Configuration Supabase manquante.');
-      return null;
-    }
     const payload = { ...updates };
-    const { data, error: updateError } = await supabase
-      .from('profiles')
-      .update(payload)
-      .eq('id', user.id)
-      .select('*')
-      .single();
-    if (updateError) {
+    try {
+      const data = await updateProfileById(user.id, payload);
+      const normalized = normalizeProfile(data);
+      setProfile(normalized);
+      setError(null);
+      return normalized;
+    } catch (updateError) {
       console.error('Profile update error', updateError);
       setError('Impossible de mettre à jour le profil.');
       return null;
     }
-    const normalized = normalizeProfile(data);
-    setProfile(normalized);
-    setError(null);
-    return normalized;
-  }, [profile, user]);
+  }, [user]);
 
   const applyProfileDefaults = useCallback(async (nextProfile: ProfileRow) => {
     if (!shouldApplyDefaults(nextProfile)) return nextProfile;
@@ -156,25 +133,10 @@ export const ProfileProvider = ({ children }: { children: React.ReactNode }) => 
       setError(null);
       return;
     }
-    const supabase = getSupabaseClient();
-    if (!supabase) {
-      setError('Configuration Supabase manquante.');
-      setLoading(false);
-      return;
-    }
     setLoading(true);
     setError(null);
     try {
-      const { data, error: fetchError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle();
-      if (fetchError) {
-        console.error('Profile fetch error', fetchError);
-        setError('Impossible de charger le profil.');
-        return;
-      }
+      const data = await fetchProfileById(user.id);
       if (!data) {
         const created = await ensureProfile(user);
         if (created) {

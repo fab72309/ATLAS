@@ -1,17 +1,45 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-type OutboxItem = {
+type OutboxPayloadByTable = {
+  intervention_draft_snapshots: {
+    id: string;
+    intervention_id: string;
+    user_id: string;
+    recorded_at: string;
+    draft: Record<string, unknown>;
+    source: string;
+  };
+  ml_isa_ratings: {
+    id: string;
+    intervention_id: string;
+    user_id: string;
+    recorded_at: string;
+    isa: number;
+    source: string;
+  };
+};
+
+export type OutboxTable = keyof OutboxPayloadByTable;
+export type OutboxPayload<T extends OutboxTable = OutboxTable> = OutboxPayloadByTable[T];
+
+type OutboxItem<T extends OutboxTable = OutboxTable> = {
   id: string;
-  table: string;
-  payload: Record<string, unknown>;
+  table: T;
+  payload: OutboxPayloadByTable[T];
   createdAt: string;
   attemptCount: number;
+  nextAttemptAt: string | null;
+  status: 'pending' | 'failed';
+  lastError: string | null;
 };
 
 const DB_NAME = 'atlas-outbox';
 const STORE_NAME = 'outbox';
 const DB_VERSION = 1;
-const IDEMPOTENT_TABLES = new Set(['intervention_draft_snapshots', 'ml_isa_ratings']);
+const IDEMPOTENT_TABLES = new Set<OutboxTable>(['intervention_draft_snapshots', 'ml_isa_ratings']);
+const MAX_ATTEMPTS = 5;
+const BASE_RETRY_DELAY_MS = 5_000;
+const MAX_RETRY_DELAY_MS = 120_000;
 
 let syncStarted = false;
 let flushInFlight: Promise<void> | null = null;
@@ -68,18 +96,45 @@ const deleteItem = async (id: string) =>
     await requestToPromise(store.delete(id));
   });
 
-export const enqueue = async (table: string, payload: Record<string, unknown>) => {
+const computeNextAttemptAt = (attemptCount: number) => {
+  const delayMs = Math.min(BASE_RETRY_DELAY_MS * (2 ** Math.max(0, attemptCount - 1)), MAX_RETRY_DELAY_MS);
+  return new Date(Date.now() + delayMs).toISOString();
+};
+
+const isReadyToFlush = (item: OutboxItem) => (
+  item.status !== 'failed' &&
+  (!item.nextAttemptAt || new Date(item.nextAttemptAt).getTime() <= Date.now())
+);
+
+const resetFailedItems = async () =>
+  withStore('readwrite', async (store) => {
+    const items = await requestToPromise(store.getAll() as IDBRequest<OutboxItem[]>);
+    await Promise.all(items.map(async (item) => {
+      if (item.status !== 'failed') return;
+      await requestToPromise(store.put({
+        ...item,
+        status: 'pending',
+        nextAttemptAt: null,
+        lastError: null
+      }));
+    }));
+  });
+
+export const enqueue = async <T extends OutboxTable>(table: T, payload: OutboxPayload<T>) => {
   try {
     const randomId =
       typeof crypto !== 'undefined' && 'randomUUID' in crypto
         ? crypto.randomUUID()
         : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    const item: OutboxItem = {
+    const item: OutboxItem<T> = {
       id: String(payload.id ?? randomId),
       table,
       payload,
       createdAt: new Date().toISOString(),
-      attemptCount: 0
+      attemptCount: 0,
+      nextAttemptAt: null,
+      status: 'pending',
+      lastError: null
     };
     await putItem(item);
   } catch (error) {
@@ -104,13 +159,23 @@ export const flush = async (supabase: SupabaseClient) => {
   flushInFlight = (async () => {
     const items = await listItems();
     if (!items.length) return;
-    const sorted = [...items].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    const sorted = [...items]
+      .filter(isReadyToFlush)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     for (const item of sorted) {
       try {
         await sendItem(supabase, item);
         await deleteItem(item.id);
       } catch (error) {
-        await putItem({ ...item, attemptCount: item.attemptCount + 1 });
+        const attemptCount = item.attemptCount + 1;
+        const failed = attemptCount >= MAX_ATTEMPTS;
+        await putItem({
+          ...item,
+          attemptCount,
+          nextAttemptAt: failed ? null : computeNextAttemptAt(attemptCount),
+          status: failed ? 'failed' : 'pending',
+          lastError: error instanceof Error ? error.message : 'Unknown outbox error'
+        });
         console.warn('[outbox] Failed to flush item', error);
       }
     }
@@ -131,5 +196,5 @@ export const startOutboxSync = (supabase: SupabaseClient, intervalMs = 20_000) =
   }
   if (flushTimer !== null) window.clearInterval(flushTimer);
   flushTimer = window.setInterval(attemptFlush, intervalMs);
-  attemptFlush();
+  void resetFailedItems().finally(attemptFlush);
 };
