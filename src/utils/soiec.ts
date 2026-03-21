@@ -1,3 +1,4 @@
+import type { HydratedOrdreConduite, HydratedOrdreInitial } from '../stores/useInterventionStore';
 import { OrdreInitial, IdeeManoeuvre, ExecutionItem, SimpleSection, SimpleSectionItem } from '../types/soiec';
 
 const resolveRoleLabel = (role?: string) => role || 'Chef de groupe';
@@ -101,6 +102,200 @@ const toIdeeManoeuvre = (value: unknown): IdeeManoeuvre => {
     if (typeof record.order_in_objective === 'number') idee.order_in_objective = record.order_in_objective;
     if (recordType === 'idea') idee.type = 'idea';
     return idee;
+};
+
+const normalizeSimpleSectionValue = (value: unknown): SimpleSection => {
+    if (typeof value === 'string') return value;
+    return normalizeSimpleSectionItems(value);
+};
+
+const normalizeIdeeManoeuvre = (value: unknown): IdeeManoeuvre[] => {
+    if (!value) return [];
+    if (Array.isArray(value)) {
+        return value
+            .map((entry) => {
+                if (typeof entry === 'string') {
+                    return { mission: entry, moyen: '', moyen_supp: '', details: '' };
+                }
+                if (!entry || typeof entry !== 'object') return null;
+                const record = entry as Record<string, unknown>;
+                return {
+                    mission: typeof record.mission === 'string' ? record.mission : '',
+                    moyen: typeof record.moyen === 'string' ? record.moyen : '',
+                    moyen_supp: typeof record.moyen_supp === 'string' ? record.moyen_supp : '',
+                    details: typeof record.details === 'string' ? record.details : '',
+                    color: typeof record.color === 'string' ? record.color : undefined,
+                    type: typeof record.type === 'string' ? record.type as IdeeManoeuvre['type'] : undefined,
+                    objective_id: typeof record.objective_id === 'string'
+                        ? record.objective_id
+                        : typeof record.objectiveId === 'string'
+                            ? record.objectiveId
+                            : undefined,
+                    order_in_objective: typeof record.order_in_objective === 'number' ? record.order_in_objective : undefined
+                };
+            })
+            .filter(Boolean) as IdeeManoeuvre[];
+    }
+    if (typeof value === 'string') {
+        return value
+            .split('\n')
+            .map((entry) => entry.trim())
+            .filter(Boolean)
+            .map((mission) => ({ mission, moyen: '', moyen_supp: '', details: '' }));
+    }
+    return [];
+};
+
+const normalizeExecution = (value: unknown): OrdreInitial['E'] => {
+    if (!value) return '';
+    if (typeof value === 'string') return value;
+    if (Array.isArray(value)) return value;
+    return JSON.stringify(value);
+};
+
+const buildOrdreFromSoiec = (record: Record<string, unknown>): OrdreInitial => {
+    const situationSource = record.situation ?? record.S;
+    const situation = typeof situationSource === 'string'
+        ? situationSource
+        : normalizeSimpleSectionValue(situationSource);
+    const objectifs = record.objectifs ?? record.O;
+    const ideeManoeuvre = record.idee_manoeuvre ?? record.I;
+    const execution = record.execution ?? record.E;
+    const commandementSource = record.commandement ?? record.C;
+    const commandement = typeof commandementSource === 'string'
+        ? commandementSource
+        : normalizeSimpleSectionValue(commandementSource);
+    const anticipation = record.anticipation ?? record.A;
+    const logistique = record.logistique ?? record.L;
+
+    return {
+        S: situation,
+        O: normalizeSimpleSectionItems(objectifs),
+        I: normalizeIdeeManoeuvre(ideeManoeuvre),
+        E: normalizeExecution(execution),
+        C: commandement,
+        A: normalizeSimpleSectionItems(anticipation),
+        L: normalizeSimpleSectionItems(logistique)
+    };
+};
+
+export const parseOiPayload = (payload: unknown, createdAt?: string | null): HydratedOrdreInitial | null => {
+    if (!payload || typeof payload !== 'object') return null;
+    const data = (payload as { data?: unknown }).data;
+    if (!data || typeof data !== 'object') return null;
+    const record = data as Record<string, unknown>;
+    let ordreData = record.ordreData as HydratedOrdreInitial['ordreData'] | undefined;
+    if (!ordreData && record.soiec && typeof record.soiec === 'object') {
+        ordreData = buildOrdreFromSoiec(record.soiec as Record<string, unknown>);
+    }
+    if (!ordreData) return null;
+    if (!ordreData._colors) {
+        const colors = record._colors || record.colors;
+        if (colors && typeof colors === 'object') {
+            ordreData._colors = colors as OrdreInitial['_colors'];
+        }
+    }
+
+    const meta = record.meta && typeof record.meta === 'object' ? record.meta as Record<string, unknown> : {};
+    const selectedRisksSource = Array.isArray(record.selectedRisks)
+        ? record.selectedRisks
+        : Array.isArray(meta.selected_risks)
+            ? meta.selected_risks
+            : [];
+    const selectedRisks = selectedRisksSource.filter((entry) => typeof entry === 'string');
+    const validatedAtIso = createdAt || undefined;
+    const validatedAtLabel = createdAt
+        ? new Date(createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+        : undefined;
+
+    const addressBlock = record.address && typeof record.address === 'object'
+        ? record.address as Record<string, unknown>
+        : {};
+    const address = typeof record.address === 'string'
+        ? record.address
+        : typeof addressBlock.address === 'string'
+            ? addressBlock.address
+            : typeof addressBlock.address_line1 === 'string'
+                ? addressBlock.address_line1
+                : '';
+    const city = typeof record.city === 'string'
+        ? record.city
+        : typeof addressBlock.city === 'string'
+            ? addressBlock.city
+            : '';
+
+    return {
+        ordreData,
+        selectedRisks: selectedRisks as HydratedOrdreInitial['selectedRisks'],
+        additionalInfo: typeof record.additionalInfo === 'string'
+            ? record.additionalInfo
+            : typeof meta.additional_info === 'string'
+                ? meta.additional_info
+                : '',
+        address,
+        city,
+        orderTime: typeof record.orderTime === 'string'
+            ? record.orderTime
+            : typeof meta.order_time === 'string'
+                ? meta.order_time
+                : '',
+        soiecType: typeof record.soiecType === 'string'
+            ? record.soiecType
+            : typeof meta.soiec_type === 'string'
+                ? meta.soiec_type
+                : undefined,
+        validatedAtIso,
+        validatedAtLabel
+    };
+};
+
+export const parseConduitePayload = (payload: unknown, createdAt?: string | null): HydratedOrdreConduite | null => {
+    if (!payload || typeof payload !== 'object') return null;
+    const data = (payload as { data?: unknown }).data;
+    if (!data || typeof data !== 'object') return null;
+    const record = data as Record<string, unknown>;
+    const ordreConduite = record.ordreConduite as HydratedOrdreConduite['ordreConduite'] | undefined;
+    if (!ordreConduite) return null;
+
+    const selectedRisks = Array.isArray(record.conduiteSelectedRisks)
+        ? record.conduiteSelectedRisks.filter((entry) => typeof entry === 'string')
+        : [];
+    const validatedAtIso = createdAt || undefined;
+    const validatedAtLabel = createdAt
+        ? new Date(createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+        : undefined;
+
+    const conduiteAddress = typeof record.conduiteAddress === 'string'
+        ? record.conduiteAddress
+        : typeof record.address === 'string'
+            ? record.address
+            : '';
+    const conduiteCity = typeof record.conduiteCity === 'string'
+        ? record.conduiteCity
+        : typeof record.city === 'string'
+            ? record.city
+            : '';
+    const conduiteAdditionalInfo = typeof record.conduiteAdditionalInfo === 'string'
+        ? record.conduiteAdditionalInfo
+        : typeof record.additionalInfo === 'string'
+            ? record.additionalInfo
+            : '';
+    const conduiteOrderTime = typeof record.conduiteOrderTime === 'string'
+        ? record.conduiteOrderTime
+        : typeof record.orderTime === 'string'
+            ? record.orderTime
+            : '';
+
+    return {
+        ordreConduite,
+        conduiteSelectedRisks: selectedRisks as HydratedOrdreConduite['conduiteSelectedRisks'],
+        conduiteAdditionalInfo,
+        conduiteAddress,
+        conduiteCity,
+        conduiteOrderTime,
+        validatedAtIso,
+        validatedAtLabel
+    };
 };
 
 export const parseOrdreInitial = (jsonString: string): OrdreInitial => {
@@ -316,4 +511,122 @@ export const generateOrdreInitialShortText = (ordre: OrdreInitial): string => {
     }
 
     return text;
+};
+
+export type MessageSummaryOption = {
+    id: string;
+    label: string;
+};
+
+const FEU_ETEINT_ID = 'feuEteint';
+const MESSAGE_MEANS_FIELDS = [
+    { key: 'moyensSpFpt', label: 'FPT' },
+    { key: 'moyensSpEpc', label: 'EPC' },
+    { key: 'moyensSpVsav', label: 'VSAV' },
+    { key: 'moyensSpCcf', label: 'CCF' },
+    { key: 'moyensSpVsr', label: 'VSR' }
+] as const;
+
+const normalizeSelections = (input: unknown): Record<string, boolean> => {
+    if (!input || typeof input !== 'object') return {};
+    const record = input as Record<string, unknown>;
+    return Object.keys(record).reduce<Record<string, boolean>>((acc, key) => {
+        if (typeof record[key] === 'boolean') {
+            acc[key] = Boolean(record[key]);
+        }
+        return acc;
+    }, {});
+};
+
+const readStringField = (record: Record<string, unknown>, key: string) => (
+    typeof record[key] === 'string' ? record[key].trim() : ''
+);
+
+export const buildMessageDemandesSummary = (value: unknown, options: MessageSummaryOption[]): string[] => {
+    if (!isRecord(value)) return [];
+    const selections = value.selections && typeof value.selections === 'object'
+        ? normalizeSelections(value.selections)
+        : normalizeSelections(value);
+    const selected = options.filter((opt) => selections[opt.id]).map((opt) => opt.label);
+    const moyensSp = MESSAGE_MEANS_FIELDS
+        .map(({ key, label }) => {
+            const fieldValue = readStringField(value, key);
+            return fieldValue ? `${label} ${fieldValue}` : '';
+        })
+        .filter(Boolean)
+        .join(', ');
+    if (moyensSp) selected.push(`Moyens SP: ${moyensSp}`);
+    const autresMoyensSp = readStringField(value, 'autresMoyensSp');
+    if (autresMoyensSp) selected.push(`Autres moyens SP: ${autresMoyensSp}`);
+    const autres = readStringField(value, 'autres');
+    if (autres) selected.push(`Autre(s): ${autres}`);
+    return selected;
+};
+
+export const buildMessageSurLesLieuxSummary = (value: unknown, options: MessageSummaryOption[]): string[] => {
+    if (!isRecord(value)) return [];
+    const selections = value.selections && typeof value.selections === 'object'
+        ? normalizeSelections(value.selections)
+        : normalizeSelections(value);
+    const selected = options
+        .filter((opt) => opt.id !== FEU_ETEINT_ID && selections[opt.id])
+        .map((opt) => opt.label);
+    const feuEteintOption = options.find((opt) => opt.id === FEU_ETEINT_ID);
+    if (feuEteintOption && selections[FEU_ETEINT_ID]) {
+        const timeLabel = readStringField(value, 'feuEteintHeure');
+        selected.push(timeLabel ? `${feuEteintOption.label} ${timeLabel}` : feuEteintOption.label);
+    }
+    return selected;
+};
+
+export const formatSoiecList = (items: OrdreInitial['O'] | OrdreInitial['A'] | OrdreInitial['L'] | undefined) => {
+    const normalized = getSimpleSectionContentList(items);
+    if (normalized.length === 0) return '-';
+    return normalized.map((item, index) => `${index + 1}. ${item}`).join('\n');
+};
+
+export const formatIdeeManoeuvreList = (items: OrdreInitial['I']) => {
+    if (!Array.isArray(items) || items.length === 0) return '-';
+    const filtered = items.filter((idea) => idea?.type !== 'separator' && idea?.type !== 'empty');
+    if (filtered.length === 0) return '-';
+    return filtered
+        .map((idea, index) => {
+            if (!idea) return `${index + 1}. -`;
+            const mission = idea.mission || '';
+            const moyen = idea.moyen ? ` (${idea.moyen})` : '';
+            const moyenSupp = idea.moyen_supp ? ` + ${idea.moyen_supp}` : '';
+            const details = idea.details ? ` — ${idea.details}` : '';
+            return `${index + 1}. ${mission}${moyen}${moyenSupp}${details}`.trim();
+        })
+        .join('\n');
+};
+
+export const formatExecutionValue = (value: OrdreInitial['E']) => {
+    if (!value) return '-';
+    if (Array.isArray(value)) {
+        const filtered = value.filter((entry) => {
+            if (!entry || typeof entry !== 'object') return true;
+            const record = entry as unknown as Record<string, unknown>;
+            return record.type !== 'separator' && record.type !== 'empty';
+        });
+        if (filtered.length === 0) return '-';
+        return filtered
+            .map((entry, index) => {
+                if (typeof entry === 'string') return `${index + 1}. ${entry}`;
+                if (entry && typeof entry === 'object') {
+                    const record = entry as unknown as Record<string, unknown>;
+                    const title = typeof record.title === 'string' ? record.title : '';
+                    const mission = typeof record.mission === 'string' ? record.mission : '';
+                    const moyen = typeof record.moyen === 'string' ? ` (${record.moyen})` : '';
+                    const moyenSupp = typeof record.moyen_supp === 'string' ? ` + ${record.moyen_supp}` : '';
+                    const observation = typeof record.observation === 'string' ? ` — ${record.observation}` : '';
+                    const details = typeof record.details === 'string' ? ` — ${record.details}` : '';
+                    const main = title || mission;
+                    return `${index + 1}. ${main}${moyen}${moyenSupp}${details}${observation}`.trim();
+                }
+                return `${index + 1}. ${String(entry)}`;
+            })
+            .join('\n');
+    }
+    return String(value);
 };

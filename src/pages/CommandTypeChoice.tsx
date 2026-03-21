@@ -5,9 +5,15 @@ import CommandIcon from '../components/CommandIcon';
 import { useInterventionStore } from '../stores/useInterventionStore';
 import { INTERVENTION_INVITE_PREFIX } from '../constants/intervention';
 import { getLocalDate, getLocalTime } from '../utils/dateTime';
-import { getSupabaseClient } from '../utils/supabaseClient';
 import { logInterventionEvent } from '../utils/atlasTelemetry';
 import { isDevAuthBypassEnabled } from '../utils/devBypass';
+import {
+  createIntervention,
+  listUserInterventions,
+  reopenIntervention,
+  type InterventionHistoryItem
+} from '../services/interventionsService';
+import { getAuthenticatedUserId } from '../services/supabase';
 
 const ROLE_OPTIONS_BASE = [
   { value: 'chef_site', label: 'Chef de site' },
@@ -22,21 +28,6 @@ const COMMAND_LEVEL_LABELS: Record<string, string> = {
   column: 'Chef de colonne',
   site: 'Chef de site',
   communication: 'Communication OPS'
-};
-
-type InterventionHistoryItem = {
-  id: string;
-  status: string;
-  title: string | null;
-  created_at: string | null;
-  updated_at: string | null;
-  address_line1: string | null;
-  street_number: string | null;
-  street_name: string | null;
-  city: string | null;
-  incident_number: string | null;
-  command_level: string | null;
-  role: string | null;
 };
 
 const CommandTypeChoice = () => {
@@ -172,40 +163,10 @@ const CommandTypeChoice = () => {
       setHistoryStatus('ready');
       return;
     }
-    const supabase = getSupabaseClient();
-    if (!supabase) {
-      setHistoryStatus('error');
-      setHistoryError('Configuration Supabase manquante.');
-      return;
-    }
     try {
-      const { data: authData, error: authError } = await supabase.auth.getUser();
-      if (authError) throw authError;
-      const userId = authData.user?.id;
-      if (!userId) throw new Error('Utilisateur non authentifié.');
-      const { data, error } = await supabase
-        .from('intervention_members')
-        .select('intervention_id, role, command_level, interventions ( id, title, status, created_at, updated_at, address_line1, street_number, street_name, city, incident_number )')
-        .eq('user_id', userId);
-      if (error) throw error;
-      const normalized = (data ?? []).map((row) => {
-        const rawIntervention = (row as { interventions?: Record<string, unknown> | Record<string, unknown>[] }).interventions;
-        const intervention = Array.isArray(rawIntervention) ? rawIntervention[0] ?? {} : rawIntervention ?? {};
-        return {
-          id: (intervention.id as string) || row.intervention_id,
-          status: (intervention.status as string) || 'open',
-          title: (intervention.title as string) ?? null,
-          created_at: (intervention.created_at as string) ?? null,
-          updated_at: (intervention.updated_at as string) ?? null,
-          address_line1: (intervention.address_line1 as string) ?? null,
-          street_number: (intervention.street_number as string) ?? null,
-          street_name: (intervention.street_name as string) ?? null,
-          city: (intervention.city as string) ?? null,
-          incident_number: (intervention.incident_number as string) ?? null,
-          command_level: row.command_level ?? null,
-          role: row.role ?? null
-        } satisfies InterventionHistoryItem;
-      }).filter((item) => item.id && (!item.command_level || item.command_level === currentType));
+      const userId = await getAuthenticatedUserId();
+      const normalized = (await listUserInterventions(userId))
+        .filter((item) => item.id && (!item.command_level || item.command_level === currentType));
       normalized.sort((a, b) => {
         const dateA = new Date(a.updated_at || a.created_at || 0).getTime();
         const dateB = new Date(b.updated_at || b.created_at || 0).getTime();
@@ -234,15 +195,10 @@ const CommandTypeChoice = () => {
     if (!targetType) return;
     setHistoryActionId(item.id);
     setHistoryError(null);
-    const supabase = getSupabaseClient();
     try {
-      if (!supabase) {
-        throw new Error('Configuration Supabase manquante.');
-      }
       const canUpdate = item.role === 'owner' || item.role === 'admin';
       if (item.status === 'closed' && canUpdate) {
-        const { error } = await supabase.from('interventions').update({ status: 'open' }).eq('id', item.id);
-        if (error) throw error;
+        await reopenIntervention(item.id);
         await logInterventionEvent(
           item.id,
           'INTERVENTION_REOPENED',
@@ -372,72 +328,26 @@ const CommandTypeChoice = () => {
         });
         return;
       }
-
-      const supabase = getSupabaseClient();
-      if (!supabase) {
-        throw new Error('Configuration Supabase manquante.');
-      }
-
-      const { data: authData, error: authError } = await supabase.auth.getUser();
-      if (authError) throw authError;
-      if (!authData.user) throw new Error('Vous devez être connecté pour créer une intervention.');
-      const userId = authData.user.id;
-
       const title = payload.address || payload.city ? `Intervention - ${payload.address || payload.city}` : 'Intervention ATLAS';
-      const trainingSetAt = new Date().toISOString();
-      const basePayload = {
+      const created = await createIntervention({
+        commandLevel: currentType,
         title,
-        created_by: userId,
-        address_line1: address || null,
-        street_number: interventionMeta.streetNumber || null,
-        street_name: interventionMeta.streetName || null,
+        addressLine1: address || null,
+        streetNumber: interventionMeta.streetNumber || null,
+        streetName: interventionMeta.streetName || null,
         city: interventionMeta.city || null,
-        is_training: isTraining
-      };
-      const createWithTraining = {
-        ...basePayload,
-        training_set_at: trainingSetAt,
-        training_set_by: userId
-      };
-      let created: { id?: string; oi_logical_id?: string | null; conduite_logical_id?: string | null } | null = null;
-      let createErr: Error | null = null;
-      const { data: createdWithTraining, error: firstErr } = await supabase
-        .from('interventions')
-        .insert(createWithTraining)
-        .select('id, oi_logical_id, conduite_logical_id')
-        .single();
-      const trainingMetaApplied = !firstErr;
-      if (firstErr) {
-        console.warn('Intervention creation with training metadata failed, retrying without training_set_by.', firstErr);
-        const { data: createdFallback, error: fallbackErr } = await supabase
-          .from('interventions')
-          .insert(basePayload)
-          .select('id, oi_logical_id, conduite_logical_id')
-          .single();
-        created = createdFallback;
-        if (fallbackErr) {
-          createErr = new Error(fallbackErr.message);
-        }
-      } else {
-        created = createdWithTraining;
-      }
-
-      if (createErr) throw createErr;
-      const interventionId = created?.id as string | undefined;
-      if (!interventionId) throw new Error('Intervention ID manquant après création.');
-
-      const { error: memberErr } = await supabase
-        .from('intervention_members')
-        .insert({ intervention_id: interventionId, user_id: userId, role: 'owner', command_level: currentType });
-      if (memberErr) throw memberErr;
+        isTraining
+      });
+      const interventionId = created.interventionId;
+      const userId = created.userId;
 
       const startedAtMs = Date.now();
       setCurrentIntervention(interventionId, startedAtMs);
       setInterventionMetaState({
         status: 'open',
         isTraining,
-        trainingSetAt: trainingMetaApplied ? trainingSetAt : null,
-        trainingSetBy: trainingMetaApplied ? userId : null
+        trainingSetAt: created.trainingSetAt,
+        trainingSetBy: created.trainingMetaApplied ? userId : null
       });
       setInterventionAddress({
         address,
@@ -446,8 +356,8 @@ const CommandTypeChoice = () => {
         city: interventionMeta.city
       });
       setLogicalIds({
-        oiLogicalId: created?.oi_logical_id ?? null,
-        conduiteLogicalId: created?.conduite_logical_id ?? null
+        oiLogicalId: created.oiLogicalId,
+        conduiteLogicalId: created.conduiteLogicalId
       });
       try {
         await logInterventionEvent(

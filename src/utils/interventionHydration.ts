@@ -1,22 +1,14 @@
-import { getSupabaseClient } from './supabaseClient';
 import { normalizeMeanItems } from './means';
 import { resetOctTree, setOctTree, type OctTreeNode } from './octTreeStore';
 import { useInterventionStore, type HydratedOrdreInitial, type HydratedOrdreConduite, type InterventionHistoryEntry } from '../stores/useInterventionStore';
 import { useMeansStore } from '../stores/useMeansStore';
 import { useSitacStore } from '../stores/useSitacStore';
 import type { MeanItem } from '../types/means';
-import type { SITACCollection, SITACFeature, SITACFeatureProperties } from '../types/sitac';
-import type { OrdreInitial, IdeeManoeuvre, SimpleSection } from '../types/soiec';
-import { normalizeSymbolProps } from './sitacSymbolPersistence';
-import { normalizeSimpleSectionItems } from './soiec';
-
-type SitacRow = {
-  feature_id: string;
-  symbol_type: string;
-  lat: number;
-  lng: number;
-  props: Record<string, unknown> | null;
-};
+import type { SITACCollection } from '../types/sitac';
+import { parseConduitePayload, parseOiPayload } from './soiec';
+import { fetchInterventionMeta, fetchMeansState } from '../services/interventionsService';
+import { loadSitacCollection } from '../services/sitacService';
+import { requireSupabaseClient } from '../services/supabase';
 
 export const isOctTreeNode = (value: unknown): value is OctTreeNode => {
   if (!value || typeof value !== 'object') return false;
@@ -34,232 +26,9 @@ export type HydratedInterventionResult = {
 
 const buildEmptyCollection = (): SITACCollection => ({ type: 'FeatureCollection', features: [] });
 
-const buildSitacFeature = (row: SitacRow): SITACFeature => {
-  const baseProps = row.props ?? {};
-  const symbolTypeRaw = typeof row.symbol_type === 'string' ? row.symbol_type : 'symbol';
-  const { type: symbolType, props } = normalizeSymbolProps(symbolTypeRaw, baseProps);
-  const color = typeof (props as Record<string, unknown>).color === 'string'
-    ? (props as Record<string, unknown>).color as string
-    : '#3b82f6';
-  const properties: SITACFeatureProperties = {
-    id: row.feature_id,
-    type: symbolType as SITACFeatureProperties['type'],
-    color,
-    ...(props as Record<string, unknown>)
-  } as SITACFeatureProperties;
-  return {
-    type: 'Feature',
-    id: row.feature_id,
-    properties,
-    geometry: {
-      type: 'Point',
-      coordinates: [row.lng, row.lat]
-    }
-  };
-};
-
-const normalizeSimpleSectionValue = (value: unknown): SimpleSection => {
-  if (typeof value === 'string') return value;
-  return normalizeSimpleSectionItems(value);
-};
-
-const normalizeIdeeManoeuvre = (value: unknown): IdeeManoeuvre[] => {
-  if (!value) return [];
-  if (Array.isArray(value)) {
-    return value
-      .map((entry) => {
-        if (typeof entry === 'string') {
-          return { mission: entry, moyen: '', moyen_supp: '', details: '' };
-        }
-        if (!entry || typeof entry !== 'object') return null;
-        const record = entry as Record<string, unknown>;
-        return {
-          mission: typeof record.mission === 'string' ? record.mission : '',
-          moyen: typeof record.moyen === 'string' ? record.moyen : '',
-          moyen_supp: typeof record.moyen_supp === 'string' ? record.moyen_supp : '',
-          details: typeof record.details === 'string' ? record.details : '',
-          color: typeof record.color === 'string' ? record.color : undefined,
-          type: typeof record.type === 'string' ? record.type as IdeeManoeuvre['type'] : undefined,
-          objective_id: typeof record.objective_id === 'string'
-            ? record.objective_id
-            : typeof record.objectiveId === 'string'
-              ? record.objectiveId
-              : undefined,
-          order_in_objective: typeof record.order_in_objective === 'number' ? record.order_in_objective : undefined
-        };
-      })
-      .filter(Boolean) as IdeeManoeuvre[];
-  }
-  if (typeof value === 'string') {
-    return value
-      .split('\n')
-      .map((entry) => entry.trim())
-      .filter(Boolean)
-      .map((mission) => ({ mission, moyen: '', moyen_supp: '', details: '' }));
-  }
-  return [];
-};
-
-const normalizeExecution = (value: unknown): OrdreInitial['E'] => {
-  if (!value) return '';
-  if (typeof value === 'string') return value;
-  if (Array.isArray(value)) return value;
-  return JSON.stringify(value);
-};
-
-const buildOrdreFromSoiec = (record: Record<string, unknown>): OrdreInitial => {
-  const situationSource = record.situation ?? record.S;
-  const situation = typeof situationSource === 'string'
-    ? situationSource
-    : normalizeSimpleSectionValue(situationSource);
-  const objectifs = record.objectifs ?? record.O;
-  const ideeManoeuvre = record.idee_manoeuvre ?? record.I;
-  const execution = record.execution ?? record.E;
-  const commandementSource = record.commandement ?? record.C;
-  const commandement = typeof commandementSource === 'string'
-    ? commandementSource
-    : normalizeSimpleSectionValue(commandementSource);
-  const anticipation = record.anticipation ?? record.A;
-  const logistique = record.logistique ?? record.L;
-
-  return {
-    S: situation,
-    O: normalizeSimpleSectionItems(objectifs),
-    I: normalizeIdeeManoeuvre(ideeManoeuvre),
-    E: normalizeExecution(execution),
-    C: commandement,
-    A: normalizeSimpleSectionItems(anticipation),
-    L: normalizeSimpleSectionItems(logistique)
-  };
-};
-
-export const parseOiPayload = (payload: unknown, createdAt?: string | null): HydratedOrdreInitial | null => {
-  if (!payload || typeof payload !== 'object') return null;
-  const data = (payload as { data?: unknown }).data;
-  if (!data || typeof data !== 'object') return null;
-  const record = data as Record<string, unknown>;
-  let ordreData = record.ordreData as HydratedOrdreInitial['ordreData'] | undefined;
-  if (!ordreData && record.soiec && typeof record.soiec === 'object') {
-    ordreData = buildOrdreFromSoiec(record.soiec as Record<string, unknown>);
-  }
-  if (!ordreData) return null;
-  if (!ordreData._colors) {
-    const colors = record._colors || record.colors;
-    if (colors && typeof colors === 'object') {
-      ordreData._colors = colors as OrdreInitial['_colors'];
-    }
-  }
-
-  const meta = record.meta && typeof record.meta === 'object' ? record.meta as Record<string, unknown> : {};
-  const selectedRisksSource = Array.isArray(record.selectedRisks)
-    ? record.selectedRisks
-    : Array.isArray(meta.selected_risks)
-      ? meta.selected_risks
-      : [];
-  const selectedRisks = selectedRisksSource.filter((entry) => typeof entry === 'string');
-  const validatedAtIso = createdAt || undefined;
-  const validatedAtLabel = createdAt
-    ? new Date(createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-    : undefined;
-
-  const addressBlock = record.address && typeof record.address === 'object'
-    ? record.address as Record<string, unknown>
-    : {};
-  const address = typeof record.address === 'string'
-    ? record.address
-    : typeof addressBlock.address === 'string'
-      ? addressBlock.address
-      : typeof addressBlock.address_line1 === 'string'
-        ? addressBlock.address_line1
-        : '';
-  const city = typeof record.city === 'string'
-    ? record.city
-    : typeof addressBlock.city === 'string'
-      ? addressBlock.city
-      : '';
-
-  return {
-    ordreData,
-    selectedRisks: selectedRisks as HydratedOrdreInitial['selectedRisks'],
-    additionalInfo: typeof record.additionalInfo === 'string'
-      ? record.additionalInfo
-      : typeof meta.additional_info === 'string'
-        ? meta.additional_info
-        : '',
-    address,
-    city,
-    orderTime: typeof record.orderTime === 'string'
-      ? record.orderTime
-      : typeof meta.order_time === 'string'
-        ? meta.order_time
-        : '',
-    soiecType: typeof record.soiecType === 'string'
-      ? record.soiecType
-      : typeof meta.soiec_type === 'string'
-        ? meta.soiec_type
-        : undefined,
-    validatedAtIso,
-    validatedAtLabel
-  };
-};
-
-export const parseConduitePayload = (payload: unknown, createdAt?: string | null): HydratedOrdreConduite | null => {
-  if (!payload || typeof payload !== 'object') return null;
-  const data = (payload as { data?: unknown }).data;
-  if (!data || typeof data !== 'object') return null;
-  const record = data as Record<string, unknown>;
-  const ordreConduite = record.ordreConduite as HydratedOrdreConduite['ordreConduite'] | undefined;
-  if (!ordreConduite) return null;
-
-  const selectedRisks = Array.isArray(record.conduiteSelectedRisks)
-    ? record.conduiteSelectedRisks.filter((entry) => typeof entry === 'string')
-    : [];
-  const validatedAtIso = createdAt || undefined;
-  const validatedAtLabel = createdAt
-    ? new Date(createdAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-    : undefined;
-
-  const conduiteAddress = typeof record.conduiteAddress === 'string'
-    ? record.conduiteAddress
-    : typeof record.address === 'string'
-      ? record.address
-      : '';
-  const conduiteCity = typeof record.conduiteCity === 'string'
-    ? record.conduiteCity
-    : typeof record.city === 'string'
-      ? record.city
-      : '';
-  const conduiteAdditionalInfo = typeof record.conduiteAdditionalInfo === 'string'
-    ? record.conduiteAdditionalInfo
-    : typeof record.additionalInfo === 'string'
-      ? record.additionalInfo
-      : '';
-  const conduiteOrderTime = typeof record.conduiteOrderTime === 'string'
-    ? record.conduiteOrderTime
-    : typeof record.orderTime === 'string'
-      ? record.orderTime
-      : '';
-
-  return {
-    ordreConduite,
-    conduiteSelectedRisks: selectedRisks as HydratedOrdreConduite['conduiteSelectedRisks'],
-    conduiteAdditionalInfo,
-    conduiteAddress,
-    conduiteCity,
-    conduiteOrderTime,
-    validatedAtIso,
-    validatedAtLabel
-  };
-};
-
 export const hydrateIntervention = async (interventionId: string): Promise<HydratedInterventionResult> => {
   if (!interventionId) {
     throw new Error('Intervention manquante pour hydratation');
-  }
-
-  const supabase = getSupabaseClient();
-  if (!supabase) {
-    throw new Error('Configuration Supabase manquante.');
   }
 
   const interventionStore = useInterventionStore.getState();
@@ -277,13 +46,7 @@ export const hydrateIntervention = async (interventionId: string): Promise<Hydra
 
   let startedAtMs = Date.now();
   try {
-    const { data: interventionRows, error } = await supabase
-      .from('interventions')
-      .select('created_at, status, is_training, training_set_at, training_set_by, address_line1, street_number, street_name, postal_code, city, incident_number, oi_logical_id, conduite_logical_id')
-      .eq('id', interventionId)
-      .limit(1);
-    if (error) throw error;
-    const row = interventionRows?.[0];
+    const row = await fetchInterventionMeta(interventionId);
     const createdAt = row?.created_at;
     if (createdAt) {
       const parsed = new Date(createdAt).getTime();
@@ -323,6 +86,7 @@ export const hydrateIntervention = async (interventionId: string): Promise<Hydra
   const ordreInitialHistory: InterventionHistoryEntry<HydratedOrdreInitial>[] = [];
   const ordreConduiteHistory: InterventionHistoryEntry<HydratedOrdreConduite>[] = [];
   try {
+    const supabase = requireSupabaseClient();
     const { data: eventRows, error } = await supabase
       .from('intervention_events')
       .select('id, event_type, payload, created_at, user_id, logical_id')
@@ -369,13 +133,7 @@ export const hydrateIntervention = async (interventionId: string): Promise<Hydra
 
   let means: MeanItem[] = [];
   try {
-    const { data: meansRows, error } = await supabase
-      .from('intervention_means_state')
-      .select('data')
-      .eq('intervention_id', interventionId)
-      .limit(1);
-    if (error) throw error;
-    const raw = meansRows?.[0]?.data as { selectedMeans?: unknown[]; octTree?: unknown } | null | undefined;
+    const raw = await fetchMeansState(interventionId);
     means = normalizeMeanItems(raw?.selectedMeans);
     meansStore.setFromHydration(means);
     if (raw?.octTree && isOctTreeNode(raw.octTree)) {
@@ -387,13 +145,7 @@ export const hydrateIntervention = async (interventionId: string): Promise<Hydra
 
   let sitac: SITACCollection = emptySitac;
   try {
-    const { data: sitacRows, error } = await supabase
-      .from('sitac_features')
-      .select('feature_id, symbol_type, lat, lng, props')
-      .eq('intervention_id', interventionId);
-    if (error) throw error;
-    const features = (sitacRows ?? []).map((row) => buildSitacFeature(row as SitacRow));
-    sitac = { type: 'FeatureCollection', features };
+    sitac = await loadSitacCollection(interventionId);
     sitacStore.setFromHydration(sitac);
   } catch (error) {
     console.error('Hydration: sitac failed', error);

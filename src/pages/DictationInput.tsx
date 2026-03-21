@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Sparkles, ClipboardCopy, Share2, FileText, ImageDown, Check, QrCode, LocateFixed, Archive, Clock } from 'lucide-react';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
@@ -7,14 +7,22 @@ import QRCode from 'react-qr-code';
 import DominantSelector, { DominanteType } from '../components/DominantSelector';
 import OrdreInitialView from '../components/OrdreInitialView';
 import { OrdreInitial } from '../types/soiec';
-import { getSimpleSectionContentList, getSimpleSectionText } from '../utils/soiec';
+import {
+  buildMessageDemandesSummary,
+  buildMessageSurLesLieuxSummary,
+  formatExecutionValue,
+  formatIdeeManoeuvreList,
+  formatSoiecList,
+  getSimpleSectionContentList,
+  getSimpleSectionText
+} from '../utils/soiec';
 import { addToHistory } from '../utils/history';
 import { exportBoardDesignImage, exportBoardDesignPdf, exportBoardDesignWordEditable, exportOrdreToClipboard, exportOrdreToImage, exportOrdreToPdf, shareOrdreAsText } from '../utils/export';
 import MeansModal from '../components/MeansModal';
 import type { MeanItem } from '../types/means';
 import SitacMap from './SitacMap';
 import { OctDiagram } from './OctDiagram';
-import { resetOctTree, useOctTree, type OctTreeNode } from '../utils/octTreeStore';
+import { resetOctTree, useOctTree } from '../utils/octTreeStore';
 import { useInterventionStore, type HydratedOrdreInitial } from '../stores/useInterventionStore';
 import { useSitacStore } from '../stores/useSitacStore';
 import { useMeansStore } from '../stores/useMeansStore';
@@ -25,12 +33,12 @@ import { getLocalDate, getLocalDateTime, getLocalTime } from '../utils/dateTime'
 import { logInterventionEvent, type TelemetryMetrics } from '../utils/atlasTelemetry';
 import { telemetryBuffer } from '../utils/telemetryBuffer';
 import { debounce } from '../utils/debounce';
-import { readUserScopedJSON, writeUserScopedJSON, removeUserScopedItem } from '../utils/userStorage';
-import { getSupabaseClient } from '../utils/supabaseClient';
 import { normalizeMeanItems } from '../utils/means';
 import { hydrateIntervention } from '../utils/interventionHydration';
-import { enqueue, flush, startOutboxSync } from '../utils/offlineOutbox';
 import { useIsaPrompt } from '../utils/useIsaPrompt';
+import { useInterventionInvite } from '../hooks/useInterventionInvite';
+import { useDictationDraft } from '../hooks/useDictationDraft';
+import { useDictationPersistence } from '../hooks/useDictationPersistence';
 
 const getNowStamp = () => {
   const now = new Date();
@@ -39,10 +47,6 @@ const getNowStamp = () => {
     time: getLocalTime(now)
   };
 };
-
-const buildJoinUrl = (token: string) => (
-  `${window.location.origin}${window.location.pathname}#/join?token=${encodeURIComponent(token)}`
-);
 
 type MessageSelections = Record<string, boolean>;
 
@@ -267,35 +271,6 @@ const normalizeSurLesLieux = (input: unknown): MessageSurLesLieux => {
     selections,
     feuEteintHeure: typeof record.feuEteintHeure === 'string' ? record.feuEteintHeure : base.feuEteintHeure
   };
-};
-
-const buildDemandesSummary = (demandes: MessageDemandes | undefined, options: MessageCheckboxOption[]) => {
-  if (!demandes) return [];
-  const selected = options.filter((opt) => demandes.selections[opt.id]).map((opt) => opt.label);
-  const moyensSp = MOYENS_SP_FIELDS
-    .map(({ key, label }) => {
-      const value = demandes[key].trim();
-      return value ? `${label} ${value}` : '';
-    })
-    .filter(Boolean)
-    .join(', ');
-  if (moyensSp) selected.push(`Moyens SP: ${moyensSp}`);
-  if (demandes.autresMoyensSp.trim()) selected.push(`Autres moyens SP: ${demandes.autresMoyensSp.trim()}`);
-  if (demandes.autres.trim()) selected.push(`Autre(s): ${demandes.autres.trim()}`);
-  return selected;
-};
-
-const buildSurLesLieuxSummary = (surLesLieux: MessageSurLesLieux | undefined, options: MessageCheckboxOption[]) => {
-  if (!surLesLieux) return [];
-  const selected = options
-    .filter((opt) => opt.id !== FEU_ETEINT_ID && surLesLieux.selections[opt.id])
-    .map((opt) => opt.label);
-  const feuEteintOption = options.find((opt) => opt.id === FEU_ETEINT_ID);
-  if (feuEteintOption && surLesLieux.selections[FEU_ETEINT_ID]) {
-    const timeLabel = surLesLieux.feuEteintHeure.trim();
-    selected.push(timeLabel ? `${feuEteintOption.label} ${timeLabel}` : feuEteintOption.label);
-  }
-  return selected;
 };
 
 type DemandesSectionProps = {
@@ -523,10 +498,7 @@ const DictationInput = () => {
     hydrationId: meansHydrationId
   });
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
-  const [closeStatus, setCloseStatus] = useState<'idle' | 'loading'>('idle');
-  const [closeError, setCloseError] = useState<string | null>(null);
   const [closeNotice, setCloseNotice] = useState<string | null>(null);
-  const [isInterventionClosed, setIsInterventionClosed] = useState(false);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [octResetKey, setOctResetKey] = useState(0);
   const [meansResetKey, setMeansResetKey] = useState(0);
@@ -537,84 +509,16 @@ const DictationInput = () => {
     interventionId: currentInterventionId,
     enabled: ISA_PROMPT_ENABLED
   });
+  const { generateShareLink } = useInterventionInvite();
   const fullAddress = React.useMemo(
     () => [address, city].filter(Boolean).join(', '),
     [address, city]
   );
   const hasHistory = ordreInitialHistory.length > 0 || ordreConduiteHistory.length > 0;
-  const closeButtonLabel = closeStatus === 'loading' ? 'Clôture…' : isInterventionClosed ? 'Clôturée' : 'Clôturer';
-  const isCloseDisabled = !currentInterventionId || closeStatus === 'loading' || isInterventionClosed;
-  useEffect(() => {
-    let isActive = true;
-    setIsInterventionClosed(false);
-    if (!currentInterventionId) return () => {
-      isActive = false;
-    };
-    const supabase = getSupabaseClient();
-    if (!supabase) return () => {
-      isActive = false;
-    };
-    void supabase
-      .from('interventions')
-      .select('status')
-      .eq('id', currentInterventionId)
-      .limit(1)
-      .then(({ data, error }) => {
-        if (!isActive || error) return;
-        const status = data?.[0]?.status;
-        setIsInterventionClosed(status === 'closed');
-        setInterventionMetaState({ status: typeof status === 'string' ? status : null });
-      });
-    return () => {
-      isActive = false;
-    };
-  }, [currentInterventionId, setInterventionMetaState]);
   const formatHistoryTimestamp = React.useCallback((value: string) => {
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return value;
     return date.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-  }, []);
-  const formatList = React.useCallback((items: OrdreInitial['O'] | OrdreInitial['A'] | OrdreInitial['L'] | undefined) => {
-    const normalized = getSimpleSectionContentList(items);
-    if (normalized.length === 0) return '-';
-    return normalized.map((item, index) => `${index + 1}. ${item}`).join('\n');
-  }, []);
-  const formatIdeeManoeuvre = React.useCallback((items: OrdreInitial['I']) => {
-    if (!Array.isArray(items) || items.length === 0) return '-';
-    const filtered = items.filter((idea) => idea?.type !== 'separator' && idea?.type !== 'empty');
-    if (filtered.length === 0) return '-';
-    return filtered.map((idea, index) => {
-      if (!idea) return `${index + 1}. -`;
-      const mission = idea.mission || '';
-      const moyen = idea.moyen ? ` (${idea.moyen})` : '';
-      const moyenSupp = idea.moyen_supp ? ` + ${idea.moyen_supp}` : '';
-      const details = idea.details ? ` — ${idea.details}` : '';
-      return `${index + 1}. ${mission}${moyen}${moyenSupp}${details}`.trim();
-    }).join('\n');
-  }, []);
-  const formatExecution = React.useCallback((value: OrdreInitial['E']) => {
-    if (!value) return '-';
-    if (Array.isArray(value)) {
-      const filtered = value.filter((entry) => {
-        if (!entry || typeof entry !== 'object') return true;
-        const record = entry as unknown as Record<string, unknown>;
-        return record.type !== 'separator' && record.type !== 'empty';
-      });
-      if (filtered.length === 0) return '-';
-      return filtered.map((entry, index) => {
-        if (typeof entry === 'string') return `${index + 1}. ${entry}`;
-        if (entry && typeof entry === 'object') {
-          const record = entry as unknown as Record<string, unknown>;
-          const mission = typeof record.mission === 'string' ? record.mission : '';
-          const moyen = typeof record.moyen === 'string' ? ` (${record.moyen})` : '';
-          const moyenSupp = typeof record.moyen_supp === 'string' ? ` + ${record.moyen_supp}` : '';
-          const details = typeof record.details === 'string' ? ` — ${record.details}` : '';
-          return `${index + 1}. ${mission}${moyen}${moyenSupp}${details}`.trim();
-        }
-        return `${index + 1}. ${String(entry)}`;
-      }).join('\n');
-    }
-    return String(value);
   }, []);
 
   const prepareOrdreData = React.useCallback((source: OrdreInitial): OrdreInitial => {
@@ -767,9 +671,30 @@ const DictationInput = () => {
     [currentInterventionId]
   );
 
-  const normalizeMeans = React.useCallback((items: unknown[] | undefined): MeanItem[] => (
-    normalizeMeanItems(items)
+  const normalizeMeans = React.useCallback((value: unknown): MeanItem[] => (
+    normalizeMeanItems(Array.isArray(value) ? value : undefined)
   ), []);
+
+  const {
+    closeError,
+    closeStatus,
+    isInterventionClosed,
+    closeIntervention: closeActiveIntervention,
+    persistMeansState,
+    sendDraftSnapshot,
+    clearCloseError
+  } = useDictationPersistence({
+    currentInterventionId,
+    interventionStatus,
+    normalizeMeans,
+    buildInterventionMetrics,
+    onStatusChange: (status) => {
+      setInterventionMetaState({ status });
+    }
+  });
+
+  const closeButtonLabel = closeStatus === 'loading' ? 'Clôture…' : isInterventionClosed ? 'Clôturée' : 'Clôturer';
+  const isCloseDisabled = !currentInterventionId || closeStatus === 'loading' || isInterventionClosed;
 
   const handleLocateAddress = React.useCallback(() => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
@@ -1099,16 +1024,16 @@ const DictationInput = () => {
       const demandeOptions = settings.messageDemandeOptions || [];
       const surLesLieuxOptions = settings.messageSurLesLieuxOptions || [];
       const ambianceDemandesSummary = validatedAmbiance
-        ? buildDemandesSummary(validatedAmbiance.demandes, demandeOptions)
+        ? buildMessageDemandesSummary(validatedAmbiance.demandes, demandeOptions)
         : [];
       const ambianceSurLesLieuxSummary = validatedAmbiance
-        ? buildSurLesLieuxSummary(validatedAmbiance.surLesLieux, surLesLieuxOptions)
+        ? buildMessageSurLesLieuxSummary(validatedAmbiance.surLesLieux, surLesLieuxOptions)
         : [];
       const compteRenduDemandesSummary = validatedCompteRendu
-        ? buildDemandesSummary(validatedCompteRendu.demandes, demandeOptions)
+        ? buildMessageDemandesSummary(validatedCompteRendu.demandes, demandeOptions)
         : [];
       const compteRenduSurLesLieuxSummary = validatedCompteRendu
-        ? buildSurLesLieuxSummary(validatedCompteRendu.surLesLieux, surLesLieuxOptions)
+        ? buildMessageSurLesLieuxSummary(validatedCompteRendu.surLesLieux, surLesLieuxOptions)
         : [];
       return (
         <div className="space-y-4">
@@ -1595,150 +1520,114 @@ const DictationInput = () => {
     );
   };
 
-  // Load draft
-  React.useEffect(() => {
-    try {
-      const parsed = readUserScopedJSON<unknown>(INTERVENTION_DRAFT_KEY, 'local');
-      const draft = parseDraftPayload(parsed);
-      if (!draft) return;
-      if (draft.ordreData) setOrdreData(draft.ordreData);
-      if (draft.selectedRisks) setSelectedRisks(draft.selectedRisks);
-      if (draft.address) setAddress(draft.address);
-      if (draft.city) setCity(draft.city);
-      if (draft.hasAdditionalInfo) {
-        setAdditionalInfo(draft.additionalInfo ?? '');
-      }
-      if (draft.orderTime) setOrderTime(draft.orderTime);
-      if (draft.selectedMeans) setSelectedMeans(normalizeMeans(draft.selectedMeans));
-      if (draft.ambianceMessage) {
-        setAmbianceMessage({
-          ...createAmbianceMessage(),
-          ...draft.ambianceMessage,
-          demandes: normalizeDemandes(draft.ambianceMessage.demandes),
-          surLesLieux: normalizeSurLesLieux(draft.ambianceMessage.surLesLieux)
-        });
-      }
-      if (draft.compteRenduMessage) {
-        setCompteRenduMessage({
-          ...createCompteRenduMessage(),
-          ...draft.compteRenduMessage,
-          demandes: normalizeDemandes(draft.compteRenduMessage.demandes),
-          surLesLieux: normalizeSurLesLieux(draft.compteRenduMessage.surLesLieux)
-        });
-      }
-      if (draft.validatedAmbiance) {
-        setValidatedAmbiance({
-          ...createAmbianceMessage(),
-          ...draft.validatedAmbiance,
-          demandes: normalizeDemandes(draft.validatedAmbiance.demandes),
-          surLesLieux: normalizeSurLesLieux(draft.validatedAmbiance.surLesLieux)
-        });
-      }
-      if (draft.validatedCompteRendu) {
-        setValidatedCompteRendu({
-          ...createCompteRenduMessage(),
-          ...draft.validatedCompteRendu,
-          demandes: normalizeDemandes(draft.validatedCompteRendu.demandes),
-          surLesLieux: normalizeSurLesLieux(draft.validatedCompteRendu.surLesLieux)
-        });
-      }
-      if (draft.ordreValidatedAt) {
-        setOrdreValidatedAt(draft.ordreValidatedAt);
-      }
-      if (draft.ordreConduite) {
-        setOrdreConduite(draft.ordreConduite);
-      }
-      if (typeof draft.showConduite === 'boolean') {
-        setShowConduite(draft.showConduite);
-      }
-      if (draft.conduiteValidatedAt) {
-        setConduiteValidatedAt(draft.conduiteValidatedAt);
-      }
-      if (draft.conduiteSelectedRisks) {
-        setConduiteSelectedRisks(draft.conduiteSelectedRisks);
-      }
-      if (draft.conduiteAddress) setConduiteAddress(draft.conduiteAddress);
-      if (draft.conduiteCity) setConduiteCity(draft.conduiteCity);
-      if (draft.conduiteAdditionalInfo) setConduiteAdditionalInfo(draft.conduiteAdditionalInfo);
-      if (draft.conduiteOrderTime) setConduiteOrderTime(draft.conduiteOrderTime);
-    } catch (err) {
-      console.error('Erreur lecture brouillon', err);
+  const draftPayload = React.useMemo<DraftPayload>(() => ({
+    ordreData: ordreData ?? undefined,
+    selectedRisks,
+    address,
+    city,
+    additionalInfo,
+    orderTime,
+    ordreConduite: ordreConduite ?? undefined,
+    showConduite,
+    selectedMeans,
+    ambianceMessage,
+    compteRenduMessage,
+    validatedAmbiance: validatedAmbiance ?? undefined,
+    validatedCompteRendu: validatedCompteRendu ?? undefined,
+    ordreValidatedAt: ordreValidatedAt ?? undefined,
+    conduiteValidatedAt: conduiteValidatedAt ?? undefined,
+    conduiteSelectedRisks,
+    conduiteAddress,
+    conduiteCity,
+    conduiteAdditionalInfo,
+    conduiteOrderTime
+  }), [
+    additionalInfo,
+    address,
+    ambianceMessage,
+    city,
+    compteRenduMessage,
+    conduiteAdditionalInfo,
+    conduiteAddress,
+    conduiteCity,
+    conduiteOrderTime,
+    conduiteSelectedRisks,
+    conduiteValidatedAt,
+    ordreConduite,
+    ordreData,
+    ordreValidatedAt,
+    orderTime,
+    selectedMeans,
+    selectedRisks,
+    showConduite,
+    validatedAmbiance,
+    validatedCompteRendu
+  ]);
+
+  const applyStoredDraft = React.useCallback((draft: DraftPayload) => {
+    if (draft.ordreData) setOrdreData(draft.ordreData);
+    if (draft.selectedRisks) setSelectedRisks(draft.selectedRisks);
+    if (draft.address) setAddress(draft.address);
+    if (draft.city) setCity(draft.city);
+    if (draft.hasAdditionalInfo) {
+      setAdditionalInfo(draft.additionalInfo ?? '');
     }
+    if (draft.orderTime) setOrderTime(draft.orderTime);
+    if (draft.selectedMeans) setSelectedMeans(normalizeMeans(draft.selectedMeans));
+    if (draft.ambianceMessage) {
+      setAmbianceMessage({
+        ...createAmbianceMessage(),
+        ...draft.ambianceMessage,
+        demandes: normalizeDemandes(draft.ambianceMessage.demandes),
+        surLesLieux: normalizeSurLesLieux(draft.ambianceMessage.surLesLieux)
+      });
+    }
+    if (draft.compteRenduMessage) {
+      setCompteRenduMessage({
+        ...createCompteRenduMessage(),
+        ...draft.compteRenduMessage,
+        demandes: normalizeDemandes(draft.compteRenduMessage.demandes),
+        surLesLieux: normalizeSurLesLieux(draft.compteRenduMessage.surLesLieux)
+      });
+    }
+    if (draft.validatedAmbiance) {
+      setValidatedAmbiance({
+        ...createAmbianceMessage(),
+        ...draft.validatedAmbiance,
+        demandes: normalizeDemandes(draft.validatedAmbiance.demandes),
+        surLesLieux: normalizeSurLesLieux(draft.validatedAmbiance.surLesLieux)
+      });
+    }
+    if (draft.validatedCompteRendu) {
+      setValidatedCompteRendu({
+        ...createCompteRenduMessage(),
+        ...draft.validatedCompteRendu,
+        demandes: normalizeDemandes(draft.validatedCompteRendu.demandes),
+        surLesLieux: normalizeSurLesLieux(draft.validatedCompteRendu.surLesLieux)
+      });
+    }
+    if (draft.ordreValidatedAt) setOrdreValidatedAt(draft.ordreValidatedAt);
+    if (draft.ordreConduite) setOrdreConduite(draft.ordreConduite);
+    if (typeof draft.showConduite === 'boolean') setShowConduite(draft.showConduite);
+    if (draft.conduiteValidatedAt) setConduiteValidatedAt(draft.conduiteValidatedAt);
+    if (draft.conduiteSelectedRisks) setConduiteSelectedRisks(draft.conduiteSelectedRisks);
+    if (draft.conduiteAddress) setConduiteAddress(draft.conduiteAddress);
+    if (draft.conduiteCity) setConduiteCity(draft.conduiteCity);
+    if (draft.conduiteAdditionalInfo) setConduiteAdditionalInfo(draft.conduiteAdditionalInfo);
+    if (draft.conduiteOrderTime) setConduiteOrderTime(draft.conduiteOrderTime);
   }, [normalizeMeans, setAddress, setCity, setSelectedMeans]);
 
-  // Persist draft
-  React.useEffect(() => {
-    const payload = {
-      ordreData,
-      selectedRisks,
-      address,
-      city,
-      additionalInfo,
-      orderTime,
-      ordreConduite,
-      showConduite,
-      selectedMeans,
-      ambianceMessage,
-      compteRenduMessage,
-      validatedAmbiance,
-      validatedCompteRendu,
-      ordreValidatedAt,
-      conduiteValidatedAt,
-      conduiteSelectedRisks,
-      conduiteAddress,
-      conduiteCity,
-      conduiteAdditionalInfo,
-      conduiteOrderTime
-    };
-    try {
-      writeUserScopedJSON(INTERVENTION_DRAFT_KEY, payload, 'local');
-    } catch (err) {
-      console.error('Erreur sauvegarde brouillon', err);
-    }
-  }, [ordreData, selectedRisks, address, city, additionalInfo, orderTime, ordreConduite, showConduite, selectedMeans, ambianceMessage, compteRenduMessage, validatedAmbiance, validatedCompteRendu, ordreValidatedAt, conduiteValidatedAt, conduiteSelectedRisks, conduiteAddress, conduiteCity, conduiteAdditionalInfo, conduiteOrderTime]);
+  const { clearDraft } = useDictationDraft({
+    storageKey: INTERVENTION_DRAFT_KEY,
+    parseDraft: parseDraftPayload,
+    applyDraft: applyStoredDraft,
+    payload: draftPayload
+  });
 
   const canUploadDraftSnapshot = Boolean(
     currentInterventionId
     && interventionStatus === 'open'
   );
-
-  const sendDraftSnapshot = React.useCallback(async (snapshot: Record<string, unknown>, snapshotHash: string) => {
-    const state = draftSnapshotStateRef.current;
-    if (!currentInterventionId || interventionStatus !== 'open') return;
-    if (state.failureCount >= 3) return;
-    const supabase = getSupabaseClient();
-    if (!supabase) {
-      console.warn('[draft] Supabase client missing; snapshot disabled.');
-      return;
-    }
-    startOutboxSync(supabase);
-    try {
-      const { data, error } = await supabase.auth.getUser();
-      if (error) throw error;
-      const userId = data.user?.id;
-      if (!userId) return;
-      const snapshotId =
-        typeof crypto !== 'undefined' && 'randomUUID' in crypto
-          ? crypto.randomUUID()
-          : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-      const row = {
-        id: snapshotId,
-        intervention_id: currentInterventionId,
-        user_id: userId,
-        recorded_at: new Date().toISOString(),
-        draft: snapshot,
-        source: 'oi_draft'
-      };
-      await enqueue('intervention_draft_snapshots', row);
-      await flush(supabase);
-      state.lastSentAt = Date.now();
-      state.lastSentHash = snapshotHash;
-      state.failureCount = 0;
-    } catch (error) {
-      state.failureCount += 1;
-      console.warn('[draft] Failed to upload snapshot', error);
-    }
-  }, [currentInterventionId, interventionStatus]);
 
   const scheduleDraftSnapshot = React.useCallback((snapshot: Record<string, unknown>, snapshotHash: string) => {
     const state = draftSnapshotStateRef.current;
@@ -1752,7 +1641,7 @@ const DictationInput = () => {
     const delay = elapsed >= 60_000 ? 3_000 : Math.max(60_000 - elapsed, 3_000);
     state.pendingTimer = window.setTimeout(() => {
       state.pendingTimer = null;
-      void sendDraftSnapshot(snapshot, snapshotHash);
+      void sendDraftSnapshot(snapshot, snapshotHash, draftSnapshotStateRef);
     }, delay);
   }, [sendDraftSnapshot]);
 
@@ -1883,47 +1772,6 @@ const DictationInput = () => {
     }, 600);
     return () => window.clearTimeout(timeout);
   }, [fullAddress, setExternalSearch]);
-
-  const persistMeansState = React.useMemo(
-    () =>
-      debounce((means: unknown, tree: unknown) => {
-        void (async () => {
-          if (!currentInterventionId) return;
-          const normalizedMeans = Array.isArray(means) ? normalizeMeans(means) : [];
-          const normalizedTree = tree && typeof tree === 'object' ? (tree as OctTreeNode) : null;
-          const payload = { selectedMeans: normalizedMeans, octTree: normalizedTree };
-          const serialized = JSON.stringify({ interventionId: currentInterventionId, payload });
-          if (serialized === lastMeansStateRef.current) return;
-          lastMeansStateRef.current = serialized;
-          try {
-            const supabase = getSupabaseClient();
-            if (!supabase) {
-              console.warn('Supabase config missing; skipping means sync.');
-              return;
-            }
-            const { data, error } = await supabase.auth.getUser();
-            if (error) throw error;
-            const userId = data.user?.id;
-            if (!userId) throw new Error('Utilisateur non authentifié');
-            const { error: upsertError } = await supabase.from('intervention_means_state').upsert({
-              intervention_id: currentInterventionId,
-              data: payload,
-              updated_by: userId
-            });
-            if (upsertError) throw upsertError;
-            await logInterventionEvent(
-              currentInterventionId,
-              'MEANS_STATE_VALIDATED',
-              payload,
-              buildInterventionMetrics('dictation.moyens', { edit_count: normalizedMeans.length })
-            );
-          } catch (error) {
-            console.error('Erreur sauvegarde moyens', error);
-          }
-        })();
-      }, 2500),
-    [buildInterventionMetrics, currentInterventionId, normalizeMeans]
-  );
 
   const meansTelemetry = React.useMemo(
     () =>
@@ -2283,20 +2131,7 @@ const DictationInput = () => {
       if (!currentInterventionId) {
         throw new Error('Intervention active manquante pour partager.');
       }
-      const supabase = getSupabaseClient();
-      if (!supabase) {
-        throw new Error('Configuration Supabase manquante.');
-      }
-      const { data, error } = await supabase.rpc('create_invite', {
-        p_intervention_id: currentInterventionId
-      });
-      if (error) throw error;
-      const payload = Array.isArray(data) ? data[0] : data;
-      const token = payload && typeof payload.token === 'string' ? payload.token : null;
-      if (!token) {
-        throw new Error('Token manquant dans la reponse.');
-      }
-      const joinUrl = buildJoinUrl(token);
+      const joinUrl = await generateShareLink(currentInterventionId);
       setShareLink(joinUrl);
       setShareStatus('ready');
     } catch (error) {
@@ -2315,41 +2150,17 @@ const DictationInput = () => {
   };
 
   const handleConfirmCloseIntervention = async () => {
-    if (!currentInterventionId) {
-      setCloseError('Aucune intervention en cours.');
-      return;
-    }
-    const supabase = getSupabaseClient();
-    if (!supabase) {
-      setCloseError('Configuration Supabase manquante.');
-      return;
-    }
-    setCloseStatus('loading');
-    setCloseError(null);
+    clearCloseError();
     try {
-      const { error } = await supabase
-        .from('interventions')
-        .update({ status: 'closed' })
-        .eq('id', currentInterventionId);
-      if (error) throw error;
-      logInterventionEventSafe(
-        'INTERVENTION_CLOSED',
-        {
-          order_time: orderTime,
-          closed_at: new Date().toISOString()
-        },
-        buildInterventionMetrics('dictation.intervention.close')
-      );
+      const success = await closeActiveIntervention({ orderTime });
+      if (!success) {
+        return;
+      }
       setCloseDialogOpen(false);
-      setIsInterventionClosed(true);
-      setCloseNotice("Intervention clôturée.");
+      setCloseNotice('Intervention clôturée.');
       window.setTimeout(() => setCloseNotice(null), 4000);
     } catch (error) {
       console.error('Erreur clôture intervention', error);
-      const message = error instanceof Error ? error.message : 'Impossible de clôturer l’intervention.';
-      setCloseError(message);
-    } finally {
-      setCloseStatus('idle');
     }
   };
 
@@ -2416,7 +2227,7 @@ const DictationInput = () => {
     setShowShareHint(false);
     setShowShareMenu(false);
     try {
-      removeUserScopedItem(INTERVENTION_DRAFT_KEY, 'local');
+      clearDraft();
     } catch (err) {
       console.error('Erreur réinitialisation brouillon', err);
     }
@@ -2570,7 +2381,7 @@ const DictationInput = () => {
                 </button>
                 <button
                   onClick={() => {
-                    setCloseError(null);
+                    clearCloseError();
                     if (!isInterventionClosed) setCloseDialogOpen(true);
                   }}
                   disabled={isCloseDisabled}
@@ -2932,15 +2743,15 @@ const DictationInput = () => {
                           </div>
                           <div>
                             <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Objectifs</div>
-                            <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">{formatList(entry.payload.ordreData?.O)}</div>
+                            <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">{formatSoiecList(entry.payload.ordreData?.O)}</div>
                           </div>
                           <div>
                             <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Idée de manœuvre</div>
-                            <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">{formatIdeeManoeuvre(entry.payload.ordreData?.I || [])}</div>
+                            <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">{formatIdeeManoeuvreList(entry.payload.ordreData?.I || [])}</div>
                           </div>
                           <div>
                             <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Exécution</div>
-                            <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">{formatExecution(entry.payload.ordreData?.E)}</div>
+                            <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">{formatExecutionValue(entry.payload.ordreData?.E)}</div>
                           </div>
                           <div>
                             <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Commandement</div>
@@ -2951,13 +2762,13 @@ const DictationInput = () => {
                           {getSimpleSectionContentList(entry.payload.ordreData?.A).length > 0 && (
                             <div>
                               <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Anticipation</div>
-                              <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">{formatList(entry.payload.ordreData?.A)}</div>
+                              <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">{formatSoiecList(entry.payload.ordreData?.A)}</div>
                             </div>
                           )}
                           {getSimpleSectionContentList(entry.payload.ordreData?.L).length > 0 && (
                             <div>
                               <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Logistique</div>
-                              <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">{formatList(entry.payload.ordreData?.L)}</div>
+                              <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">{formatSoiecList(entry.payload.ordreData?.L)}</div>
                             </div>
                           )}
                         </div>
@@ -3008,7 +2819,7 @@ const DictationInput = () => {
               <button
                 onClick={() => {
                   setCloseDialogOpen(false);
-                  setCloseError(null);
+                  clearCloseError();
                 }}
                 className="text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
               >
@@ -3027,7 +2838,7 @@ const DictationInput = () => {
               <button
                 onClick={() => {
                   setCloseDialogOpen(false);
-                  setCloseError(null);
+                  clearCloseError();
                 }}
                 className="px-3 py-2 rounded-lg btn-neutral text-sm transition"
               >
