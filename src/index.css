@@ -12,8 +12,7 @@
     transition-timing-function: ease;
   }
 
-  button::before,
-  .gyro-glow::before {
+  button::before {
     content: '';
     position: absolute;
     inset: 0;
@@ -25,8 +24,7 @@
     transition: opacity 140ms ease, transform 140ms ease;
   }
 
-  html.dark button::before,
-  html.dark .gyro-glow::before {
+  html.dark button::before {
     background: var(--btn-pill, rgba(148, 163, 184, 0.16));
   }
 
@@ -37,15 +35,7 @@
   button[aria-checked="true"]::before,
   button[aria-expanded="true"]::before,
   button[aria-selected="true"]::before,
-  button[data-active="true"]::before,
-  .gyro-glow:hover::before,
-  .gyro-glow:focus-visible::before,
-  .gyro-glow:active::before,
-  .gyro-glow[aria-pressed="true"]::before,
-  .gyro-glow[aria-checked="true"]::before,
-  .gyro-glow[aria-expanded="true"]::before,
-  .gyro-glow[aria-selected="true"]::before,
-  .gyro-glow[data-active="true"]::before {
+  button[data-active="true"]::before {
     opacity: 1;
     transform: scale(1);
   }
@@ -73,10 +63,59 @@
     filter: drop-shadow(0 0 2px rgba(59, 130, 246, 0.3));
   }
 
+  .safe-top {
+    padding-top: max(1rem, env(safe-area-inset-top));
+  }
+
+  .safe-right {
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
+
+  .safe-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+
+  .safe-left {
+    padding-left: max(1rem, env(safe-area-inset-left));
+  }
+
+  .atlas-panel {
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(255, 255, 255, 0.82) 100%);
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    box-shadow:
+      0 20px 45px -28px rgba(15, 23, 42, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.55);
+    backdrop-filter: blur(18px);
+  }
+
+  html.dark .atlas-panel {
+    background:
+      linear-gradient(180deg, rgba(12, 18, 29, 0.88) 0%, rgba(12, 18, 29, 0.72) 100%);
+    border-color: rgba(148, 163, 184, 0.16);
+    box-shadow:
+      0 24px 56px -32px rgba(2, 6, 23, 0.85),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  .atlas-grid {
+    background-image:
+      linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+    background-size: 32px 32px;
+    mask-image: radial-gradient(circle at center, black 48%, transparent 88%);
+  }
+
   html.dark .glossy-blue-icon {
     color: #60a5fa;
     stroke-width: 1.5;
     filter: drop-shadow(0 0 1px rgba(59, 130, 246, 0.25));
+  }
+
+  html.dark .atlas-grid {
+    background-image:
+      linear-gradient(rgba(96, 165, 250, 0.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(96, 165, 250, 0.08) 1px, transparent 1px);
   }
 }
 

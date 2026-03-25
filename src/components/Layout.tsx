@@ -84,11 +84,18 @@ const Layout = () => {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-[#0A0A0A] dark:text-white">
       <SideMenu open={open} onClose={() => setOpen(false)} />
-      <main className="relative min-h-screen">
-        <div className="fixed left-4 top-4 z-30 flex gap-3">
+      <main className="relative min-h-screen overflow-x-hidden">
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="atlas-grid absolute inset-0 opacity-70 dark:opacity-60" />
+          <div className="absolute left-[-14rem] top-[-10rem] h-[22rem] w-[22rem] rounded-full bg-sky-300/18 blur-3xl dark:bg-sky-500/12" />
+          <div className="absolute bottom-[-12rem] right-[-10rem] h-[24rem] w-[24rem] rounded-full bg-red-300/16 blur-3xl dark:bg-red-500/12" />
+        </div>
+
+        <div className="fixed left-0 top-0 z-30 safe-left safe-top">
+          <div className="flex gap-3">
           <button
             onClick={() => setOpen(true)}
-            className="p-2.5 bg-white/80 hover:bg-white backdrop-blur-md border border-black/10 dark:bg-black/40 dark:hover:bg-black/60 dark:border-white/10 rounded-xl text-slate-900 dark:text-white transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg"
+            className="atlas-panel rounded-2xl p-3 text-slate-900 dark:text-white transition-all duration-200 hover:scale-[1.03] active:scale-95"
             aria-label="Menu"
           >
             <Menu className="w-6 h-6" />
@@ -97,39 +104,47 @@ const Layout = () => {
           {location.pathname !== '/' && (
             <button
               onClick={() => navigate('/')}
-              className="p-2.5 bg-white/80 hover:bg-white backdrop-blur-md border border-black/10 dark:bg-black/40 dark:hover:bg-black/60 dark:border-white/10 rounded-xl text-slate-900 dark:text-white transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg"
+              className="atlas-panel rounded-2xl p-3 text-slate-900 dark:text-white transition-all duration-200 hover:scale-[1.03] active:scale-95"
               aria-label="Accueil"
             >
               <Home className="w-6 h-6" />
             </button>
           )}
         </div>
+        </div>
 
-        <div className="fixed right-4 top-4 z-30 flex items-start gap-3">
+        <div className="fixed right-0 top-0 z-30 safe-right safe-top">
+          <div className="flex items-start gap-3">
           <div ref={profileMenuRef} className="relative">
             <button
               type="button"
               onClick={() => setProfileMenuOpen((prev) => !prev)}
-              className="flex items-center gap-2 rounded-xl border border-black/10 dark:border-white/10 bg-white/80 dark:bg-black/40 backdrop-blur-md px-3 py-2 text-slate-700 dark:text-gray-200 shadow-lg max-w-[260px] hover:bg-white dark:hover:bg-black/60 transition-colors"
+              className="atlas-panel flex max-w-[280px] items-center gap-3 rounded-2xl px-3.5 py-2.5 text-slate-700 dark:text-gray-200 transition-colors"
               aria-haspopup="menu"
               aria-expanded={profileMenuOpen}
             >
               {roleBadge && (
-                <div className="w-8 h-8 rounded-lg bg-slate-200/80 dark:bg-black/40 flex items-center justify-center border border-slate-200 dark:border-white/10">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/80 bg-slate-200/80 dark:border-white/10 dark:bg-black/40">
                   <RoleBadgeIcon role={roleBadge} className="w-6 h-6" />
                 </div>
               )}
-              <div className="text-[11px] sm:text-xs leading-snug text-left">
-                <span className="font-semibold">Connecté en tant que </span>
-                <span className="font-semibold">{profileName}</span>
-                <span className="text-slate-500 dark:text-gray-400"> / {employmentLabel}</span>
+              <div className="min-w-0 text-left leading-snug">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-gray-400">
+                  Session active
+                </div>
+                <div className="truncate text-[11px] font-semibold sm:text-xs">
+                  {profileName}
+                </div>
+                <div className="truncate text-[11px] text-slate-500 dark:text-gray-400">
+                  {employmentLabel}
+                </div>
               </div>
               <ChevronDown className={`w-4 h-4 text-slate-500 dark:text-gray-300 transition-transform ${profileMenuOpen ? 'rotate-180' : ''}`} />
             </button>
             {profileMenuOpen && (
               <div
                 role="menu"
-                className="absolute right-0 mt-2 w-48 rounded-xl border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#0E111A]/95 backdrop-blur-md shadow-xl p-2 text-sm text-slate-700 dark:text-gray-200"
+                className="atlas-panel absolute right-0 mt-2 w-52 rounded-2xl p-2 text-sm text-slate-700 dark:text-gray-200"
               >
                 <button
                   type="button"
@@ -156,8 +171,11 @@ const Layout = () => {
             )}
           </div>
         </div>
-        <div className="fixed right-4 bottom-4 z-30 text-[11px] text-slate-500 dark:text-gray-400 bg-white/80 dark:bg-black/50 border border-black/10 dark:border-white/10 px-3 py-2 rounded-xl backdrop-blur-md">
+        </div>
+        <div className="fixed bottom-0 right-0 z-30 safe-bottom safe-right">
+          <div className="atlas-panel rounded-2xl px-3 py-2 text-[11px] text-slate-500 dark:text-gray-400">
           {APP_NAME} — {APP_VERSION}
+        </div>
         </div>
         <Outlet />
       </main>

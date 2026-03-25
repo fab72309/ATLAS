@@ -7,21 +7,45 @@ import HistoryDialog from '../components/HistoryDialog';
 const Home = () => {
   const navigate = useNavigate();
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const entryCards = [
+    {
+      title: 'Fonctions\nOpérationnelles',
+      description: 'Accéder rapidement aux cadres de commandement et aux outils de conduite.',
+      icon: <ShieldFlameIcon className="w-14 h-14 glossy-blue-icon transition-transform duration-500 group-hover:scale-110" />,
+      action: () => navigate('/functions'),
+      accent: 'from-red-500/14 via-red-500/6 to-transparent',
+    },
+    {
+      title: 'Communication\nOPS',
+      description: 'Préparer et structurer les échanges opérationnels sans perdre le fil tactique.',
+      icon: <Radio className="w-14 h-14 glossy-blue-icon transition-all duration-500 group-hover:scale-110" />,
+      action: () => navigate('/command-type/communication'),
+      accent: 'from-sky-500/14 via-sky-500/6 to-transparent',
+    },
+    {
+      title: 'Zonage\nOpérationnel',
+      description: 'Visualiser le terrain, les secteurs et les repères utiles à la manoeuvre.',
+      icon: <Map className="w-14 h-14 glossy-blue-icon transition-all duration-500 group-hover:scale-110" />,
+      action: () => navigate('/operational-zoning'),
+      accent: 'from-amber-500/14 via-amber-500/6 to-transparent',
+    },
+  ];
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden bg-slate-50 text-slate-900 dark:bg-[#0A0A0A] dark:text-white">
+    <div className="relative min-h-screen overflow-hidden bg-slate-50 text-slate-900 dark:bg-[#0A0A0A] dark:text-white">
       {/* Background Ambient Glow */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
+        <div className="atlas-grid absolute inset-0 opacity-70 dark:opacity-60" />
         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-200/70 dark:bg-blue-900/20 rounded-full blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-red-200/60 dark:bg-red-900/20 rounded-full blur-[120px]" />
       </div>
 
-      <div className="relative z-10 w-full max-w-7xl mx-auto px-4 py-8 flex flex-col h-full">
+      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 pb-10 pt-28 safe-left safe-right safe-bottom sm:px-6 lg:px-8">
         {/* Header Actions */}
-        <div className="absolute top-4 right-4 md:top-8 md:right-8">
+        <div className="absolute right-4 top-4 md:right-8 md:top-8">
           <button
             onClick={() => setIsHistoryOpen(true)}
-            className="p-3 bg-slate-100 hover:bg-slate-200 border border-slate-200 dark:bg-white/5 dark:hover:bg-white/10 dark:border-white/10 rounded-full transition-all duration-300 hover:scale-110 group"
+            className="atlas-panel group rounded-2xl p-3 transition-all duration-300 hover:scale-105"
             title="Historique"
           >
             <History className="w-6 h-6 text-slate-500 group-hover:text-slate-900 dark:text-gray-400 dark:group-hover:text-white transition-colors" />
@@ -29,67 +53,73 @@ const Home = () => {
         </div>
 
         {/* Hero Section */}
-        <div className="flex-1 flex flex-col items-center justify-center mb-12 animate-fade-in-down">
-          <h1 className="text-5xl md:text-7xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-slate-900 via-slate-700 to-slate-500 dark:from-white dark:via-gray-200 dark:to-gray-500 mb-4 drop-shadow-2xl">
+        <div className="flex flex-1 flex-col justify-center py-8 animate-fade-in-down">
+          <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-8 text-center">
+            <div className="atlas-panel inline-flex items-center rounded-full px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-600 dark:text-gray-300">
+              Outil d'appui tactique mobile
+            </div>
+            <div className="space-y-4">
+          <h1 className="text-5xl md:text-7xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-slate-900 via-slate-700 to-slate-500 dark:from-white dark:via-gray-200 dark:to-gray-500 drop-shadow-2xl">
             A.T.L.A.S
           </h1>
-          <p className="text-slate-600 dark:text-gray-400 text-center text-lg md:text-xl font-light tracking-wide max-w-2xl leading-relaxed">
-            Aide Tactique et Logique pour l'Action des Secours
-          </p>
+              <p className="mx-auto max-w-2xl text-lg font-light leading-relaxed tracking-wide text-slate-600 dark:text-gray-400 md:text-xl">
+                Aide Tactique et Logique pour l'Action des Secours
+              </p>
+            </div>
+            <div className="grid w-full max-w-3xl grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="atlas-panel rounded-2xl px-4 py-3 text-left">
+                <div className="text-[10px] uppercase tracking-[0.2em] text-slate-500 dark:text-gray-500">Accès</div>
+                <div className="mt-1 text-sm font-semibold text-slate-800 dark:text-gray-100">Modules prioritaires</div>
+              </div>
+              <div className="atlas-panel rounded-2xl px-4 py-3 text-left">
+                <div className="text-[10px] uppercase tracking-[0.2em] text-slate-500 dark:text-gray-500">Lecture</div>
+                <div className="mt-1 text-sm font-semibold text-slate-800 dark:text-gray-100">Hiérarchie visuelle renforcée</div>
+              </div>
+              <div className="atlas-panel rounded-2xl px-4 py-3 text-left">
+                <div className="text-[10px] uppercase tracking-[0.2em] text-slate-500 dark:text-gray-500">Terrain</div>
+                <div className="mt-1 text-sm font-semibold text-slate-800 dark:text-gray-100">Ergonomie mobile stabilisée</div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl mx-auto pb-12">
-          {/* Operational Functions Card */}
-          <div
-            onClick={() => navigate('/functions')}
-            className="gyro-glow group relative bg-white/90 dark:bg-[#151515] p-8 rounded-3xl cursor-pointer border border-slate-200 dark:border-white/10 hover:border-red-400/40 dark:hover:border-red-500/50 transition-all duration-500 hover:-translate-y-2 overflow-hidden"
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-red-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+        <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-5 pb-4 md:grid-cols-2 xl:grid-cols-3">
+          {entryCards.map((card) => (
+            <button
+              key={card.title}
+              onClick={card.action}
+              className="gyro-glow atlas-panel group relative flex min-h-[280px] flex-col overflow-hidden rounded-[28px] p-6 text-left transition-all duration-500 hover:-translate-y-1.5 hover:border-slate-300/70 dark:hover:border-white/20"
+            >
+              <div className={`absolute inset-0 bg-gradient-to-br ${card.accent} opacity-0 transition-opacity duration-500 group-hover:opacity-100`} />
+              <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/70 to-transparent dark:via-white/15" />
 
-            <div className="relative z-10 flex flex-col items-center gap-6">
-              <div className="w-24 h-24 bg-slate-200 dark:bg-black/50 rounded-2xl flex items-center justify-center border border-slate-200 dark:border-white/5 group-hover:border-red-400/40 dark:group-hover:border-red-500/30 transition-colors duration-500 shadow-xl">
-                <ShieldFlameIcon className="w-14 h-14 glossy-blue-icon transition-transform duration-500 group-hover:scale-110" />
+              <div className="relative z-10 flex h-full flex-col">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-3xl border border-slate-200/90 bg-slate-200/85 shadow-xl transition-colors duration-500 group-hover:border-white/80 dark:border-white/5 dark:bg-black/45">
+                    {card.icon}
+                  </div>
+                  <div className="rounded-full border border-slate-200/80 bg-white/70 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-gray-400">
+                    Module
+                  </div>
+                </div>
+
+                <div className="mt-8 space-y-4">
+                  <h2 className="whitespace-pre-line text-2xl font-bold leading-tight text-slate-800 transition-colors group-hover:text-slate-900 dark:text-gray-200 dark:group-hover:text-white">
+                    {card.title}
+                  </h2>
+                  <p className="max-w-[28ch] text-sm leading-6 text-slate-600 dark:text-gray-400">
+                    {card.description}
+                  </p>
+                </div>
+
+                <div className="mt-auto pt-8">
+                  <div className="inline-flex items-center rounded-full border border-slate-200/80 bg-white/75 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors group-hover:border-slate-300 group-hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-gray-200 dark:group-hover:border-white/20 dark:group-hover:text-white">
+                    Ouvrir le module
+                  </div>
+                </div>
               </div>
-              <h2 className="text-2xl font-bold text-center text-slate-800 dark:text-gray-200 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
-                Fonctions<br />Opérationnelles
-              </h2>
-            </div>
-          </div>
-
-          {/* Communication OPS Card */}
-          <div
-            onClick={() => navigate('/command-type/communication')}
-            className="gyro-glow group relative bg-white/90 dark:bg-[#151515] p-8 rounded-3xl cursor-pointer border border-slate-200 dark:border-white/10 hover:border-red-400/40 dark:hover:border-red-500/50 transition-all duration-500 hover:-translate-y-2 overflow-hidden"
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-red-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-
-            <div className="relative z-10 flex flex-col items-center gap-6">
-              <div className="w-24 h-24 bg-slate-200 dark:bg-black/50 rounded-2xl flex items-center justify-center border border-slate-200 dark:border-white/5 group-hover:border-red-400/40 dark:group-hover:border-red-500/30 transition-colors duration-500 shadow-xl">
-                <Radio className="w-14 h-14 glossy-blue-icon transition-all duration-500 group-hover:scale-110" />
-              </div>
-              <h2 className="text-2xl font-bold text-center text-slate-800 dark:text-gray-200 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
-                Communication<br />OPS
-              </h2>
-            </div>
-          </div>
-
-          {/* Operational Zoning Card */}
-          <div
-            onClick={() => navigate('/operational-zoning')}
-            className="gyro-glow group relative bg-white/90 dark:bg-[#151515] p-8 rounded-3xl cursor-pointer border border-slate-200 dark:border-white/10 hover:border-red-400/40 dark:hover:border-red-500/50 transition-all duration-500 hover:-translate-y-2 overflow-hidden"
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-red-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-
-            <div className="relative z-10 flex flex-col items-center gap-6">
-              <div className="w-24 h-24 bg-slate-200 dark:bg-black/50 rounded-2xl flex items-center justify-center border border-slate-200 dark:border-white/5 group-hover:border-red-400/40 dark:group-hover:border-red-500/30 transition-colors duration-500 shadow-xl">
-                <Map className="w-14 h-14 glossy-blue-icon transition-all duration-500 group-hover:scale-110" />
-              </div>
-              <h2 className="text-2xl font-bold text-center text-slate-800 dark:text-gray-200 group-hover:text-slate-900 dark:group-hover:text-white transition-colors">
-                Zonage<br />Opérationnel
-              </h2>
-            </div>
-          </div>
-
+            </button>
+          ))}
         </div>
       </div>
 

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ChevronDown, ChevronUp, Info, Bell, Shield, LogOut, Sun, Plus, Trash2, User, Sliders, Bot, RefreshCw, CheckCircle2, AlertTriangle, Link2 } from 'lucide-react';
 import { RELEASE_NOTES } from '../constants/releaseNotes';
-import { MEANS_DOCTRINE_LABELS } from '../constants/meansDoctrine';
 import { useAuth } from '../contexts/AuthContext';
 import { useProfile } from '../contexts/ProfileContext';
 import { APP_NAME, APP_VERSION } from '../constants/appInfo';
@@ -20,7 +19,6 @@ import {
   getDefaultMessageSurLesLieuxOptions,
   getDefaultOctDefaults,
   getDefaultOctLabelDefaults,
-  MeansCategoryKey,
   type MessageCheckboxOption,
   OctFrequencyDefaults,
   OctLabelDefaults,
@@ -30,15 +28,8 @@ import {
 import { useAppSettings, type OperationalTabId } from '../utils/appSettings';
 import { OctTreeNode, createInitialOctTree, setOctTree } from '../utils/octTreeStore';
 import { checkOpenAIProxyHealth, getOpenAIProxyConfig, type OpenAIProxyHealth } from '../utils/openai';
-import { buildDoctrineMeans } from '../utils/meansCatalog';
+import { buildDoctrineMeans, getDoctrineCategories } from '../utils/meansCatalog';
 import InterventionHistorySection from '../components/settings/InterventionHistorySection';
-
-const MEANS_CATEGORIES: Array<{ key: MeansCategoryKey; label: string }> = [
-  { key: 'incendie', label: MEANS_DOCTRINE_LABELS.incendie },
-  { key: 'suap', label: MEANS_DOCTRINE_LABELS.suap },
-  { key: 'speciaux', label: MEANS_DOCTRINE_LABELS.speciaux },
-  { key: 'commandement', label: MEANS_DOCTRINE_LABELS.commandement }
-];
 
 const OCT_LABEL_OPTIONS: Array<{ key: OctLabelKey; label: string; slots: number }> = [
   { key: 'cdt', label: 'CDT', slots: 1 },
@@ -76,7 +67,7 @@ const createMessageOptionId = () => {
 };
 
 const buildDefaultMeansCatalog = () => {
-  return buildDoctrineMeans(MEANS_CATEGORIES.map((entry) => ({ key: entry.key }))).map((entry) => ({
+  return buildDoctrineMeans().map((entry) => ({
     id: createMeanId(),
     name: entry.name,
     category: entry.category,
@@ -187,9 +178,20 @@ const Settings = () => {
 
   const { settings, updateSettings } = useSessionSettings();
   const { settings: appSettings, updateSettings: updateAppSettings } = useAppSettings();
-  const [meanDraft, setMeanDraft] = useState<{ name: string; category: MeansCategoryKey }>({
+  const doctrineCategories = useMemo(() => getDoctrineCategories(), []);
+  const categoryOptions = useMemo(() => {
+    const byKey = new Map(doctrineCategories.map((category) => [category.key, category]));
+    (settings.meansCatalog || []).forEach((item) => {
+      const key = item.category.trim();
+      if (!key || byKey.has(key)) return;
+      byKey.set(key, { key, label: key });
+    });
+    return Array.from(byKey.values());
+  }, [doctrineCategories, settings.meansCatalog]);
+
+  const [meanDraft, setMeanDraft] = useState<{ name: string; category: string }>({
     name: '',
-    category: MEANS_CATEGORIES[0]?.key || 'incendie'
+    category: doctrineCategories[0]?.key || 'incendie'
   });
   const [editingMeanId, setEditingMeanId] = useState<string | null>(null);
   const [octLabelDefaultsDraft, setOctLabelDefaultsDraft] = useState<OctLabelDefaults>(() => settings.octLabelDefaults);
@@ -226,14 +228,14 @@ const Settings = () => {
   const messageDemandeOptions = settings.messageDemandeOptions || [];
   const messageSurLesLieuxOptions = settings.messageSurLesLieuxOptions || [];
   const sortedMeansCatalog = useMemo(() => {
-    const order = MEANS_CATEGORIES.map((cat) => cat.key);
+    const order = categoryOptions.map((cat) => cat.key);
     return [...meansCatalog].sort((a, b) => {
       const aIndex = order.indexOf(a.category);
       const bIndex = order.indexOf(b.category);
-      if (aIndex !== bIndex) return aIndex - bIndex;
+      if (aIndex !== bIndex) return (aIndex === -1 ? Number.MAX_SAFE_INTEGER : aIndex) - (bIndex === -1 ? Number.MAX_SAFE_INTEGER : bIndex);
       return a.name.localeCompare(b.name);
     });
-  }, [meansCatalog]);
+  }, [categoryOptions, meansCatalog]);
 
   const areOctDefaultsEqual = (a: OctLabelDefaults, b: OctLabelDefaults) =>
     OCT_LABEL_OPTIONS.every((entry) => {
@@ -305,7 +307,7 @@ const Settings = () => {
     setMeanDraft((prev) => ({ ...prev, name: '' }));
   };
 
-  const handleEditMean = (item: { id: string; name: string; category: MeansCategoryKey }) => {
+  const handleEditMean = (item: { id: string; name: string; category: string }) => {
     setEditingMeanId(item.id);
     setMeanDraft({ name: item.name, category: item.category });
   };
@@ -809,10 +811,10 @@ const Settings = () => {
                     <label className="text-xs uppercase tracking-wide text-slate-500 dark:text-gray-400">Catégorie</label>
                     <select
                       value={meanDraft.category}
-                      onChange={(e) => setMeanDraft((prev) => ({ ...prev, category: e.target.value as MeansCategoryKey }))}
+                      onChange={(e) => setMeanDraft((prev) => ({ ...prev, category: e.target.value }))}
                       className="w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
                     >
-                      {MEANS_CATEGORIES.map((cat) => (
+                      {categoryOptions.map((cat) => (
                         <option key={cat.key} value={cat.key}>
                           {cat.label}
                         </option>
@@ -850,7 +852,7 @@ const Settings = () => {
                     </div>
                   ) : (
                     sortedMeansCatalog.map((item) => {
-                      const categoryLabel = MEANS_CATEGORIES.find((cat) => cat.key === item.category)?.label || item.category;
+                      const categoryLabel = categoryOptions.find((cat) => cat.key === item.category)?.label || item.category;
                       return (
                         <div
                           key={item.id}

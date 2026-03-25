@@ -1,4 +1,8 @@
-import { MEANS_DOCTRINE_STANDARD } from '../constants/meansDoctrine';
+import {
+  MEANS_DOCTRINE_CATEGORY_ORDER,
+  MEANS_DOCTRINE_LABELS,
+  MEANS_DOCTRINE_STANDARD
+} from '../constants/meansDoctrine';
 import type { MeansCategoryKey } from './sessionSettings';
 
 export type MeansCatalogEntry = {
@@ -7,6 +11,11 @@ export type MeansCatalogEntry = {
   fullName?: string;
   capabilities?: string;
   isGroup?: boolean;
+};
+
+export type MeansDoctrineCategory = {
+  key: string;
+  label: string;
 };
 
 const GROUP_HEADER_PATTERN = /groupes?\s+constitués?/i;
@@ -47,14 +56,23 @@ export const parseDoctrineMean = (
   };
 };
 
-export const buildDoctrineMeans = (
-  categories: Array<{ key: MeansCategoryKey }>
-) => {
+export const getDoctrineCategories = (): MeansDoctrineCategory[] => {
+  return MEANS_DOCTRINE_CATEGORY_ORDER.map((key) => ({
+    key,
+    label: MEANS_DOCTRINE_LABELS[key as keyof typeof MEANS_DOCTRINE_LABELS] || key
+  }));
+};
+
+export const buildDoctrineMeans = (categories?: Array<{ key: MeansCategoryKey }>) => {
   const entries: MeansCatalogEntry[] = [];
   const seen = new Set<string>();
+  const doctrineStandard = MEANS_DOCTRINE_STANDARD as Record<string, readonly string[]>;
+  const resolvedCategories = categories && categories.length > 0
+    ? categories
+    : getDoctrineCategories().map((category) => ({ key: category.key }));
 
-  categories.forEach((category) => {
-    const moyens = MEANS_DOCTRINE_STANDARD[category.key] || [];
+  resolvedCategories.forEach((category) => {
+    const moyens = doctrineStandard[category.key] || [];
     let inGroupSection = false;
     moyens.forEach((raw: string) => {
       if (isDoctrineGroupHeader(raw)) {
