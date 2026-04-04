@@ -31,6 +31,10 @@ loadEnvFile('.env.proxy');
 
 const PORT = Number(process.env.AI_PROXY_PORT || 8787);
 const HOST = process.env.AI_PROXY_HOST || '127.0.0.1';
+const ALLOWED_ORIGINS = (process.env.AI_PROXY_ALLOWED_ORIGINS || 'http://localhost:5174')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 const OPENAI_COMMUNICATION_MODEL = process.env.OPENAI_COMMUNICATION_MODEL || OPENAI_MODEL;
@@ -41,12 +45,48 @@ const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY || '';
 const REQUIRE_AUTH = /^(1|true|yes)$/i.test(process.env.AI_PROXY_REQUIRE_AUTH || '');
 
-const JSON_HEADERS = {
+const RATE_LIMIT_MAX = 10;
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const rateLimitMap = new Map();
+
+setInterval(() => {
+  const cutoff = Date.now() - RATE_LIMIT_WINDOW_MS;
+  for (const [key, timestamps] of rateLimitMap) {
+    const fresh = timestamps.filter((t) => t > cutoff);
+    if (fresh.length === 0) {
+      rateLimitMap.delete(key);
+    } else {
+      rateLimitMap.set(key, fresh);
+    }
+  }
+}, 5 * 60_000).unref();
+
+const checkRateLimit = (userId, ip) => {
+  const key = userId || ip || 'unknown';
+  const now = Date.now();
+  const cutoff = now - RATE_LIMIT_WINDOW_MS;
+  const timestamps = (rateLimitMap.get(key) || []).filter((t) => t > cutoff);
+  if (timestamps.length >= RATE_LIMIT_MAX) {
+    return false;
+  }
+  timestamps.push(now);
+  rateLimitMap.set(key, timestamps);
+  return true;
+};
+
+const getCorsOrigin = (requestOrigin) => {
+  if (typeof requestOrigin === 'string' && ALLOWED_ORIGINS.includes(requestOrigin)) {
+    return requestOrigin;
+  }
+  return ALLOWED_ORIGINS[0];
+};
+
+const buildJsonHeaders = (requestOrigin) => ({
   'Content-Type': 'application/json; charset=utf-8',
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': getCorsOrigin(requestOrigin),
   'Access-Control-Allow-Headers': 'authorization, content-type',
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
-};
+});
 
 const ROLE_LABELS = {
   group: 'Chef de groupe',
@@ -106,8 +146,8 @@ const serializeDoctrineContext = (value) => {
   return sections.join('\n\n');
 };
 
-const buildJsonResponse = (res, status, payload) => {
-  res.writeHead(status, JSON_HEADERS);
+const buildJsonResponse = (res, status, payload, requestOrigin) => {
+  res.writeHead(status, buildJsonHeaders(requestOrigin));
   res.end(JSON.stringify(payload));
 };
 
@@ -470,14 +510,16 @@ const handleHealth = async (req, res) => {
     operational_prompt_id: OPENAI_OPERATIONAL_PROMPT_ID || null,
     operational_prompt_version: OPENAI_OPERATIONAL_PROMPT_VERSION || null,
     timestamp: new Date().toISOString()
-  });
+  }, req.headers.origin);
 };
 
 const handleAnalyze = async (req, res) => {
+  const requestOrigin = req.headers.origin;
+
   if (!OPENAI_API_KEY) {
     buildJsonResponse(res, 503, {
       error: 'OPENAI_API_KEY manquante sur le proxy.'
-    });
+    }, requestOrigin);
     return;
   }
 
@@ -485,7 +527,15 @@ const handleAnalyze = async (req, res) => {
   if (!auth.ok) {
     buildJsonResponse(res, 401, {
       error: auth.error || 'Authentification invalide.'
-    });
+    }, requestOrigin);
+    return;
+  }
+
+  const clientIp = req.socket?.remoteAddress || 'unknown';
+  if (!checkRateLimit(auth.userId, clientIp)) {
+    buildJsonResponse(res, 429, {
+      error: 'Trop de requêtes. Veuillez patienter.'
+    }, requestOrigin);
     return;
   }
 
@@ -496,14 +546,14 @@ const handleAnalyze = async (req, res) => {
   if (!SUPPORTED_TYPES.has(type)) {
     buildJsonResponse(res, 400, {
       error: 'Type d analyse invalide.'
-    });
+    }, requestOrigin);
     return;
   }
 
   if (!situation) {
     buildJsonResponse(res, 400, {
       error: 'Le champ situation est requis.'
-    });
+    }, requestOrigin);
     return;
   }
 
@@ -520,20 +570,21 @@ const handleAnalyze = async (req, res) => {
       user_id: auth.userId,
       proxy: 'local-node'
     }
-  });
+  }, requestOrigin);
 };
 
 const server = createServer(async (req, res) => {
+  const requestOrigin = req.headers.origin;
   try {
     if (!req.url) {
-      buildJsonResponse(res, 400, { error: 'URL manquante.' });
+      buildJsonResponse(res, 400, { error: 'URL manquante.' }, requestOrigin);
       return;
     }
 
     const url = new URL(req.url, `http://${req.headers.host || '127.0.0.1'}`);
 
     if (req.method === 'OPTIONS') {
-      res.writeHead(204, JSON_HEADERS);
+      res.writeHead(204, buildJsonHeaders(requestOrigin));
       res.end();
       return;
     }
@@ -550,13 +601,13 @@ const server = createServer(async (req, res) => {
 
     buildJsonResponse(res, 404, {
       error: 'Route introuvable.'
-    });
+    }, requestOrigin);
   } catch (error) {
     console.error('[atlas-ai-proxy] fatal error', error);
     const message = error instanceof Error ? error.message : 'Erreur interne du proxy.';
     buildJsonResponse(res, 500, {
       error: message
-    });
+    }, requestOrigin);
   }
 });
 
