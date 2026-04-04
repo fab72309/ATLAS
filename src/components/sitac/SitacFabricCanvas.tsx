@@ -479,7 +479,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
             let activeLine: fabric.Line | null = null;
 
             canvas.on('mouse:down', (options) => {
-                const pointer = canvas.getPointer(options.e);
+                const pointer = canvas.getScenePoint(options.e);
                 points.push({ x: pointer.x, y: pointer.y });
 
                 // Add point marker
@@ -517,7 +517,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
 
             canvas.on('mouse:move', (options) => {
                 if (points.length === 0) return;
-                const pointer = canvas.getPointer(options.e);
+                const pointer = canvas.getScenePoint(options.e);
                 const lastPoint = points[points.length - 1];
 
                 if (activeLine) {
@@ -594,7 +594,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
 
             canvas.on('mouse:down', (o) => {
                 isDown = true;
-                const pointer = canvas.getPointer(o.e);
+                const pointer = canvas.getScenePoint(o.e);
                 startPoint = { x: pointer.x, y: pointer.y };
 
                 if (mode === 'draw_line') {
@@ -655,7 +655,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
 
             canvas.on('mouse:move', (o) => {
                 if (!isDown || !activeObj || !startPoint) return;
-                const pointer = canvas.getPointer(o.e);
+                const pointer = canvas.getScenePoint(o.e);
 
                 if (mode === 'draw_line') {
                     (activeObj as fabric.Line).set({ x2: pointer.x, y2: pointer.y });
@@ -689,7 +689,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
             canvas.on('mouse:up', (o) => {
                 isDown = false;
                 if (mode === 'draw_arrow' && startPoint && activeObj instanceof fabric.Line) {
-                    const pointer = canvas.getPointer(o.e);
+                    const pointer = canvas.getScenePoint(o.e);
                     const dx = pointer.x - startPoint.x;
                     const dy = pointer.y - startPoint.y;
                     const length = Math.max(10, Math.sqrt(dx * dx + dy * dy));
@@ -753,7 +753,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
             canvas.defaultCursor = 'text';
 
             canvas.on('mouse:up', (o) => {
-                const pointer = canvas.getPointer(o.e);
+                const pointer = canvas.getScenePoint(o.e);
                 const text = new fabric.IText('Texte', {
                     left: pointer.x,
                     top: pointer.y,
@@ -782,7 +782,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
 
             canvas.on('mouse:down', async (o) => {
                 if (!activeSymbol) return;
-                const pointer = canvas.getPointer(o.e);
+                const pointer = canvas.getScenePoint(o.e);
 
                 try {
                     // Use Fabric's built-in image loading for better transparency support

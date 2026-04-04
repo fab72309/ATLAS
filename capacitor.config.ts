@@ -1,4 +1,4 @@
-import { CapacitorConfig } from '@capacitor/cli';
+import type { CapacitorConfig } from '@capacitor/core';
 
 const isLiveReload = process.env.CAP_LIVE_RELOAD === 'true';
 
