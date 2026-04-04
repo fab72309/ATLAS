@@ -454,11 +454,11 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
                 return (
                   <div
                     key={s.id}
-                    className={`space-y-3 rounded-2xl border px-4 py-4 ${isRequested ? `border-dashed ${colorMeta.dashedClass || 'border-yellow-300/70 dark:border-yellow-400/80'}` : colorMeta.color || 'border-slate-200'} ${colorMeta.fill || 'bg-slate-50/80'} shadow-sm`}
+                    className={`space-y-2 rounded-2xl border p-3 ${isRequested ? `border-dashed ${colorMeta.dashedClass || 'border-yellow-300/70 dark:border-yellow-400/80'}` : colorMeta.color || 'border-slate-200'} ${colorMeta.fill || 'bg-slate-50/80'} shadow-sm`}
                   >
                     <div className="space-y-3">
                       <div className="min-w-0 text-sm font-semibold text-slate-800 dark:text-gray-100">{s.name}</div>
-                      <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center">
+                      <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1.5">
                         <select
                           value={assignSelection[s.id] || assignableNodes[0]?.id || ''}
                           onChange={(e) => setAssignSelection((prev) => ({ ...prev, [s.id]: e.target.value }))}
