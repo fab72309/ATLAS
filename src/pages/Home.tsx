@@ -55,9 +55,6 @@ const Home = () => {
         {/* Hero Section */}
         <div className="flex flex-1 flex-col justify-center py-8 animate-fade-in-down">
           <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-8 text-center">
-            <div className="atlas-panel inline-flex items-center rounded-full px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-600 dark:text-gray-300">
-              Outil d'appui tactique mobile
-            </div>
             <div className="space-y-4">
           <h1 className="text-5xl md:text-7xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-slate-900 via-slate-700 to-slate-500 dark:from-white dark:via-gray-200 dark:to-gray-500 drop-shadow-2xl">
             A.T.L.A.S
@@ -65,20 +62,6 @@ const Home = () => {
               <p className="mx-auto max-w-2xl text-lg font-light leading-relaxed tracking-wide text-slate-600 dark:text-gray-400 md:text-xl">
                 Aide Tactique et Logique pour l'Action des Secours
               </p>
-            </div>
-            <div className="grid w-full max-w-3xl grid-cols-1 gap-3 sm:grid-cols-3">
-              <div className="atlas-panel rounded-2xl px-4 py-3 text-left">
-                <div className="text-[10px] uppercase tracking-[0.2em] text-slate-500 dark:text-gray-500">Accès</div>
-                <div className="mt-1 text-sm font-semibold text-slate-800 dark:text-gray-100">Modules prioritaires</div>
-              </div>
-              <div className="atlas-panel rounded-2xl px-4 py-3 text-left">
-                <div className="text-[10px] uppercase tracking-[0.2em] text-slate-500 dark:text-gray-500">Lecture</div>
-                <div className="mt-1 text-sm font-semibold text-slate-800 dark:text-gray-100">Hiérarchie visuelle renforcée</div>
-              </div>
-              <div className="atlas-panel rounded-2xl px-4 py-3 text-left">
-                <div className="text-[10px] uppercase tracking-[0.2em] text-slate-500 dark:text-gray-500">Terrain</div>
-                <div className="mt-1 text-sm font-semibold text-slate-800 dark:text-gray-100">Ergonomie mobile stabilisée</div>
-              </div>
             </div>
           </div>
         </div>
