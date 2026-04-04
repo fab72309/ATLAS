@@ -454,26 +454,28 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
                 return (
                   <div
                     key={s.id}
-                    className={`space-y-3 rounded-2xl border px-4 py-4 ${isRequested ? `border-dashed ${colorMeta.dashedClass || 'border-yellow-300/70 dark:border-yellow-400/80'}` : colorMeta.color || 'border-slate-200'} ${colorMeta.fill || 'bg-slate-50/80'} shadow-sm`}
+                    className={`space-y-2 rounded-2xl border p-3 ${isRequested ? `border-dashed ${colorMeta.dashedClass || 'border-yellow-300/70 dark:border-yellow-400/80'}` : colorMeta.color || 'border-slate-200'} ${colorMeta.fill || 'bg-slate-50/80'} shadow-sm`}
                   >
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       <div className="min-w-0 text-sm font-semibold text-slate-800 dark:text-gray-100">{s.name}</div>
-                      <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center">
-                        <select
-                          value={assignSelection[s.id] || assignableNodes[0]?.id || ''}
-                          onChange={(e) => setAssignSelection((prev) => ({ ...prev, [s.id]: e.target.value }))}
-                          className="h-9 w-full min-w-0 rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200/80 dark:border-white/10 dark:bg-white/5 dark:text-gray-200 dark:focus:ring-white/20"
-                          disabled={!assignableNodes.length}
-                        >
-                          {!assignableNodes.length && <option value="">Aucun secteur disponible</option>}
-                          {assignableNodes.map((node) => (
-                            <option key={node.id} value={node.id}>{node.label}</option>
-                          ))}
-                        </select>
+                      <div className="inline-grid w-full sm:w-auto grid-cols-1 items-center gap-1.5 sm:grid-cols-[14rem_auto_auto]">
+                        <div className="relative w-full">
+                          <select
+                            value={assignSelection[s.id] || assignableNodes[0]?.id || ''}
+                            onChange={(e) => setAssignSelection((prev) => ({ ...prev, [s.id]: e.target.value }))}
+                            className="h-9 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200/80 dark:border-white/10 dark:bg-white/5 dark:text-gray-200 dark:focus:ring-white/20"
+                            disabled={!assignableNodes.length}
+                          >
+                            {!assignableNodes.length && <option value="">Aucun secteur disponible</option>}
+                            {assignableNodes.map((node) => (
+                              <option key={node.id} value={node.id}>{node.label}</option>
+                            ))}
+                          </select>
+                        </div>
                         <button
                           onClick={() => handleAssignMean(s)}
                           disabled={!assignableNodes.length || isAssigned || alreadyInOct}
-                          className={`inline-flex h-9 items-center rounded-md border px-2.5 py-1.5 text-[11px] text-white transition ${
+                          className={`h-9 px-2.5 rounded-md border text-[11px] font-semibold text-white transition ${
                             isAssigned
                               ? 'bg-emerald-500 border-emerald-300/70 text-emerald-50'
                               : 'bg-amber-500 border-amber-300/70 text-amber-50 hover:bg-amber-400'
@@ -483,23 +485,68 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
                         </button>
                         <button
                           onClick={() => remove(s.id)}
-                          className="rounded-md border border-slate-200 bg-white p-1.5 text-red-600 transition hover:bg-red-50 dark:border-white/10 dark:bg-white/5 dark:text-red-300 dark:hover:bg-red-500/20"
+                          className="p-1.5 rounded-md border border-slate-200 bg-white text-red-600 transition hover:bg-red-50 dark:border-white/10 dark:bg-white/5 dark:text-red-300 dark:hover:bg-red-500/20"
                           title="Retirer"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 pt-1">
-                      <button
-                        onClick={() => toggleStatus(s.id)}
-                        className={`relative h-8 w-14 rounded-full border transition-colors focus:outline-none focus:ring-2 focus:ring-slate-200/80 dark:focus:ring-white/20 shadow-inner ${isRequested ? 'bg-amber-400/80 border-amber-200/80' : 'bg-emerald-400/80 border-emerald-200/80'}`}
-                        aria-label={isRequested ? 'Basculer en sur place' : 'Basculer en demandé'}
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <div
+                        className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-2 py-1 dark:border-white/10 dark:bg-white/5"
+                        role="radiogroup"
+                        aria-label={`Statut de ${s.name}`}
                       >
-                        <div className={`absolute inset-y-1 left-1 h-6 w-6 rounded-full bg-white shadow-lg transition-transform ${isRequested ? 'translate-x-5' : 'translate-x-0'}`} />
-                        {!isRequested && <Check className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-emerald-900/90" />}
-                      </button>
-                      <span className="text-[12px] text-slate-600 dark:text-gray-200">{isRequested ? 'Demandé' : 'Sur place'}</span>
+                        <button
+                          type="button"
+                          role="radio"
+                          aria-checked={!isRequested}
+                          onClick={() => {
+                            if (isRequested) toggleStatus(s.id);
+                          }}
+                          className={`inline-flex items-center gap-2 rounded-md px-2 py-1 text-[12px] font-medium transition ${
+                            !isRequested
+                              ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:ring-emerald-500/30'
+                              : 'text-slate-600 hover:bg-slate-50 dark:text-gray-300 dark:hover:bg-white/5'
+                          }`}
+                        >
+                          <span
+                            className={`flex h-3.5 w-3.5 items-center justify-center rounded-full border ${
+                              !isRequested
+                                ? 'border-emerald-600 dark:border-emerald-400'
+                                : 'border-slate-300 dark:border-white/20'
+                            }`}
+                          >
+                            {!isRequested && <span className="h-2 w-2 rounded-full bg-emerald-600 dark:bg-emerald-400" />}
+                          </span>
+                          Sur place
+                        </button>
+                        <button
+                          type="button"
+                          role="radio"
+                          aria-checked={isRequested}
+                          onClick={() => {
+                            if (!isRequested) toggleStatus(s.id);
+                          }}
+                          className={`inline-flex items-center gap-2 rounded-md px-2 py-1 text-[12px] font-medium transition ${
+                            isRequested
+                              ? 'bg-amber-50 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:ring-amber-500/30'
+                              : 'text-slate-600 hover:bg-slate-50 dark:text-gray-300 dark:hover:bg-white/5'
+                          }`}
+                        >
+                          <span
+                            className={`flex h-3.5 w-3.5 items-center justify-center rounded-full border ${
+                              isRequested
+                                ? 'border-amber-600 dark:border-amber-400'
+                                : 'border-slate-300 dark:border-white/20'
+                            }`}
+                          >
+                            {isRequested && <span className="h-2 w-2 rounded-full bg-amber-600 dark:bg-amber-400" />}
+                          </span>
+                          Demandé
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -740,7 +787,7 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
                           {section.label}
                         </div>
                       )}
-                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                      <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
                         {section.items.map((m) => {
                           const title = m.name;
                           const already = selected.find((s) => s.name === title);
