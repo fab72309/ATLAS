@@ -4,7 +4,7 @@ import type { User } from '@supabase/supabase-js';
 import { getSupabaseClient } from '../utils/supabaseClient';
 import { clearUserScopedStorage, getCurrentUserId, setActiveUserId } from '../utils/userStorage';
 import { hydrateAllStores, resetAllStores } from '../utils/storeReset';
-import { buildDevBypassUser, isDevAuthBypassEnabled } from '../utils/devBypass';
+import { buildDevBypassUser, isDevAuthBypassEnabled, setDevAuthBypassEnabled } from '../utils/devBypass';
 
 type AuthInitError = {
   kind: 'missing-env' | 'timeout' | 'error';
@@ -194,6 +194,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const logout = useCallback(async () => {
     if (isDevAuthBypassEnabled()) {
+      const previousId = previousUserId.current;
+      resetAllStores();
+      clearUserScopedStorage(previousId);
+      setActiveUserId(null);
+      previousUserId.current = null;
+      setDevAuthBypassEnabled(false);
+      setUser(null);
+      setInitError(null);
+      setInitializing(false);
       return;
     }
     const supabase = getSupabaseClient();
