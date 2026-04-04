@@ -79,7 +79,7 @@
     "vitest": "^3.2.4"
   },
   "overrides": {
-    "tar": "7.5.3",
+    "tar": "7.5.11",
     "@mapbox/node-pre-gyp": "2.0.3"
   },
   "description": "Aide Tactique et Logique pour l'Action des Secours",
