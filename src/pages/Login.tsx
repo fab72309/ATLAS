@@ -2,6 +2,7 @@ import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { APP_NAME, APP_VERSION } from '../constants/appInfo';
+import { isDevAuthBypassAvailable, setDevAuthBypassEnabled } from '../utils/devBypass';
 
 type Mode = 'login' | 'signup';
 
@@ -34,6 +35,7 @@ const LoginPage = () => {
   const [lastName, setLastName] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const devBypassAvailable = isDevAuthBypassAvailable();
 
   React.useEffect(() => {
     if (!initializing && user) {
@@ -53,6 +55,21 @@ const LoginPage = () => {
       }
       navigate(from, { replace: true });
     } catch (err) {
+      setError(errorMessageFromCode(err as { code?: string; message?: string }));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDevAccess = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      setDevAuthBypassEnabled(true);
+      await login('', '');
+      navigate(from, { replace: true });
+    } catch (err) {
+      setDevAuthBypassEnabled(false);
       setError(errorMessageFromCode(err as { code?: string; message?: string }));
     } finally {
       setLoading(false);
@@ -160,6 +177,25 @@ const LoginPage = () => {
             {loading ? 'En cours...' : mode === 'login' ? 'Se connecter' : 'Créer un compte'}
           </button>
         </form>
+
+        {devBypassAvailable && (
+          <div className="mt-4 space-y-3 rounded-2xl border border-dashed border-slate-300 bg-slate-50/80 p-4 dark:border-white/15 dark:bg-white/5">
+            <div className="space-y-1">
+              <div className="text-sm font-semibold text-slate-800 dark:text-gray-100">Mode dev local</div>
+              <div className="text-xs text-slate-600 dark:text-gray-400">
+                Accès direct sans connexion Supabase. Disponible uniquement en développement sur cette machine.
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => void handleDevAccess()}
+              disabled={loading}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm font-semibold text-slate-800 transition hover:border-slate-300 hover:bg-slate-100 disabled:opacity-60 dark:border-white/10 dark:bg-black/20 dark:text-white dark:hover:bg-white/10"
+            >
+              Continuer en mode dev
+            </button>
+          </div>
+        )}
       </div>
       <div className="fixed right-4 bottom-4 z-30 text-[11px] text-slate-500 dark:text-gray-400 bg-white/80 dark:bg-black/50 border border-black/10 dark:border-white/10 px-3 py-2 rounded-xl backdrop-blur-md">
         {APP_NAME} — {APP_VERSION}
