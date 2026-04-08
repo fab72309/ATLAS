@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback } from 'react';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useParams, useLocation } from 'react-router-dom';
 import { Sparkles, ClipboardCopy, Share2, FileText, ImageDown, Check, QrCode, LocateFixed, Archive, Clock, Mic, MicOff } from 'lucide-react';
 import { SpeechRecognitionService } from '../utils/speechRecognition';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
