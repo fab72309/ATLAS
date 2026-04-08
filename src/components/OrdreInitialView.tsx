@@ -1653,11 +1653,11 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
           onClick={() => setAddModal(null)}
         >
           <div
-            className="bg-gray-900 border border-white/10 rounded-xl p-6 w-full max-w-md shadow-2xl"
+            className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 rounded-xl p-6 w-full max-w-md shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <h3 className="text-lg font-bold text-white mb-2">Ajouter une carte</h3>
-            <p className="text-xs text-gray-400 mb-4">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Ajouter une carte</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
               Colonne : {columns[addModal.colId]?.title || addModal.colId}
             </p>
             <div className="grid gap-2">
@@ -1667,7 +1667,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
                   handleAddItem(addModal.colId, 'objective');
                   setAddModal(null);
                 }}
-                className="w-full px-4 py-3 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white text-sm font-semibold transition"
+                className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 text-gray-900 dark:text-white text-sm font-semibold transition"
               >
                 {getPrimaryAddLabel(addModal.colId)}
               </button>
@@ -1677,7 +1677,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
                   handleAddItem(addModal.colId, 'separator');
                   setAddModal(null);
                 }}
-                className="w-full px-4 py-3 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white text-sm font-semibold transition"
+                className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 text-gray-900 dark:text-white text-sm font-semibold transition"
               >
                 Ajouter un séparateur
               </button>
@@ -1687,7 +1687,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
                   handleAddItem(addModal.colId, 'empty');
                   setAddModal(null);
                 }}
-                className="w-full px-4 py-3 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white text-sm font-semibold transition"
+                className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 text-gray-900 dark:text-white text-sm font-semibold transition"
               >
                 Ajouter une carte vide
               </button>
@@ -1696,7 +1696,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
               <button
                 type="button"
                 onClick={() => setAddModal(null)}
-                className="px-4 py-2 text-gray-400 hover:text-white text-sm"
+                className="px-4 py-2 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-sm"
               >
                 Annuler
               </button>
