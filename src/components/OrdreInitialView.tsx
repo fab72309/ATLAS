@@ -1551,12 +1551,22 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
                 </>
               ) : editingItem.colId === 'I' ? (
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs text-gray-400">Idée de manœuvre</label>
+                  <label className="block text-xs text-gray-400 mb-1">Idée de manœuvre</label>
+                  <div className="relative">
+                    <textarea
+                      value={editingItem.content}
+                      onChange={e => {
+                        const next = stripAutoPlaceholder(editingItem.content, e.target.value);
+                        setEditingItem({ ...editingItem, content: next });
+                      }}
+                      onFocus={() => clearAutoPlaceholder('content')}
+                      rows={4}
+                      className="atlas-resizable-textarea w-full bg-black/30 border border-white/10 rounded p-2 pr-10 text-white text-sm focus:border-blue-500 outline-none"
+                    />
                     <button
                       type="button"
                       onClick={() => (isListening ? stopDictation() : startDictation('content'))}
-                      className={`w-9 h-9 rounded-full border flex items-center justify-center transition ${
+                      className={`absolute bottom-2 right-2 w-7 h-7 rounded-full border flex items-center justify-center transition ${
                         isListening
                           ? 'bg-red-500/20 text-red-200 border-red-500/40'
                           : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'
@@ -1564,19 +1574,9 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
                       aria-label={isListening ? 'Arrêter la dictée' : 'Dicter une idée de manœuvre'}
                       title={isListening ? 'Arrêter la dictée' : 'Dicter une idée de manœuvre'}
                     >
-                      {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                      {isListening ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
                     </button>
                   </div>
-                  <textarea
-                    value={editingItem.content}
-                    onChange={e => {
-                      const next = stripAutoPlaceholder(editingItem.content, e.target.value);
-                      setEditingItem({ ...editingItem, content: next });
-                    }}
-                    onFocus={() => clearAutoPlaceholder('content')}
-                    rows={4}
-                    className="atlas-resizable-textarea w-full bg-black/30 border border-white/10 rounded p-2 text-white text-sm focus:border-blue-500 outline-none"
-                  />
                   {suggestions.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-2">
                       {suggestions.map((s, idx) => (
@@ -1594,12 +1594,22 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
                 </div>
               ) : (
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs text-gray-400">Contenu</label>
+                  <label className="block text-xs text-gray-400 mb-1">Contenu</label>
+                  <div className="relative">
+                    <textarea
+                      value={editingItem.content}
+                      onChange={e => {
+                        const next = stripAutoPlaceholder(editingItem.content, e.target.value);
+                        setEditingItem({ ...editingItem, content: next });
+                      }}
+                      onFocus={() => clearAutoPlaceholder('content')}
+                      rows={5}
+                      className="atlas-resizable-textarea w-full bg-black/30 border border-white/10 rounded p-2 pr-10 text-white text-sm focus:border-blue-500 outline-none"
+                    />
                     <button
                       type="button"
                       onClick={() => (isListening ? stopDictation() : startDictation('content'))}
-                      className={`w-9 h-9 rounded-full border flex items-center justify-center transition ${
+                      className={`absolute bottom-2 right-2 w-7 h-7 rounded-full border flex items-center justify-center transition ${
                         isListening
                           ? 'bg-red-500/20 text-red-200 border-red-500/40'
                           : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'
@@ -1607,19 +1617,9 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
                       aria-label={isListening ? 'Arrêter la dictée' : 'Dicter le contenu'}
                       title={isListening ? 'Arrêter la dictée' : 'Dicter le contenu'}
                     >
-                      {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                      {isListening ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
                     </button>
                   </div>
-                  <textarea
-                    value={editingItem.content}
-                    onChange={e => {
-                      const next = stripAutoPlaceholder(editingItem.content, e.target.value);
-                      setEditingItem({ ...editingItem, content: next });
-                    }}
-                    onFocus={() => clearAutoPlaceholder('content')}
-                    rows={5}
-                    className="atlas-resizable-textarea w-full bg-black/30 border border-white/10 rounded p-2 text-white text-sm focus:border-blue-500 outline-none"
-                  />
                   {suggestions.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-2">
                       {suggestions.map((s, idx) => (
