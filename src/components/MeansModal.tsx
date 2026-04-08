@@ -750,7 +750,7 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
                             <div
                               key={infoId}
                               onClick={() => addMean({ name: title, category: catKey })}
-                              className={`relative w-full text-left px-2.5 py-2 rounded-lg border cursor-pointer min-h-[44px] ${already ? `border-dashed ${meta.dashedClass}` : 'border-slate-200 dark:border-white/15'} ${meta.color} hover:bg-slate-100 dark:hover:bg-white/10 transition`}
+                              className={`relative w-full flex flex-col items-center justify-center text-center px-7 py-2 rounded-lg border cursor-pointer min-h-[44px] ${already ? `border-dashed ${meta.dashedClass}` : 'border-slate-200 dark:border-white/15'} ${meta.color} hover:bg-slate-100 dark:hover:bg-white/10 transition`}
                             >
                               <button
                                 type="button"
@@ -765,10 +765,8 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
                               >
                                 i
                               </button>
-                              <div className="pr-6">
-                                <div className="text-[13px] leading-tight font-medium">{title}</div>
-                                {already && <div className="text-[11px] text-slate-500 dark:text-gray-300 mt-0.5">{isRequested ? 'Demandé' : 'Sur place'}</div>}
-                              </div>
+                              <div className="text-[15px] leading-tight font-medium">{title}</div>
+                              {already && <div className="text-[11px] text-slate-500 dark:text-gray-300 mt-0.5">{isRequested ? 'Demandé' : 'Sur place'}</div>}
                               {openInfoCard === infoId && (
                                 <div
                                   className="absolute top-8 right-2 z-20 w-72 max-w-[calc(100%-1rem)] rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#10141d] shadow-xl p-3 text-left"
