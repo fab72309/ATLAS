@@ -1566,7 +1566,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
                     <button
                       type="button"
                       onClick={() => (isListening ? stopDictation() : startDictation('content'))}
-                      className={`absolute bottom-2 right-2 w-7 h-7 rounded-full border flex items-center justify-center transition ${
+                      className={`absolute bottom-3 right-3 w-7 h-7 rounded-full border flex items-center justify-center transition ${
                         isListening
                           ? 'bg-red-500/20 text-red-200 border-red-500/40'
                           : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'
@@ -1609,7 +1609,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
                     <button
                       type="button"
                       onClick={() => (isListening ? stopDictation() : startDictation('content'))}
-                      className={`absolute bottom-2 right-2 w-7 h-7 rounded-full border flex items-center justify-center transition ${
+                      className={`absolute bottom-3 right-3 w-7 h-7 rounded-full border flex items-center justify-center transition ${
                         isListening
                           ? 'bg-red-500/20 text-red-200 border-red-500/40'
                           : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'

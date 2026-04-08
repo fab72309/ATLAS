@@ -856,16 +856,23 @@ const DictationInput = () => {
             <div className="grid grid-cols-1 md:grid-cols-[1.4fr,0.6fr] gap-3">
               <div className="space-y-1 md:w-[70%]">
                 <label className="text-sm font-medium text-slate-600 dark:text-gray-400 ml-2">Adresse de l'intervention</label>
-                <input
-                  value={address}
-                  onChange={(e) => {
-                    setAddress(e.target.value);
-                    setSoiecAddressValidated(false);
-                  }}
-                  placeholder="Ex: 12 rue de la Paix"
-                  disabled={isOiLocked}
-                  className="w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
-                />
+                <div className="relative">
+                  <input
+                    value={address}
+                    onChange={(e) => {
+                      setAddress(e.target.value);
+                      setSoiecAddressValidated(false);
+                    }}
+                    placeholder="Ex: 12 rue de la Paix"
+                    disabled={isOiLocked}
+                    className="w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 pr-10 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                  />
+                  {!isOiLocked && (
+                    <button type="button" onClick={() => listeningField === 'addr' ? stopDictation() : startDictation('addr', (v) => { setAddress(v); setSoiecAddressValidated(false); })} className={`absolute inset-y-0 right-2 flex items-center p-1.5 rounded-lg transition ${listeningField === 'addr' ? 'text-red-400 bg-red-500/10' : 'text-slate-400 hover:text-blue-500 hover:bg-blue-500/10'}`} title={listeningField === 'addr' ? 'Arrêter la dictée' : 'Dicter'}>
+                      {listeningField === 'addr' ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium text-slate-600 dark:text-gray-400 ml-2">Ville</label>
@@ -915,13 +922,20 @@ const DictationInput = () => {
             <div className="grid grid-cols-1 md:grid-cols-[1.4fr,0.6fr] gap-3">
               <div className="space-y-1 md:w-[70%]">
                 <label className="text-sm font-medium text-slate-600 dark:text-gray-400 ml-2">Renseignements complémentaires</label>
-                <input
-                  value={additionalInfo}
-                  onChange={(e) => setAdditionalInfo(e.target.value)}
-                  placeholder={ADDITIONAL_INFO_PLACEHOLDER}
-                  disabled={isOiLocked}
-                  className="w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
-                />
+                <div className="relative">
+                  <input
+                    value={additionalInfo}
+                    onChange={(e) => setAdditionalInfo(e.target.value)}
+                    placeholder={ADDITIONAL_INFO_PLACEHOLDER}
+                    disabled={isOiLocked}
+                    className="w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 pr-10 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                  />
+                  {!isOiLocked && (
+                    <button type="button" onClick={() => listeningField === 'addInfo' ? stopDictation() : startDictation('addInfo', (v) => setAdditionalInfo(v))} className={`absolute inset-y-0 right-2 flex items-center p-1.5 rounded-lg transition ${listeningField === 'addInfo' ? 'text-red-400 bg-red-500/10' : 'text-slate-400 hover:text-blue-500 hover:bg-blue-500/10'}`} title={listeningField === 'addInfo' ? 'Arrêter la dictée' : 'Dicter'}>
+                      {listeningField === 'addInfo' ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium text-slate-600 dark:text-gray-400 ml-2">Groupe horaire</label>
