@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { Sparkles, ClipboardCopy, Share2, FileText, ImageDown, Check, QrCode, LocateFixed, Archive, Clock } from 'lucide-react';
+import { Sparkles, ClipboardCopy, Share2, FileText, ImageDown, Check, QrCode, LocateFixed, Archive, Clock, Mic } from 'lucide-react';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { saveDictationData, saveCommunicationData } from '../utils/dataStore';
 import QRCode from 'react-qr-code';
@@ -1244,19 +1244,24 @@ const DictationInput = () => {
                       Utiliser l&apos;adresse
                     </button>
                   </div>
-                  <textarea
-                    value={ambianceMessage.jeSuis}
-                    onChange={(e) =>
-                      setAmbianceMessage((prev) => ({
-                        ...prev,
-                        jeSuis: e.target.value,
-                        addressConfirmed: false
-                      }))
-                    }
-                    rows={2}
-                    placeholder="Votre position, votre mission, votre action en cours."
-                    className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
-                  />
+                  <div className="relative">
+                    <textarea
+                      value={ambianceMessage.jeSuis}
+                      onChange={(e) =>
+                        setAmbianceMessage((prev) => ({
+                          ...prev,
+                          jeSuis: e.target.value,
+                          addressConfirmed: false
+                        }))
+                      }
+                      rows={2}
+                      placeholder="Votre position, votre mission, votre action en cours."
+                      className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 pr-10 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
+                    />
+                    <button type="button" className="absolute bottom-2 right-2 p-1.5 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-500/10 transition" title="Dicter">
+                      <Mic className="w-4 h-4" />
+                    </button>
+                  </div>
                   {!isAddressAvailable && (
                     <div className="text-xs text-amber-600 dark:text-amber-400">
                       Adresse non renseignée dans l&apos;intervention.
@@ -1279,13 +1284,18 @@ const DictationInput = () => {
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je demande</label>
-                  <textarea
-                    value={ambianceMessage.jeDemande}
-                    onChange={(e) => setAmbianceMessage((prev) => ({ ...prev, jeDemande: e.target.value }))}
-                    rows={2}
-                    placeholder="Renforts, moyens, consignes."
-                    className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
-                  />
+                  <div className="relative">
+                    <textarea
+                      value={ambianceMessage.jeDemande}
+                      onChange={(e) => setAmbianceMessage((prev) => ({ ...prev, jeDemande: e.target.value }))}
+                      rows={2}
+                      placeholder="Renforts, moyens, consignes."
+                      className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 pr-10 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
+                    />
+                    <button type="button" className="absolute bottom-2 right-2 p-1.5 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-500/10 transition" title="Dicter">
+                      <Mic className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
                 <DemandesSection
                   value={ambianceMessage.demandes}
@@ -1406,19 +1416,24 @@ const DictationInput = () => {
                       Utiliser l&apos;adresse
                     </button>
                   </div>
-                  <textarea
-                    value={compteRenduMessage.jeSuis}
-                    onChange={(e) =>
-                      setCompteRenduMessage((prev) => ({
-                        ...prev,
-                        jeSuis: e.target.value,
-                        addressConfirmed: false
-                      }))
-                    }
-                    rows={2}
-                    placeholder="Votre position, votre mission, votre action en cours."
-                    className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
-                  />
+                  <div className="relative">
+                    <textarea
+                      value={compteRenduMessage.jeSuis}
+                      onChange={(e) =>
+                        setCompteRenduMessage((prev) => ({
+                          ...prev,
+                          jeSuis: e.target.value,
+                          addressConfirmed: false
+                        }))
+                      }
+                      rows={2}
+                      placeholder="Votre position, votre mission, votre action en cours."
+                      className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 pr-10 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
+                    />
+                    <button type="button" className="absolute bottom-2 right-2 p-1.5 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-500/10 transition" title="Dicter">
+                      <Mic className="w-4 h-4" />
+                    </button>
+                  </div>
                   {!isAddressAvailable && (
                     <div className="text-xs text-amber-600 dark:text-amber-400">
                       Adresse non renseignée dans l&apos;intervention.
@@ -1432,43 +1447,63 @@ const DictationInput = () => {
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je vois</label>
-                  <textarea
-                    value={compteRenduMessage.jeVois}
-                    onChange={(e) => setCompteRenduMessage((prev) => ({ ...prev, jeVois: e.target.value }))}
-                    rows={2}
-                    placeholder="Ce que vous constatez sur place."
-                    className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
-                  />
+                  <div className="relative">
+                    <textarea
+                      value={compteRenduMessage.jeVois}
+                      onChange={(e) => setCompteRenduMessage((prev) => ({ ...prev, jeVois: e.target.value }))}
+                      rows={2}
+                      placeholder="Ce que vous constatez sur place."
+                      className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 pr-10 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
+                    />
+                    <button type="button" className="absolute bottom-2 right-2 p-1.5 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-500/10 transition" title="Dicter">
+                      <Mic className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je prévois</label>
-                  <textarea
-                    value={compteRenduMessage.jePrevois}
-                    onChange={(e) => setCompteRenduMessage((prev) => ({ ...prev, jePrevois: e.target.value }))}
-                    rows={2}
-                    placeholder="Hypothèses ou prochaines actions."
-                    className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
-                  />
+                  <div className="relative">
+                    <textarea
+                      value={compteRenduMessage.jePrevois}
+                      onChange={(e) => setCompteRenduMessage((prev) => ({ ...prev, jePrevois: e.target.value }))}
+                      rows={2}
+                      placeholder="Hypothèses ou prochaines actions."
+                      className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 pr-10 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
+                    />
+                    <button type="button" className="absolute bottom-2 right-2 p-1.5 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-500/10 transition" title="Dicter">
+                      <Mic className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je fais</label>
-                  <textarea
-                    value={compteRenduMessage.jeFais}
-                    onChange={(e) => setCompteRenduMessage((prev) => ({ ...prev, jeFais: e.target.value }))}
-                    rows={2}
-                    placeholder="Actions en cours ou réalisées."
-                    className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
-                  />
+                  <div className="relative">
+                    <textarea
+                      value={compteRenduMessage.jeFais}
+                      onChange={(e) => setCompteRenduMessage((prev) => ({ ...prev, jeFais: e.target.value }))}
+                      rows={2}
+                      placeholder="Actions en cours ou réalisées."
+                      className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 pr-10 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
+                    />
+                    <button type="button" className="absolute bottom-2 right-2 p-1.5 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-500/10 transition" title="Dicter">
+                      <Mic className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je demande</label>
-                  <textarea
-                    value={compteRenduMessage.jeDemande}
-                    onChange={(e) => setCompteRenduMessage((prev) => ({ ...prev, jeDemande: e.target.value }))}
-                    rows={2}
-                    placeholder="Renforts, moyens, consignes."
-                    className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
-                  />
+                  <div className="relative">
+                    <textarea
+                      value={compteRenduMessage.jeDemande}
+                      onChange={(e) => setCompteRenduMessage((prev) => ({ ...prev, jeDemande: e.target.value }))}
+                      rows={2}
+                      placeholder="Renforts, moyens, consignes."
+                      className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 pr-10 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
+                    />
+                    <button type="button" className="absolute bottom-2 right-2 p-1.5 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-blue-500/10 transition" title="Dicter">
+                      <Mic className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
                 <DemandesSection
                   value={compteRenduMessage.demandes}
