@@ -1551,12 +1551,23 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
                 </>
               ) : editingItem.colId === 'I' ? (
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs text-gray-400">Idée de manœuvre</label>
+                  <label className="block text-xs text-gray-400 mb-1">Idée de manœuvre</label>
+                  <div className="relative">
+                    <textarea
+                      value={editingItem.content}
+                      onChange={e => {
+                        const next = stripAutoPlaceholder(editingItem.content, e.target.value);
+                        setEditingItem({ ...editingItem, content: next });
+                      }}
+                      onFocus={() => clearAutoPlaceholder('content')}
+                      rows={4}
+                      className="w-full resize-none bg-black/30 border border-white/10 rounded p-2 pr-10 pb-8 text-white text-sm focus:border-blue-500 outline-none"
+                      style={{ backgroundImage: 'linear-gradient(135deg,transparent 0 55%,rgba(148,163,184,0.6) 55% 65%,transparent 65%),linear-gradient(135deg,transparent 0 70%,rgba(148,163,184,0.4) 70% 80%,transparent 80%),linear-gradient(135deg,transparent 0 85%,rgba(148,163,184,0.25) 85% 95%,transparent 95%)', backgroundRepeat: 'no-repeat', backgroundSize: '16px 16px', backgroundPosition: 'calc(100% - 6px) calc(100% - 6px)' }}
+                    />
                     <button
                       type="button"
                       onClick={() => (isListening ? stopDictation() : startDictation('content'))}
-                      className={`w-9 h-9 rounded-full border flex items-center justify-center transition ${
+                      className={`absolute bottom-4 right-4 w-7 h-7 rounded-full border flex items-center justify-center transition ${
                         isListening
                           ? 'bg-red-500/20 text-red-200 border-red-500/40'
                           : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'
@@ -1564,19 +1575,24 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
                       aria-label={isListening ? 'Arrêter la dictée' : 'Dicter une idée de manœuvre'}
                       title={isListening ? 'Arrêter la dictée' : 'Dicter une idée de manœuvre'}
                     >
-                      {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                      {isListening ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
                     </button>
+                    <span
+                      onMouseDown={e => {
+                        e.preventDefault();
+                        const ta = (e.currentTarget as HTMLElement).closest('.relative')?.querySelector('textarea') as HTMLTextAreaElement;
+                        if (!ta) return;
+                        const startY = e.clientY;
+                        const startH = ta.offsetHeight;
+                        const onMove = (ev: MouseEvent) => { ta.style.height = `${Math.max(60, startH + ev.clientY - startY)}px`; };
+                        const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+                        document.addEventListener('mousemove', onMove);
+                        document.addEventListener('mouseup', onUp);
+                      }}
+                      className="absolute bottom-0 right-0 w-8 h-8 cursor-s-resize"
+                      title="Redimensionner"
+                    />
                   </div>
-                  <textarea
-                    value={editingItem.content}
-                    onChange={e => {
-                      const next = stripAutoPlaceholder(editingItem.content, e.target.value);
-                      setEditingItem({ ...editingItem, content: next });
-                    }}
-                    onFocus={() => clearAutoPlaceholder('content')}
-                    rows={4}
-                    className="atlas-resizable-textarea w-full bg-black/30 border border-white/10 rounded p-2 text-white text-sm focus:border-blue-500 outline-none"
-                  />
                   {suggestions.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-2">
                       {suggestions.map((s, idx) => (
@@ -1594,12 +1610,23 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
                 </div>
               ) : (
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs text-gray-400">Contenu</label>
+                  <label className="block text-xs text-gray-400 mb-1">Contenu</label>
+                  <div className="relative">
+                    <textarea
+                      value={editingItem.content}
+                      onChange={e => {
+                        const next = stripAutoPlaceholder(editingItem.content, e.target.value);
+                        setEditingItem({ ...editingItem, content: next });
+                      }}
+                      onFocus={() => clearAutoPlaceholder('content')}
+                      rows={5}
+                      className="w-full resize-none bg-black/30 border border-white/10 rounded p-2 pr-10 pb-8 text-white text-sm focus:border-blue-500 outline-none"
+                      style={{ backgroundImage: 'linear-gradient(135deg,transparent 0 55%,rgba(148,163,184,0.6) 55% 65%,transparent 65%),linear-gradient(135deg,transparent 0 70%,rgba(148,163,184,0.4) 70% 80%,transparent 80%),linear-gradient(135deg,transparent 0 85%,rgba(148,163,184,0.25) 85% 95%,transparent 95%)', backgroundRepeat: 'no-repeat', backgroundSize: '16px 16px', backgroundPosition: 'calc(100% - 6px) calc(100% - 6px)' }}
+                    />
                     <button
                       type="button"
                       onClick={() => (isListening ? stopDictation() : startDictation('content'))}
-                      className={`w-9 h-9 rounded-full border flex items-center justify-center transition ${
+                      className={`absolute bottom-4 right-4 w-7 h-7 rounded-full border flex items-center justify-center transition ${
                         isListening
                           ? 'bg-red-500/20 text-red-200 border-red-500/40'
                           : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'
@@ -1607,19 +1634,24 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
                       aria-label={isListening ? 'Arrêter la dictée' : 'Dicter le contenu'}
                       title={isListening ? 'Arrêter la dictée' : 'Dicter le contenu'}
                     >
-                      {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                      {isListening ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
                     </button>
+                    <span
+                      onMouseDown={e => {
+                        e.preventDefault();
+                        const ta = (e.currentTarget as HTMLElement).closest('.relative')?.querySelector('textarea') as HTMLTextAreaElement;
+                        if (!ta) return;
+                        const startY = e.clientY;
+                        const startH = ta.offsetHeight;
+                        const onMove = (ev: MouseEvent) => { ta.style.height = `${Math.max(60, startH + ev.clientY - startY)}px`; };
+                        const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+                        document.addEventListener('mousemove', onMove);
+                        document.addEventListener('mouseup', onUp);
+                      }}
+                      className="absolute bottom-0 right-0 w-8 h-8 cursor-s-resize"
+                      title="Redimensionner"
+                    />
                   </div>
-                  <textarea
-                    value={editingItem.content}
-                    onChange={e => {
-                      const next = stripAutoPlaceholder(editingItem.content, e.target.value);
-                      setEditingItem({ ...editingItem, content: next });
-                    }}
-                    onFocus={() => clearAutoPlaceholder('content')}
-                    rows={5}
-                    className="atlas-resizable-textarea w-full bg-black/30 border border-white/10 rounded p-2 text-white text-sm focus:border-blue-500 outline-none"
-                  />
                   {suggestions.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-2">
                       {suggestions.map((s, idx) => (
@@ -1653,11 +1685,11 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
           onClick={() => setAddModal(null)}
         >
           <div
-            className="bg-gray-900 border border-white/10 rounded-xl p-6 w-full max-w-md shadow-2xl"
+            className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 rounded-xl p-6 w-full max-w-md shadow-2xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <h3 className="text-lg font-bold text-white mb-2">Ajouter une carte</h3>
-            <p className="text-xs text-gray-400 mb-4">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Ajouter une carte</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
               Colonne : {columns[addModal.colId]?.title || addModal.colId}
             </p>
             <div className="grid gap-2">
@@ -1667,7 +1699,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
                   handleAddItem(addModal.colId, 'objective');
                   setAddModal(null);
                 }}
-                className="w-full px-4 py-3 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white text-sm font-semibold transition"
+                className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 text-gray-900 dark:text-white text-sm font-semibold transition"
               >
                 {getPrimaryAddLabel(addModal.colId)}
               </button>
@@ -1677,7 +1709,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
                   handleAddItem(addModal.colId, 'separator');
                   setAddModal(null);
                 }}
-                className="w-full px-4 py-3 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white text-sm font-semibold transition"
+                className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 text-gray-900 dark:text-white text-sm font-semibold transition"
               >
                 Ajouter un séparateur
               </button>
@@ -1687,7 +1719,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
                   handleAddItem(addModal.colId, 'empty');
                   setAddModal(null);
                 }}
-                className="w-full px-4 py-3 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-white text-sm font-semibold transition"
+                className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 text-gray-900 dark:text-white text-sm font-semibold transition"
               >
                 Ajouter une carte vide
               </button>
@@ -1696,7 +1728,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
               <button
                 type="button"
                 onClick={() => setAddModal(null)}
-                className="px-4 py-2 text-gray-400 hover:text-white text-sm"
+                className="px-4 py-2 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-sm"
               >
                 Annuler
               </button>

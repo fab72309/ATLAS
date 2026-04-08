@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
-import { ClipboardCopy, Share2, FileText, ImageDown, Check, QrCode, LocateFixed, Archive, Clock } from 'lucide-react';
+import { ClipboardCopy, Share2, FileText, ImageDown, Check, QrCode, LocateFixed, Archive, Clock, Mic, MicOff } from 'lucide-react';
+import { SpeechRecognitionService } from '../utils/speechRecognition';
 import QRCode from 'react-qr-code';
 import DominantSelector, { DominanteType } from '../components/DominantSelector';
 import OrdreInitialView from '../components/OrdreInitialView';
@@ -468,6 +469,40 @@ const DictationInput = () => {
   const [compteRenduMessage, setCompteRenduMessage] = useState<CompteRenduMessage>(() => createCompteRenduMessage());
   const [validatedAmbiance, setValidatedAmbiance] = useState<AmbianceMessage | null>(null);
   const [validatedCompteRendu, setValidatedCompteRendu] = useState<CompteRenduMessage | null>(null);
+  // Dictée vocale — onglet Messages
+  const [listeningField, setListeningField] = useState<string | null>(null);
+  const speechServiceRef = useRef<SpeechRecognitionService | null>(null);
+
+  const ensureSpeechService = useCallback(() => {
+    if (!speechServiceRef.current) {
+      speechServiceRef.current = new SpeechRecognitionService();
+    }
+    return speechServiceRef.current;
+  }, []);
+
+  const stopDictation = useCallback(() => {
+    ensureSpeechService().stop();
+    setListeningField(null);
+  }, [ensureSpeechService]);
+
+  const startDictation = useCallback((
+    field: string,
+    setValue: (v: string) => void
+  ) => {
+    const service = ensureSpeechService();
+    if (!service.isRecognitionSupported()) {
+      return;
+    }
+    service.start({
+      onStart: () => setListeningField(field),
+      onEnd: () => setListeningField(null),
+      onError: () => {
+        setListeningField(null);
+      },
+      onResult: (text) => setValue(text),
+    });
+  }, [ensureSpeechService]);
+
   const [messageSubTab, setMessageSubTab] = useState<'ambiance' | 'compte-rendu'>('ambiance');
   const [validatedMessagesExpanded, setValidatedMessagesExpanded] = useState(false);
   const boardRef = React.useRef<HTMLDivElement>(null);
@@ -767,16 +802,23 @@ const DictationInput = () => {
             <div className="grid grid-cols-1 md:grid-cols-[1.4fr,0.6fr] gap-3">
               <div className="space-y-1 md:w-[70%]">
                 <label className="text-sm font-medium text-slate-600 dark:text-gray-400 ml-2">Adresse de l'intervention</label>
-                <input
-                  value={address}
-                  onChange={(e) => {
-                    setAddress(e.target.value);
-                    setSoiecAddressValidated(false);
-                  }}
-                  placeholder="Ex: 12 rue de la Paix"
-                  disabled={isOiLocked}
-                  className="w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
-                />
+                <div className="relative">
+                  <input
+                    value={address}
+                    onChange={(e) => {
+                      setAddress(e.target.value);
+                      setSoiecAddressValidated(false);
+                    }}
+                    placeholder="Ex: 12 rue de la Paix"
+                    disabled={isOiLocked}
+                    className="w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 pr-10 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                  />
+                  {!isOiLocked && (
+                    <button type="button" onClick={() => listeningField === 'addr' ? stopDictation() : startDictation('addr', (v) => { setAddress(v); setSoiecAddressValidated(false); })} className={`absolute inset-y-0 right-2 flex items-center p-1.5 rounded-lg transition ${listeningField === 'addr' ? 'text-red-400 bg-red-500/10' : 'text-slate-400 hover:text-blue-500 hover:bg-blue-500/10'}`} title={listeningField === 'addr' ? 'Arrêter la dictée' : 'Dicter'}>
+                      {listeningField === 'addr' ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium text-slate-600 dark:text-gray-400 ml-2">Ville</label>
@@ -826,13 +868,20 @@ const DictationInput = () => {
             <div className="grid grid-cols-1 md:grid-cols-[1.4fr,0.6fr] gap-3">
               <div className="space-y-1 md:w-[70%]">
                 <label className="text-sm font-medium text-slate-600 dark:text-gray-400 ml-2">Renseignements complémentaires</label>
-                <input
-                  value={additionalInfo}
-                  onChange={(e) => setAdditionalInfo(e.target.value)}
-                  placeholder={ADDITIONAL_INFO_PLACEHOLDER}
-                  disabled={isOiLocked}
-                  className="w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
-                />
+                <div className="relative">
+                  <input
+                    value={additionalInfo}
+                    onChange={(e) => setAdditionalInfo(e.target.value)}
+                    placeholder={ADDITIONAL_INFO_PLACEHOLDER}
+                    disabled={isOiLocked}
+                    className="w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 pr-10 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                  />
+                  {!isOiLocked && (
+                    <button type="button" onClick={() => listeningField === 'addInfo' ? stopDictation() : startDictation('addInfo', (v) => setAdditionalInfo(v))} className={`absolute inset-y-0 right-2 flex items-center p-1.5 rounded-lg transition ${listeningField === 'addInfo' ? 'text-red-400 bg-red-500/10' : 'text-slate-400 hover:text-blue-500 hover:bg-blue-500/10'}`} title={listeningField === 'addInfo' ? 'Arrêter la dictée' : 'Dicter'}>
+                      {listeningField === 'addInfo' ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium text-slate-600 dark:text-gray-400 ml-2">Groupe horaire</label>
@@ -1167,66 +1216,111 @@ const DictationInput = () => {
                       Utiliser l&apos;adresse
                     </button>
                   </div>
-                  <textarea
-                    value={isAmbianceTab ? ambianceMessage.jeSuis : compteRenduMessage.jeSuis}
-                    onChange={(e) => isAmbianceTab
-                      ? setAmbianceMessage((prev) => ({ ...prev, jeSuis: e.target.value, addressConfirmed: false }))
-                      : setCompteRenduMessage((prev) => ({ ...prev, jeSuis: e.target.value, addressConfirmed: false }))
-                    }
-                    rows={2}
-                    placeholder="Votre position, votre mission, votre action en cours."
-                    className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
-                  />
+                  <div className="relative">
+                    <textarea
+                      value={isAmbianceTab ? ambianceMessage.jeSuis : compteRenduMessage.jeSuis}
+                      onChange={(e) => isAmbianceTab
+                        ? setAmbianceMessage((prev) => ({ ...prev, jeSuis: e.target.value, addressConfirmed: false }))
+                        : setCompteRenduMessage((prev) => ({ ...prev, jeSuis: e.target.value, addressConfirmed: false }))
+                      }
+                      rows={2}
+                      placeholder="Votre position, votre mission, votre action en cours."
+                      className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 pr-10 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
+                    />
+                    <button type="button"
+                      onClick={() => { const fk = isAmbianceTab ? 'amb-jeSuis' : 'cr-jeSuis'; if (listeningField === fk) { stopDictation(); } else { startDictation(fk, (v) => isAmbianceTab ? setAmbianceMessage(prev => ({ ...prev, jeSuis: v, addressConfirmed: false })) : setCompteRenduMessage(prev => ({ ...prev, jeSuis: v, addressConfirmed: false }))); } }}
+                      className={`absolute bottom-2 right-2 p-1.5 rounded-lg transition ${(isAmbianceTab ? listeningField === 'amb-jeSuis' : listeningField === 'cr-jeSuis') ? 'text-red-400 bg-red-500/10' : 'text-slate-400 hover:text-blue-500 hover:bg-blue-500/10'}`}
+                      title={(isAmbianceTab ? listeningField === 'amb-jeSuis' : listeningField === 'cr-jeSuis') ? 'Arrêter la dictée' : 'Dicter'}
+                    >
+                      {(isAmbianceTab ? listeningField === 'amb-jeSuis' : listeningField === 'cr-jeSuis') ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je vois</label>
-                  <textarea
-                    value={isAmbianceTab ? ambianceMessage.jeVois : compteRenduMessage.jeVois}
-                    onChange={(e) => isAmbianceTab
-                      ? setAmbianceMessage((prev) => ({ ...prev, jeVois: e.target.value }))
-                      : setCompteRenduMessage((prev) => ({ ...prev, jeVois: e.target.value }))
-                    }
-                    rows={2}
-                    placeholder={isAmbianceTab ? 'Ce que vous observez sur place.' : 'Ce que vous constatez sur place.'}
-                    className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
-                  />
+                  <div className="relative">
+                    <textarea
+                      value={isAmbianceTab ? ambianceMessage.jeVois : compteRenduMessage.jeVois}
+                      onChange={(e) => isAmbianceTab
+                        ? setAmbianceMessage((prev) => ({ ...prev, jeVois: e.target.value }))
+                        : setCompteRenduMessage((prev) => ({ ...prev, jeVois: e.target.value }))
+                      }
+                      rows={2}
+                      placeholder={isAmbianceTab ? 'Ce que vous observez sur place.' : 'Ce que vous constatez sur place.'}
+                      className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 pr-10 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
+                    />
+                    <button type="button"
+                      onClick={() => { const fk = isAmbianceTab ? 'amb-jeVois' : 'cr-jeVois'; if (listeningField === fk) { stopDictation(); } else { startDictation(fk, (v) => isAmbianceTab ? setAmbianceMessage(prev => ({ ...prev, jeVois: v })) : setCompteRenduMessage(prev => ({ ...prev, jeVois: v }))); } }}
+                      className={`absolute bottom-2 right-2 p-1.5 rounded-lg transition ${(isAmbianceTab ? listeningField === 'amb-jeVois' : listeningField === 'cr-jeVois') ? 'text-red-400 bg-red-500/10' : 'text-slate-400 hover:text-blue-500 hover:bg-blue-500/10'}`}
+                      title={(isAmbianceTab ? listeningField === 'amb-jeVois' : listeningField === 'cr-jeVois') ? 'Arrêter la dictée' : 'Dicter'}
+                    >
+                      {(isAmbianceTab ? listeningField === 'amb-jeVois' : listeningField === 'cr-jeVois') ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
                 {!isAmbianceTab && (
                   <>
                     <div className="space-y-1">
                       <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je prévois</label>
-                      <textarea
-                        value={compteRenduMessage.jePrevois}
-                        onChange={(e) => setCompteRenduMessage((prev) => ({ ...prev, jePrevois: e.target.value }))}
-                        rows={2}
-                        placeholder="Hypothèses ou prochaines actions."
-                        className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
-                      />
+                      <div className="relative">
+                        <textarea
+                          value={compteRenduMessage.jePrevois}
+                          onChange={(e) => setCompteRenduMessage((prev) => ({ ...prev, jePrevois: e.target.value }))}
+                          rows={2}
+                          placeholder="Hypothèses ou prochaines actions."
+                          className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 pr-10 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
+                        />
+                        <button type="button"
+                          onClick={() => { if (listeningField === 'cr-jePrevois') { stopDictation(); } else { startDictation('cr-jePrevois', (v) => setCompteRenduMessage(prev => ({ ...prev, jePrevois: v }))); } }}
+                          className={`absolute bottom-2 right-2 p-1.5 rounded-lg transition ${listeningField === 'cr-jePrevois' ? 'text-red-400 bg-red-500/10' : 'text-slate-400 hover:text-blue-500 hover:bg-blue-500/10'}`}
+                          title={listeningField === 'cr-jePrevois' ? 'Arrêter la dictée' : 'Dicter'}
+                        >
+                          {listeningField === 'cr-jePrevois' ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                        </button>
+                      </div>
                     </div>
                     <div className="space-y-1">
                       <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je fais</label>
-                      <textarea
-                        value={compteRenduMessage.jeFais}
-                        onChange={(e) => setCompteRenduMessage((prev) => ({ ...prev, jeFais: e.target.value }))}
-                        rows={2}
-                        placeholder="Actions en cours ou réalisées."
-                        className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
-                      />
+                      <div className="relative">
+                        <textarea
+                          value={compteRenduMessage.jeFais}
+                          onChange={(e) => setCompteRenduMessage((prev) => ({ ...prev, jeFais: e.target.value }))}
+                          rows={2}
+                          placeholder="Actions en cours ou réalisées."
+                          className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 pr-10 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
+                        />
+                        <button type="button"
+                          onClick={() => { if (listeningField === 'cr-jeFais') { stopDictation(); } else { startDictation('cr-jeFais', (v) => setCompteRenduMessage(prev => ({ ...prev, jeFais: v }))); } }}
+                          className={`absolute bottom-2 right-2 p-1.5 rounded-lg transition ${listeningField === 'cr-jeFais' ? 'text-red-400 bg-red-500/10' : 'text-slate-400 hover:text-blue-500 hover:bg-blue-500/10'}`}
+                          title={listeningField === 'cr-jeFais' ? 'Arrêter la dictée' : 'Dicter'}
+                        >
+                          {listeningField === 'cr-jeFais' ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                        </button>
+                      </div>
                     </div>
                   </>
                 )}
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je demande</label>
-                  <textarea
-                    value={isAmbianceTab ? ambianceMessage.jeDemande : compteRenduMessage.jeDemande}
-                    onChange={(e) => isAmbianceTab
-                      ? setAmbianceMessage((prev) => ({ ...prev, jeDemande: e.target.value }))
-                      : setCompteRenduMessage((prev) => ({ ...prev, jeDemande: e.target.value }))
-                    }
-                    rows={2}
-                    placeholder="Renforts, moyens, consignes."
-                    className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
-                  />
+                  <div className="relative">
+                    <textarea
+                      value={isAmbianceTab ? ambianceMessage.jeDemande : compteRenduMessage.jeDemande}
+                      onChange={(e) => isAmbianceTab
+                        ? setAmbianceMessage((prev) => ({ ...prev, jeDemande: e.target.value }))
+                        : setCompteRenduMessage((prev) => ({ ...prev, jeDemande: e.target.value }))
+                      }
+                      rows={2}
+                      placeholder="Renforts, moyens, consignes."
+                      className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 pr-10 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
+                    />
+                    <button type="button"
+                      onClick={() => { const fk = isAmbianceTab ? 'amb-jeDemande' : 'cr-jeDemande'; if (listeningField === fk) { stopDictation(); } else { startDictation(fk, (v) => isAmbianceTab ? setAmbianceMessage(prev => ({ ...prev, jeDemande: v })) : setCompteRenduMessage(prev => ({ ...prev, jeDemande: v }))); } }}
+                      className={`absolute bottom-2 right-2 p-1.5 rounded-lg transition ${(isAmbianceTab ? listeningField === 'amb-jeDemande' : listeningField === 'cr-jeDemande') ? 'text-red-400 bg-red-500/10' : 'text-slate-400 hover:text-blue-500 hover:bg-blue-500/10'}`}
+                      title={(isAmbianceTab ? listeningField === 'amb-jeDemande' : listeningField === 'cr-jeDemande') ? 'Arrêter la dictée' : 'Dicter'}
+                    >
+                      {(isAmbianceTab ? listeningField === 'amb-jeDemande' : listeningField === 'cr-jeDemande') ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
                 <DemandesSection
                   value={isAmbianceTab ? ambianceMessage.demandes : compteRenduMessage.demandes}
