@@ -491,13 +491,12 @@ const DictationInput = () => {
   ) => {
     const service = ensureSpeechService();
     if (!service.isRecognitionSupported()) {
-      setDictationError('La reconnaissance vocale n\'est pas supportée par votre navigateur.');
       return;
     }
     service.start({
       onStart: () => setListeningField(field),
       onEnd: () => setListeningField(null),
-      onError: (err) => {
+      onError: () => {
         setListeningField(null);
       },
       onResult: (text) => setValue(text),
