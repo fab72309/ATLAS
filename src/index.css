@@ -78,31 +78,16 @@
   .btn-neutral {
     @apply text-slate-700 dark:text-gray-200;
     background-color: transparent;
-    --btn-pill: rgba(15, 23, 42, 0.08);
   }
 
   .btn-success {
     @apply text-emerald-700 dark:text-emerald-300;
     background-color: transparent;
-    --btn-pill: rgba(16, 185, 129, 0.18);
   }
 
   .btn-danger {
     @apply text-red-600 dark:text-red-300;
     background-color: transparent;
-    --btn-pill: rgba(239, 68, 68, 0.18);
-  }
-
-  html.dark .btn-neutral {
-    --btn-pill: rgba(148, 163, 184, 0.18);
-  }
-
-  html.dark .btn-success {
-    --btn-pill: rgba(16, 185, 129, 0.25);
-  }
-
-  html.dark .btn-danger {
-    --btn-pill: rgba(239, 68, 68, 0.25);
   }
 }
 
