@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
+import { useParams, useLocation } from 'react-router-dom';
 import { ClipboardCopy, Share2, FileText, ImageDown, Check, QrCode, LocateFixed, Archive, Clock } from 'lucide-react';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
-import { saveDictationData, saveCommunicationData } from '../utils/dataStore';
 import QRCode from 'react-qr-code';
 import DominantSelector, { DominanteType } from '../components/DominantSelector';
 import OrdreInitialView from '../components/OrdreInitialView';
@@ -16,7 +14,6 @@ import {
   getSimpleSectionContentList,
   getSimpleSectionText
 } from '../utils/soiec';
-import { addToHistory } from '../utils/history';
 import { exportBoardDesignImage, exportBoardDesignPdf, exportBoardDesignWordEditable, exportOrdreToClipboard, exportOrdreToImage, exportOrdreToPdf, shareOrdreAsText } from '../utils/export';
 import MeansModal from '../components/MeansModal';
 import type { MeanItem } from '../types/means';
@@ -416,8 +413,6 @@ const DictationInput = () => {
   const [ordreData, setOrdreData] = useState<OrdreInitial | null>(null);
   const [selectedRisks, setSelectedRisks] = useState<DominanteType[]>([]);
   const address = useInterventionStore((s) => s.address);
-  const streetNumber = useInterventionStore((s) => s.streetNumber);
-  const streetName = useInterventionStore((s) => s.streetName);
   const city = useInterventionStore((s) => s.city);
   const setAddress = useInterventionStore((s) => s.setAddress);
   const setCity = useInterventionStore((s) => s.setCity);
@@ -446,7 +441,6 @@ const DictationInput = () => {
   const [conduiteAdditionalInfo, setConduiteAdditionalInfo] = useState('');
   const [conduiteOrderTime, setConduiteOrderTime] = useState('');
   const [conduiteTimeValidated, setConduiteTimeValidated] = useState(false);
-  const navigate = useNavigate();
   const location = useLocation();
   const [showShareHint, setShowShareHint] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
@@ -461,7 +455,6 @@ const DictationInput = () => {
   const hydratedOrdreConduite = useInterventionStore((s) => s.hydratedOrdreConduite);
   const ordreInitialHistory = useInterventionStore((s) => s.ordreInitialHistory);
   const ordreConduiteHistory = useInterventionStore((s) => s.ordreConduiteHistory);
-  const oiLogicalId = useInterventionStore((s) => s.oiLogicalId);
   const conduiteLogicalId = useInterventionStore((s) => s.conduiteLogicalId);
   const lastHydratedInterventionId = useInterventionStore((s) => s.lastHydratedInterventionId);
   const selectedMeans = useMeansStore((s) => s.selectedMeans);
@@ -757,51 +750,6 @@ const DictationInput = () => {
   }, [setLocation]);
 
   const soiecLabel = isExtendedOps ? 'SAOIECL' : 'SOIEC';
-  const buildOiPayloadData = React.useCallback(() => {
-    if (!ordreData) return null;
-    const commandLevel = type === 'group' ? 'CDG' : type === 'column' ? 'CDC' : type === 'site' ? 'CDS' : 'CDG';
-    const situationText = getSimpleSectionText(ordreData.S);
-    const commandementText = getSimpleSectionText(ordreData.C);
-    const objectifsList = getSimpleSectionContentList(ordreData.O);
-    const anticipationList = getSimpleSectionContentList(ordreData.A);
-    const logistiqueList = getSimpleSectionContentList(ordreData.L);
-    const ideeManoeuvre = ordreData.I.filter((idea) => idea?.type !== 'separator' && idea?.type !== 'empty');
-    const execution = Array.isArray(ordreData.E)
-      ? ordreData.E.filter((entry) => {
-          if (!entry || typeof entry !== 'object') return true;
-          const record = entry as unknown as Record<string, unknown>;
-          return record.type !== 'separator' && record.type !== 'empty';
-        })
-      : ordreData.E ?? '';
-    return {
-      schema_version: 1,
-      command_level: commandLevel,
-      command_level_key: type,
-      ordreData,
-      address: {
-        address,
-        city,
-        street_number: streetNumber || undefined,
-        street_name: streetName || undefined
-      },
-      soiec: {
-        situation: situationText,
-        objectifs: objectifsList,
-        idee_manoeuvre: ideeManoeuvre,
-        execution,
-        commandement: commandementText,
-        anticipation: anticipationList,
-        logistique: logistiqueList
-      },
-      meta: {
-        soiec_type: soiecLabel,
-        selected_risks: selectedRisks,
-        additional_info: additionalInfo,
-        order_time: orderTime,
-        author_role: roleLabel
-      }
-    };
-  }, [ordreData, type, address, city, streetNumber, streetName, soiecLabel, selectedRisks, additionalInfo, orderTime, roleLabel]);
   const tabs = [
     { id: 'moyens' as const, label: 'Moyens' },
     { id: 'message' as const, label: 'Messages' },
