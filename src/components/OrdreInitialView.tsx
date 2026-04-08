@@ -1566,7 +1566,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
                     <button
                       type="button"
                       onClick={() => (isListening ? stopDictation() : startDictation('content'))}
-                      className={`absolute bottom-3 right-3 w-7 h-7 rounded-full border flex items-center justify-center transition ${
+                      className={`absolute bottom-4 right-4 w-7 h-7 rounded-full border flex items-center justify-center transition ${
                         isListening
                           ? 'bg-red-500/20 text-red-200 border-red-500/40'
                           : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'
@@ -1588,7 +1588,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
                         document.addEventListener('mousemove', onMove);
                         document.addEventListener('mouseup', onUp);
                       }}
-                      className="absolute bottom-1 right-1 w-4 h-4 cursor-s-resize select-none opacity-30 hover:opacity-60 transition-opacity"
+                      className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 cursor-s-resize select-none opacity-25 hover:opacity-55 transition-opacity"
                       title="Redimensionner"
                       style={{ backgroundImage: 'linear-gradient(135deg,transparent 0 55%,rgba(148,163,184,0.9) 55% 65%,transparent 65%),linear-gradient(135deg,transparent 0 70%,rgba(148,163,184,0.7) 70% 80%,transparent 80%),linear-gradient(135deg,transparent 0 85%,rgba(148,163,184,0.5) 85% 95%,transparent 95%)', backgroundRepeat: 'no-repeat', backgroundSize: '14px 14px', backgroundPosition: 'center' }}
                     />
@@ -1625,7 +1625,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
                     <button
                       type="button"
                       onClick={() => (isListening ? stopDictation() : startDictation('content'))}
-                      className={`absolute bottom-3 right-3 w-7 h-7 rounded-full border flex items-center justify-center transition ${
+                      className={`absolute bottom-4 right-4 w-7 h-7 rounded-full border flex items-center justify-center transition ${
                         isListening
                           ? 'bg-red-500/20 text-red-200 border-red-500/40'
                           : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'
@@ -1647,7 +1647,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
                         document.addEventListener('mousemove', onMove);
                         document.addEventListener('mouseup', onUp);
                       }}
-                      className="absolute bottom-1 right-1 w-4 h-4 cursor-s-resize select-none opacity-30 hover:opacity-60 transition-opacity"
+                      className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 cursor-s-resize select-none opacity-25 hover:opacity-55 transition-opacity"
                       title="Redimensionner"
                       style={{ backgroundImage: 'linear-gradient(135deg,transparent 0 55%,rgba(148,163,184,0.9) 55% 65%,transparent 65%),linear-gradient(135deg,transparent 0 70%,rgba(148,163,184,0.7) 70% 80%,transparent 80%),linear-gradient(135deg,transparent 0 85%,rgba(148,163,184,0.5) 85% 95%,transparent 95%)', backgroundRepeat: 'no-repeat', backgroundSize: '14px 14px', backgroundPosition: 'center' }}
                     />
