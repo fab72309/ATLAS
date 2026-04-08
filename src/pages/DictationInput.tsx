@@ -475,6 +475,8 @@ const DictationInput = () => {
   const [compteRenduMessage, setCompteRenduMessage] = useState<CompteRenduMessage>(() => createCompteRenduMessage());
   const [validatedAmbiance, setValidatedAmbiance] = useState<AmbianceMessage | null>(null);
   const [validatedCompteRendu, setValidatedCompteRendu] = useState<CompteRenduMessage | null>(null);
+  const [messageSubTab, setMessageSubTab] = useState<'ambiance' | 'compte-rendu'>('ambiance');
+  const [validatedMessagesExpanded, setValidatedMessagesExpanded] = useState(false);
   const boardRef = React.useRef<HTMLDivElement>(null);
   const previousTabRef = React.useRef(activeTab);
   const lastAppliedHydrationRef = React.useRef<string | null>(null);
@@ -1023,6 +1025,7 @@ const DictationInput = () => {
       const hasValidatedMessages = Boolean(validatedAmbiance || validatedCompteRendu);
       const demandeOptions = settings.messageDemandeOptions || [];
       const surLesLieuxOptions = settings.messageSurLesLieuxOptions || [];
+      const isAmbianceTab = messageSubTab === 'ambiance';
       const ambianceDemandesSummary = validatedAmbiance
         ? buildMessageDemandesSummary(validatedAmbiance.demandes, demandeOptions)
         : [];
@@ -1037,143 +1040,118 @@ const DictationInput = () => {
         : [];
       return (
         <div className="space-y-4">
-          <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white/90 dark:bg-white/5 p-4 md:p-5 space-y-4 shadow-sm">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div>
-                <p className="text-xs uppercase text-slate-500 dark:text-gray-400 tracking-[0.2em]">Messages validés</p>
-              </div>
-              <span className="text-xs text-slate-500 dark:text-gray-400">Derniers messages validés</span>
+          {hasValidatedMessages && (
+            <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white/90 dark:bg-white/5 shadow-sm overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setValidatedMessagesExpanded((v) => !v)}
+                className="w-full flex items-center justify-between gap-2 px-4 py-3 text-left hover:bg-slate-50/60 dark:hover:bg-white/5 transition"
+              >
+                <div className="flex items-center gap-2">
+                  <Check className="w-4 h-4 text-emerald-500" />
+                  <span className="text-sm font-medium text-slate-700 dark:text-gray-200">Messages validés</span>
+                  <span className="text-xs text-slate-400 dark:text-gray-500">
+                    {[validatedAmbiance && 'Ambiance', validatedCompteRendu && 'Compte rendu'].filter(Boolean).join(' · ')}
+                  </span>
+                </div>
+                <svg
+                  className={`w-4 h-4 text-slate-400 transition-transform ${validatedMessagesExpanded ? 'rotate-180' : ''}`}
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {validatedMessagesExpanded && (
+                <div className="px-4 pb-4 grid grid-cols-1 lg:grid-cols-2 gap-3">
+                  {validatedAmbiance && (
+                    <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 p-3 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-sm font-semibold text-slate-800 dark:text-gray-100">Ambiance</div>
+                        <div className="text-xs text-slate-500 dark:text-gray-400">{validatedAmbiance.date} {validatedAmbiance.time}</div>
+                      </div>
+                      {[
+                        { label: 'Je suis', value: validatedAmbiance.jeSuis },
+                        { label: 'Je vois', value: validatedAmbiance.jeVois },
+                        { label: 'Je demande', value: validatedAmbiance.jeDemande },
+                        { label: 'Demandes', value: ambianceDemandesSummary.join(', ') || null },
+                        { label: 'Sur les lieux', value: ambianceSurLesLieuxSummary.join(', ') || null },
+                      ].map(({ label, value }) => value ? (
+                        <div key={label}>
+                          <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">{label}</div>
+                          <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">{value}</div>
+                        </div>
+                      ) : null)}
+                    </div>
+                  )}
+                  {validatedCompteRendu && (
+                    <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 p-3 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-sm font-semibold text-slate-800 dark:text-gray-100">Compte rendu</div>
+                        <div className="text-xs text-slate-500 dark:text-gray-400">{validatedCompteRendu.date} {validatedCompteRendu.time}</div>
+                      </div>
+                      {[
+                        { label: 'Je suis', value: validatedCompteRendu.jeSuis },
+                        { label: 'Je vois', value: validatedCompteRendu.jeVois },
+                        { label: 'Je prévois', value: validatedCompteRendu.jePrevois },
+                        { label: 'Je fais', value: validatedCompteRendu.jeFais },
+                        { label: 'Je demande', value: validatedCompteRendu.jeDemande },
+                        { label: 'Demandes', value: compteRenduDemandesSummary.join(', ') || null },
+                        { label: 'Sur les lieux', value: compteRenduSurLesLieuxSummary.join(', ') || null },
+                      ].map(({ label, value }) => value ? (
+                        <div key={label}>
+                          <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">{label}</div>
+                          <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">{value}</div>
+                        </div>
+                      ) : null)}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white/90 dark:bg-white/5 shadow-sm overflow-hidden">
+            {/* Sous-onglets */}
+            <div className="flex border-b border-slate-200 dark:border-white/10">
+              {([
+                { id: 'ambiance', label: "Message d'ambiance", validated: validatedAmbiance },
+                { id: 'compte-rendu', label: 'Compte rendu', validated: validatedCompteRendu },
+              ] as const).map(({ id, label, validated }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setMessageSubTab(id)}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition border-b-2 ${
+                    messageSubTab === id
+                      ? 'border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-500/5'
+                      : 'border-transparent text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200'
+                  }`}
+                >
+                  {validated && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
+                  {label}
+                </button>
+              ))}
             </div>
 
-            {hasValidatedMessages ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                {validatedAmbiance && (
-                  <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 p-3 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="text-sm font-semibold text-slate-800 dark:text-gray-100">Message d&apos;ambiance</div>
-                      <div className="text-xs text-slate-500 dark:text-gray-400">
-                        {validatedAmbiance.date} {validatedAmbiance.time}
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <div>
-                        <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Je suis</div>
-                        <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">
-                          {validatedAmbiance.jeSuis || '-'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Je vois</div>
-                        <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">
-                          {validatedAmbiance.jeVois || '-'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Je demande</div>
-                        <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">
-                          {validatedAmbiance.jeDemande || '-'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Demandes</div>
-                        <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">
-                          {ambianceDemandesSummary.length ? ambianceDemandesSummary.join(', ') : '-'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Sur les lieux</div>
-                        <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">
-                          {ambianceSurLesLieuxSummary.length ? ambianceSurLesLieuxSummary.join(', ') : '-'}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {validatedCompteRendu && (
-                  <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 p-3 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="text-sm font-semibold text-slate-800 dark:text-gray-100">Message de compte rendu</div>
-                      <div className="text-xs text-slate-500 dark:text-gray-400">
-                        {validatedCompteRendu.date} {validatedCompteRendu.time}
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <div>
-                        <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Je suis</div>
-                        <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">
-                          {validatedCompteRendu.jeSuis || '-'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Je vois</div>
-                        <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">
-                          {validatedCompteRendu.jeVois || '-'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Je prévois</div>
-                        <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">
-                          {validatedCompteRendu.jePrevois || '-'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Je fais</div>
-                        <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">
-                          {validatedCompteRendu.jeFais || '-'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Je demande</div>
-                        <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">
-                          {validatedCompteRendu.jeDemande || '-'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Demandes</div>
-                        <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">
-                          {compteRenduDemandesSummary.length ? compteRenduDemandesSummary.join(', ') : '-'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Sur les lieux</div>
-                        <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">
-                          {compteRenduSurLesLieuxSummary.length ? compteRenduSurLesLieuxSummary.join(', ') : '-'}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="text-sm text-slate-500 dark:text-gray-400">
-                Aucun message validé pour le moment.
-              </div>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-            <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white/90 dark:bg-white/5 p-4 md:p-5 space-y-4 shadow-sm">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <h3 className="text-xl font-semibold">Message d&apos;ambiance</h3>
-                </div>
+            <div className="p-4 md:p-5 space-y-4">
+              <div className="flex items-center justify-between gap-2">
                 <span className="text-xs text-slate-500 dark:text-gray-400">{roleLabel || 'Chef de groupe'}</span>
+                {!isAddressAvailable && (
+                  <span className="text-xs text-amber-600 dark:text-amber-400">Adresse non renseignée</span>
+                )}
               </div>
 
+              {/* Date / Heure */}
               <div className="space-y-2">
                 <div className="flex flex-wrap items-end gap-3">
                   <div className="flex flex-col gap-1">
                     <label className="text-[10px] uppercase tracking-[0.25em] text-slate-500 dark:text-gray-400">Date</label>
                     <input
                       type="date"
-                      value={ambianceMessage.date}
-                      onChange={(e) =>
-                        setAmbianceMessage((prev) => ({
-                          ...prev,
-                          date: e.target.value,
-                          stamped: false
-                        }))
+                      value={isAmbianceTab ? ambianceMessage.date : compteRenduMessage.date}
+                      onChange={(e) => isAmbianceTab
+                        ? setAmbianceMessage((prev) => ({ ...prev, date: e.target.value, stamped: false }))
+                        : setCompteRenduMessage((prev) => ({ ...prev, date: e.target.value, stamped: false }))
                       }
                       className="w-44 bg-white dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 shadow-sm"
                     />
@@ -1182,13 +1160,10 @@ const DictationInput = () => {
                     <label className="text-[10px] uppercase tracking-[0.25em] text-slate-500 dark:text-gray-400">Heure</label>
                     <input
                       type="time"
-                      value={ambianceMessage.time}
-                      onChange={(e) =>
-                        setAmbianceMessage((prev) => ({
-                          ...prev,
-                          time: e.target.value,
-                          stamped: false
-                        }))
+                      value={isAmbianceTab ? ambianceMessage.time : compteRenduMessage.time}
+                      onChange={(e) => isAmbianceTab
+                        ? setAmbianceMessage((prev) => ({ ...prev, time: e.target.value, stamped: false }))
+                        : setCompteRenduMessage((prev) => ({ ...prev, time: e.target.value, stamped: false }))
                       }
                       className="w-28 bg-white dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 shadow-sm"
                     />
@@ -1197,28 +1172,28 @@ const DictationInput = () => {
                     type="button"
                     onClick={() => {
                       const nowStamp = getNowStamp();
-                      setAmbianceMessage((prev) => ({
-                        ...prev,
-                        stamped: true,
-                        date: prev.date || nowStamp.date,
-                        time: prev.time || nowStamp.time
-                      }));
+                      if (isAmbianceTab) {
+                        setAmbianceMessage((prev) => ({ ...prev, stamped: true, date: prev.date || nowStamp.date, time: prev.time || nowStamp.time }));
+                      } else {
+                        setCompteRenduMessage((prev) => ({ ...prev, stamped: true, date: prev.date || nowStamp.date, time: prev.time || nowStamp.time }));
+                      }
                     }}
                     className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-semibold transition btn-success ${
-                      ambianceMessage.stamped
+                      (isAmbianceTab ? ambianceMessage.stamped : compteRenduMessage.stamped)
                         ? 'bg-emerald-600/15 text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-500/40'
                         : ''
                     }`}
                   >
                     <Check className="w-4 h-4" />
-                    Valider
+                    Horodater
                   </button>
                 </div>
-                {ambianceMessage.stamped && (
+                {(isAmbianceTab ? ambianceMessage.stamped : compteRenduMessage.stamped) && (
                   <div className="text-xs text-emerald-600 dark:text-emerald-400">Date/heure validées.</div>
                 )}
               </div>
 
+              {/* Champs */}
               <div className="space-y-3">
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1227,15 +1202,15 @@ const DictationInput = () => {
                       type="button"
                       onClick={() => {
                         if (!isAddressAvailable) return;
-                        setAmbianceMessage((prev) => ({
-                          ...prev,
-                          jeSuis: fullAddress,
-                          addressConfirmed: true
-                        }));
+                        if (isAmbianceTab) {
+                          setAmbianceMessage((prev) => ({ ...prev, jeSuis: fullAddress, addressConfirmed: true }));
+                        } else {
+                          setCompteRenduMessage((prev) => ({ ...prev, jeSuis: fullAddress, addressConfirmed: true }));
+                        }
                       }}
                       disabled={!isAddressAvailable}
                       className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold transition btn-success ${
-                        ambianceMessage.addressConfirmed
+                        (isAmbianceTab ? ambianceMessage.addressConfirmed : compteRenduMessage.addressConfirmed)
                           ? 'bg-emerald-600/15 text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-500/40'
                           : ''
                       } ${!isAddressAvailable ? 'opacity-60 cursor-not-allowed' : ''}`}
@@ -1245,239 +1220,80 @@ const DictationInput = () => {
                     </button>
                   </div>
                   <textarea
-                    value={ambianceMessage.jeSuis}
-                    onChange={(e) =>
-                      setAmbianceMessage((prev) => ({
-                        ...prev,
-                        jeSuis: e.target.value,
-                        addressConfirmed: false
-                      }))
+                    value={isAmbianceTab ? ambianceMessage.jeSuis : compteRenduMessage.jeSuis}
+                    onChange={(e) => isAmbianceTab
+                      ? setAmbianceMessage((prev) => ({ ...prev, jeSuis: e.target.value, addressConfirmed: false }))
+                      : setCompteRenduMessage((prev) => ({ ...prev, jeSuis: e.target.value, addressConfirmed: false }))
                     }
                     rows={2}
                     placeholder="Votre position, votre mission, votre action en cours."
                     className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
                   />
-                  {!isAddressAvailable && (
-                    <div className="text-xs text-amber-600 dark:text-amber-400">
-                      Adresse non renseignée dans l&apos;intervention.
-                    </div>
-                  )}
-                  {ambianceMessage.addressConfirmed && (
-                    <div className="text-xs text-emerald-600 dark:text-emerald-400">
-                      Adresse validée.
-                    </div>
-                  )}
                 </div>
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je vois</label>
-                  <input
-                    value={ambianceMessage.jeVois}
-                    onChange={(e) => setAmbianceMessage((prev) => ({ ...prev, jeVois: e.target.value }))}
-                    placeholder="Ce que vous observez sur place."
-                    className="w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je demande</label>
                   <textarea
-                    value={ambianceMessage.jeDemande}
-                    onChange={(e) => setAmbianceMessage((prev) => ({ ...prev, jeDemande: e.target.value }))}
+                    value={isAmbianceTab ? ambianceMessage.jeVois : compteRenduMessage.jeVois}
+                    onChange={(e) => isAmbianceTab
+                      ? setAmbianceMessage((prev) => ({ ...prev, jeVois: e.target.value }))
+                      : setCompteRenduMessage((prev) => ({ ...prev, jeVois: e.target.value }))
+                    }
                     rows={2}
-                    placeholder="Renforts, moyens, consignes."
+                    placeholder={isAmbianceTab ? 'Ce que vous observez sur place.' : 'Ce que vous constatez sur place.'}
                     className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
                   />
                 </div>
-                <DemandesSection
-                  value={ambianceMessage.demandes}
-                  onChange={(next) => setAmbianceMessage((prev) => ({ ...prev, demandes: next }))}
-                  options={demandeOptions}
-                />
-                <SurLesLieuxSection
-                  value={ambianceMessage.surLesLieux}
-                  onChange={(next) => setAmbianceMessage((prev) => ({ ...prev, surLesLieux: next }))}
-                  options={surLesLieuxOptions}
-                />
-              </div>
-
-              <div className="flex flex-wrap justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={handleValidateAmbiance}
-                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition border ${
-                    validatedAmbiance
-                      ? 'bg-emerald-600/15 text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-500/40'
-                      : 'btn-success'
-                  }`}
-                >
-                  <Check className="w-4 h-4" />
-                  {validatedAmbiance ? 'Message validé' : 'Valider le message'}
-                </button>
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white/90 dark:bg-white/5 p-4 md:p-5 space-y-4 shadow-sm">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <h3 className="text-xl font-semibold">Message de compte rendu</h3>
-                </div>
-                <span className="text-xs text-slate-500 dark:text-gray-400">{roleLabel || 'Chef de groupe'}</span>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex flex-wrap items-end gap-3">
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] uppercase tracking-[0.25em] text-slate-500 dark:text-gray-400">Date</label>
-                    <input
-                      type="date"
-                      value={compteRenduMessage.date}
-                      onChange={(e) =>
-                        setCompteRenduMessage((prev) => ({
-                          ...prev,
-                          date: e.target.value,
-                          stamped: false
-                        }))
-                      }
-                      className="w-44 bg-white dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 shadow-sm"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] uppercase tracking-[0.25em] text-slate-500 dark:text-gray-400">Heure</label>
-                    <input
-                      type="time"
-                      value={compteRenduMessage.time}
-                      onChange={(e) =>
-                        setCompteRenduMessage((prev) => ({
-                          ...prev,
-                          time: e.target.value,
-                          stamped: false
-                        }))
-                      }
-                      className="w-28 bg-white dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 shadow-sm"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const nowStamp = getNowStamp();
-                      setCompteRenduMessage((prev) => ({
-                        ...prev,
-                        stamped: true,
-                        date: prev.date || nowStamp.date,
-                        time: prev.time || nowStamp.time
-                      }));
-                    }}
-                    className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-semibold transition btn-success ${
-                      compteRenduMessage.stamped
-                        ? 'bg-emerald-600/15 text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-500/40'
-                        : ''
-                    }`}
-                  >
-                    <Check className="w-4 h-4" />
-                    Valider
-                  </button>
-                </div>
-                {compteRenduMessage.stamped && (
-                  <div className="text-xs text-emerald-600 dark:text-emerald-400">Date/heure validées.</div>
+                {!isAmbianceTab && (
+                  <>
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je prévois</label>
+                      <textarea
+                        value={compteRenduMessage.jePrevois}
+                        onChange={(e) => setCompteRenduMessage((prev) => ({ ...prev, jePrevois: e.target.value }))}
+                        rows={2}
+                        placeholder="Hypothèses ou prochaines actions."
+                        className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je fais</label>
+                      <textarea
+                        value={compteRenduMessage.jeFais}
+                        onChange={(e) => setCompteRenduMessage((prev) => ({ ...prev, jeFais: e.target.value }))}
+                        rows={2}
+                        placeholder="Actions en cours ou réalisées."
+                        className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
+                      />
+                    </div>
+                  </>
                 )}
-              </div>
-
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je suis</label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!isAddressAvailable) return;
-                        setCompteRenduMessage((prev) => ({
-                          ...prev,
-                          jeSuis: fullAddress,
-                          addressConfirmed: true
-                        }));
-                      }}
-                      disabled={!isAddressAvailable}
-                      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold transition btn-success ${
-                        compteRenduMessage.addressConfirmed
-                          ? 'bg-emerald-600/15 text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-500/40'
-                          : ''
-                      } ${!isAddressAvailable ? 'opacity-60 cursor-not-allowed' : ''}`}
-                    >
-                      <Check className="w-4 h-4" />
-                      Utiliser l&apos;adresse
-                    </button>
-                  </div>
-                  <textarea
-                    value={compteRenduMessage.jeSuis}
-                    onChange={(e) =>
-                      setCompteRenduMessage((prev) => ({
-                        ...prev,
-                        jeSuis: e.target.value,
-                        addressConfirmed: false
-                      }))
-                    }
-                    rows={2}
-                    placeholder="Votre position, votre mission, votre action en cours."
-                    className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
-                  />
-                  {!isAddressAvailable && (
-                    <div className="text-xs text-amber-600 dark:text-amber-400">
-                      Adresse non renseignée dans l&apos;intervention.
-                    </div>
-                  )}
-                  {compteRenduMessage.addressConfirmed && (
-                    <div className="text-xs text-emerald-600 dark:text-emerald-400">
-                      Adresse validée.
-                    </div>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je vois</label>
-                  <textarea
-                    value={compteRenduMessage.jeVois}
-                    onChange={(e) => setCompteRenduMessage((prev) => ({ ...prev, jeVois: e.target.value }))}
-                    rows={2}
-                    placeholder="Ce que vous constatez sur place."
-                    className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je prévois</label>
-                  <textarea
-                    value={compteRenduMessage.jePrevois}
-                    onChange={(e) => setCompteRenduMessage((prev) => ({ ...prev, jePrevois: e.target.value }))}
-                    rows={2}
-                    placeholder="Hypothèses ou prochaines actions."
-                    className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je fais</label>
-                  <textarea
-                    value={compteRenduMessage.jeFais}
-                    onChange={(e) => setCompteRenduMessage((prev) => ({ ...prev, jeFais: e.target.value }))}
-                    rows={2}
-                    placeholder="Actions en cours ou réalisées."
-                    className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
-                  />
-                </div>
                 <div className="space-y-1">
                   <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je demande</label>
                   <textarea
-                    value={compteRenduMessage.jeDemande}
-                    onChange={(e) => setCompteRenduMessage((prev) => ({ ...prev, jeDemande: e.target.value }))}
+                    value={isAmbianceTab ? ambianceMessage.jeDemande : compteRenduMessage.jeDemande}
+                    onChange={(e) => isAmbianceTab
+                      ? setAmbianceMessage((prev) => ({ ...prev, jeDemande: e.target.value }))
+                      : setCompteRenduMessage((prev) => ({ ...prev, jeDemande: e.target.value }))
+                    }
                     rows={2}
                     placeholder="Renforts, moyens, consignes."
                     className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
                   />
                 </div>
                 <DemandesSection
-                  value={compteRenduMessage.demandes}
-                  onChange={(next) => setCompteRenduMessage((prev) => ({ ...prev, demandes: next }))}
+                  value={isAmbianceTab ? ambianceMessage.demandes : compteRenduMessage.demandes}
+                  onChange={(next) => isAmbianceTab
+                    ? setAmbianceMessage((prev) => ({ ...prev, demandes: next }))
+                    : setCompteRenduMessage((prev) => ({ ...prev, demandes: next }))
+                  }
                   options={demandeOptions}
                 />
                 <SurLesLieuxSection
-                  value={compteRenduMessage.surLesLieux}
-                  onChange={(next) => setCompteRenduMessage((prev) => ({ ...prev, surLesLieux: next }))}
+                  value={isAmbianceTab ? ambianceMessage.surLesLieux : compteRenduMessage.surLesLieux}
+                  onChange={(next) => isAmbianceTab
+                    ? setAmbianceMessage((prev) => ({ ...prev, surLesLieux: next }))
+                    : setCompteRenduMessage((prev) => ({ ...prev, surLesLieux: next }))
+                  }
                   options={surLesLieuxOptions}
                 />
               </div>
@@ -1485,20 +1301,20 @@ const DictationInput = () => {
               <div className="flex flex-wrap justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={handleValidateCompteRendu}
+                  onClick={isAmbianceTab ? handleValidateAmbiance : handleValidateCompteRendu}
                   className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition border ${
-                    validatedCompteRendu
+                    (isAmbianceTab ? validatedAmbiance : validatedCompteRendu)
                       ? 'bg-emerald-600/15 text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-500/40'
                       : 'btn-success'
                   }`}
                 >
                   <Check className="w-4 h-4" />
-                  {validatedCompteRendu ? 'Message validé' : 'Valider le message'}
+                  {(isAmbianceTab ? validatedAmbiance : validatedCompteRendu) ? 'Message validé' : 'Valider le message'}
                 </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
       );
     }
 
@@ -2403,55 +2219,6 @@ const DictationInput = () => {
 
       {activeTab !== 'sitac' && activeTab !== 'moyens' && activeTab !== 'oct' && activeTab !== 'message' && (
         <>
-          <div className="grid w-full grid-cols-1 md:grid-cols-2 gap-3 mt-6 mb-[calc(env(safe-area-inset-bottom,0)+12px)]">
-            <button
-              onClick={() => {
-                if (type === 'communication') {
-                  handleSubmit();
-                } else {
-                  handleValidateOrdreInitial();
-                }
-              }}
-              disabled={isLoading}
-              data-no-pill
-              className={`group w-full transition-all duration-300 text-white py-4 rounded-2xl text-lg font-bold shadow-lg hover:-translate-y-0.5 flex items-center justify-center gap-3 ${
-                ordreValidatedAt
-                  ? 'bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 shadow-emerald-500/25 hover:shadow-emerald-500/40'
-                      : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 shadow-red-500/25 hover:shadow-red-500/40'
-                  } ${isLoading ? 'disabled:from-gray-700 disabled:to-gray-800' : ''}`}
-                >
-                  {isLoading ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Validation en cours...
-                    </>
-                  ) : ordreValidatedAt ? (
-                    <>
-                      Ordre initial validé à {ordreValidatedAt}
-                      <Check className="w-5 h-5 text-emerald-200 group-hover:text-white" />
-                    </>
-                  ) : (
-                    <>
-                      Valider l&apos;ordre initial
-                      <Sparkles className="w-5 h-5 text-blue-200 group-hover:text-white animate-pulse" />
-                    </>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleGenerateConduite}
-                  disabled={isLoading}
-                  data-no-pill
-                  className="group w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 disabled:from-gray-700 disabled:to-gray-800 transition-all duration-300 text-white py-4 rounded-2xl text-lg font-bold shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40 hover:-translate-y-0.5 flex items-center justify-center gap-3"
-                >
-                  Rédiger un ordre de conduite
-                  <FileText className="w-5 h-5 text-purple-200 group-hover:text-white" />
-                </button>
-              </div>
-
-              {showShareHint && activeTab === 'soiec' && (
-                <div className="text-xs text-red-400 mt-2 text-right">Ajoutez au moins un élément avant de partager.</div>
-              )}
 
               {showConduite && (
                 <div className="w-full mt-6">
