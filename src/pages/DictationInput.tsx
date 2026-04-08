@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { Sparkles, ClipboardCopy, Share2, FileText, ImageDown, Check, QrCode, LocateFixed, Archive, Clock } from 'lucide-react';
+import { ClipboardCopy, Share2, FileText, ImageDown, Check, QrCode, LocateFixed, Archive, Clock } from 'lucide-react';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { saveDictationData, saveCommunicationData } from '../utils/dataStore';
 import QRCode from 'react-qr-code';
@@ -432,7 +432,7 @@ const DictationInput = () => {
   const [soiecAddressValidated, setSoiecAddressValidated] = useState(false);
   const [soiecTimeValidated, setSoiecTimeValidated] = useState(false);
   const [orderTime, setOrderTime] = useState<string>(() => getLocalDateTime(new Date()));
-  const [isLoading, setIsLoading] = useState(false);
+
   const [isGeolocating, setIsGeolocating] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
   const [ordreValidatedAt, setOrdreValidatedAt] = useState<string | null>(null);
@@ -1675,28 +1675,6 @@ const DictationInput = () => {
     );
   };
 
-  const handleValidateOrdreInitial = () => {
-    if (!ordreData) {
-      alert('Veuillez remplir au moins une section avant de valider.');
-      return;
-    }
-    if (ordreValidatedAt && !isExtendedOps) return;
-    const payload = buildOiPayloadData();
-    if (!payload) {
-      alert('Impossible de préparer les données de validation.');
-      return;
-    }
-    const validatedLabel = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-    setOrdreValidatedAt(validatedLabel);
-    setLastOiValidatedAt(validatedLabel);
-    logInterventionEventSafe(
-      'OI_VALIDATED',
-      payload,
-      buildInterventionMetrics('dictation.soiec', { edit_count: selectedRisks.length }),
-      undefined,
-      oiLogicalId ? { logical_id: oiLogicalId } : undefined
-    );
-  };
 
   const handleValidateConduite = () => {
     if (!ordreConduite) {
@@ -1743,153 +1721,6 @@ const DictationInput = () => {
     setConduiteCity((prev) => (prev ? prev : city));
     setConduiteAdditionalInfo((prev) => (prev ? prev : additionalInfo));
     setConduiteOrderTime((prev) => (prev ? prev : orderTime));
-  };
-
-  const handleSubmit = async () => {
-    setIsLoading(true);
-    try { await Haptics.impact({ style: ImpactStyle.Light }); } catch (err) {
-      console.error('Haptics error', err);
-    }
-
-    try {
-      if (!ordreData) {
-        throw new Error('Veuillez remplir au moins une section avant de générer.');
-      }
-
-      const messageAmbiance = validatedAmbiance ?? ambianceMessage;
-      const messageCompteRendu = validatedCompteRendu ?? compteRenduMessage;
-      const dominante = selectedRisks.length > 0 ? selectedRisks[0] : 'Incendie';
-
-      if (type === 'communication') {
-        const situationText = getSimpleSectionText(ordreData.S);
-        const objectifsList = getSimpleSectionContentList(ordreData.O);
-        const ideeList = ordreData.I
-          .filter((idea) => idea?.type !== 'separator' && idea?.type !== 'empty')
-          .map((idea) => idea.mission);
-        const executionText = Array.isArray(ordreData.E)
-          ? ordreData.E
-              .filter((entry) => {
-                if (!entry || typeof entry !== 'object') return true;
-                const record = entry as unknown as Record<string, unknown>;
-                return record.type !== 'separator' && record.type !== 'empty';
-              })
-              .map((entry) => {
-                if (typeof entry === 'string') return entry;
-                const record = (entry ?? {}) as unknown as Record<string, unknown>;
-                const mission = typeof record.mission === 'string' ? record.mission : '';
-                const moyen = typeof record.moyen === 'string' ? record.moyen : '';
-                return mission || moyen ? `${mission}: ${moyen}`.trim() : JSON.stringify(entry);
-              })
-              .join('\\n')
-          : ordreData.E || '';
-        const commandementText = getSimpleSectionText(ordreData.C);
-        const communicationData = {
-          situation: `S: ${situationText}\\nO: ${objectifsList.join(', ')}\\nI: ${ideeList.join(', ')}\\nE: ${executionText}\\nC: ${commandementText}`,
-          groupe_horaire: new Date(),
-          Engagement_secours: '',
-          Situation_appel: '',
-          Situation_arrivee: '',
-          Nombre_victimes: '',
-          Moyens: '',
-          Actions_secours: '',
-          Conseils_population: '',
-          dominante,
-          message_ambiance: messageAmbiance,
-          message_compte_rendu: messageCompteRendu
-        };
-
-        await saveCommunicationData(communicationData);
-
-        addToHistory({
-          type: 'communication',
-          situation: communicationData.situation,
-          analysis: communicationData.situation
-        });
-
-        navigate('/results', {
-          state: {
-            analysis: communicationData.situation,
-            type: 'communication',
-            fromDictation: true
-          }
-        });
-      } else {
-        const anticipationItems = getSimpleSectionContentList(ordreData.A);
-        const logistiqueItems = getSimpleSectionContentList(ordreData.L);
-        const anticipation = anticipationItems.length > 0 ? anticipationItems.join('\\n') : undefined;
-        const logistique = logistiqueItems.length > 0 ? logistiqueItems.join('\\n') : undefined;
-        const situationText = getSimpleSectionText(ordreData.S);
-        const objectifsList = getSimpleSectionContentList(ordreData.O);
-        const commandementText = getSimpleSectionText(ordreData.C);
-        const dataToSave = {
-          type: type as 'group' | 'column' | 'site',
-          situation: situationText || '',
-          objectifs: objectifsList.join('\\n') || '',
-          idees: ordreData.I
-            .filter((idea) => idea?.type !== 'separator' && idea?.type !== 'empty')
-            .map((idea) => idea.mission)
-            .join('\\n') || '',
-          execution: Array.isArray(ordreData.E)
-            ? ordreData.E
-                .filter((entry) => {
-                  if (!entry || typeof entry !== 'object') return true;
-                  const record = entry as unknown as Record<string, unknown>;
-                  return record.type !== 'separator' && record.type !== 'empty';
-                })
-                .map((entry) => {
-                  if (typeof entry === 'string') return entry;
-                  const record = (entry ?? {}) as unknown as Record<string, unknown>;
-                  const mission = typeof record.mission === 'string' ? record.mission : '';
-                  const moyen = typeof record.moyen === 'string' ? record.moyen : '';
-                  return mission || moyen ? `${mission}: ${moyen}`.trim() : JSON.stringify(entry);
-                }).join('\\n')
-            : ordreData.E || '',
-          commandement: commandementText || '',
-          ...(anticipation !== undefined ? { anticipation } : {}),
-          ...(logistique !== undefined ? { logistique } : {}),
-          groupe_horaire: new Date(),
-          dominante,
-          adresse: address,
-          heure_ordre: orderTime,
-          moyens: selectedMeans,
-          message_ambiance: messageAmbiance,
-          message_compte_rendu: messageCompteRendu
-        };
-        await saveDictationData(dataToSave);
-
-        if (type === 'group' || type === 'column' || type === 'site') {
-          const analysisParts = [
-            dataToSave.anticipation,
-            dataToSave.objectifs,
-            dataToSave.idees,
-            dataToSave.execution,
-            dataToSave.commandement,
-            dataToSave.logistique
-          ].filter((part) => typeof part === 'string' && part.trim());
-          addToHistory({
-            type,
-            situation: dataToSave.situation,
-            analysis: analysisParts.join('\\n')
-          });
-        }
-
-        navigate('/results', {
-          state: {
-            ordre: ordreData,
-            type,
-            fromDictation: true,
-            isGroup: type === 'group',
-            adresse: address,
-            heure_ordre: orderTime
-          }
-        });
-      }
-    } catch (error) {
-      console.error('Error saving data:', error);
-      const message = error instanceof Error ? error.message : 'Une erreur est survenue lors de la sauvegarde. Veuillez réessayer.';
-      alert(message);
-    }
-    setIsLoading(false);
   };
 
   const meta = { adresse: address, heure: orderTime, role: roleLabel, moyens: selectedMeans };
