@@ -1,6 +1,6 @@
 # Changelog
 
-## Alpha-0.6.0 — 2026-04-08
+## Alpha-0.6.1 — 2026-04-08
 - Cartes du Recueil des moyens : texte centré et taille de police augmentée pour une meilleure ergonomie
 
 ## Alpha-0.2.4 — 2025-12-30

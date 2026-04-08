@@ -1,9 +1,30 @@
 import type { User } from '@supabase/supabase-js';
 import type { ProfileRow } from '../contexts/ProfileContext';
 
-export const isDevAuthBypassEnabled = () => (
-  import.meta.env.DEV && import.meta.env.VITE_DEV_AUTH_BYPASS === 'true'
-);
+const DEV_AUTH_BYPASS_STORAGE_KEY = 'atlas-dev-auth-bypass';
+
+const canUseDevBypass = () => import.meta.env.DEV;
+
+const readStoredDevBypass = () => {
+  if (typeof window === 'undefined') return false;
+  return window.localStorage.getItem(DEV_AUTH_BYPASS_STORAGE_KEY) === 'true';
+};
+
+export const isDevAuthBypassAvailable = () => canUseDevBypass();
+
+export const isDevAuthBypassEnabled = () => {
+  if (!canUseDevBypass()) return false;
+  return import.meta.env.VITE_DEV_AUTH_BYPASS === 'true' || readStoredDevBypass();
+};
+
+export const setDevAuthBypassEnabled = (enabled: boolean) => {
+  if (!canUseDevBypass() || typeof window === 'undefined') return;
+  if (enabled) {
+    window.localStorage.setItem(DEV_AUTH_BYPASS_STORAGE_KEY, 'true');
+    return;
+  }
+  window.localStorage.removeItem(DEV_AUTH_BYPASS_STORAGE_KEY);
+};
 
 export const buildDevBypassUser = (): User => ({
   id: 'dev-bypass-user',

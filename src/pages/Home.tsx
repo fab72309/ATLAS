@@ -81,9 +81,6 @@ const Home = () => {
                   <div className="flex h-20 w-20 items-center justify-center rounded-3xl border border-slate-200/90 bg-slate-200/85 shadow-xl transition-colors duration-500 group-hover:border-white/80 dark:border-white/5 dark:bg-black/45">
                     {card.icon}
                   </div>
-                  <div className="rounded-full border border-slate-200/80 bg-white/70 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-gray-400">
-                    Module
-                  </div>
                 </div>
 
                 <div className="mt-8 space-y-4">
