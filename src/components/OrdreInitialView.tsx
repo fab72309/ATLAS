@@ -1562,6 +1562,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
                       onFocus={() => clearAutoPlaceholder('content')}
                       rows={4}
                       className="w-full resize-none bg-black/30 border border-white/10 rounded p-2 pr-10 pb-8 text-white text-sm focus:border-blue-500 outline-none"
+                      style={{ backgroundImage: 'linear-gradient(135deg,transparent 0 55%,rgba(148,163,184,0.6) 55% 65%,transparent 65%),linear-gradient(135deg,transparent 0 70%,rgba(148,163,184,0.4) 70% 80%,transparent 80%),linear-gradient(135deg,transparent 0 85%,rgba(148,163,184,0.25) 85% 95%,transparent 95%)', backgroundRepeat: 'no-repeat', backgroundSize: '16px 16px', backgroundPosition: 'calc(100% - 6px) calc(100% - 6px)' }}
                     />
                     <button
                       type="button"
@@ -1588,9 +1589,8 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
                         document.addEventListener('mousemove', onMove);
                         document.addEventListener('mouseup', onUp);
                       }}
-                      className="absolute bottom-[6px] right-[6px] w-3.5 h-3.5 cursor-s-resize select-none opacity-30 hover:opacity-60 transition-opacity"
+                      className="absolute bottom-0 right-0 w-8 h-8 cursor-s-resize"
                       title="Redimensionner"
-                      style={{ backgroundImage: 'linear-gradient(135deg,transparent 0 55%,rgba(148,163,184,0.9) 55% 65%,transparent 65%),linear-gradient(135deg,transparent 0 70%,rgba(148,163,184,0.7) 70% 80%,transparent 80%),linear-gradient(135deg,transparent 0 85%,rgba(148,163,184,0.5) 85% 95%,transparent 95%)', backgroundRepeat: 'no-repeat', backgroundSize: '14px 14px', backgroundPosition: 'center' }}
                     />
                   </div>
                   {suggestions.length > 0 && (
@@ -1621,6 +1621,7 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
                       onFocus={() => clearAutoPlaceholder('content')}
                       rows={5}
                       className="w-full resize-none bg-black/30 border border-white/10 rounded p-2 pr-10 pb-8 text-white text-sm focus:border-blue-500 outline-none"
+                      style={{ backgroundImage: 'linear-gradient(135deg,transparent 0 55%,rgba(148,163,184,0.6) 55% 65%,transparent 65%),linear-gradient(135deg,transparent 0 70%,rgba(148,163,184,0.4) 70% 80%,transparent 80%),linear-gradient(135deg,transparent 0 85%,rgba(148,163,184,0.25) 85% 95%,transparent 95%)', backgroundRepeat: 'no-repeat', backgroundSize: '16px 16px', backgroundPosition: 'calc(100% - 6px) calc(100% - 6px)' }}
                     />
                     <button
                       type="button"
@@ -1647,9 +1648,8 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
                         document.addEventListener('mousemove', onMove);
                         document.addEventListener('mouseup', onUp);
                       }}
-                      className="absolute bottom-[6px] right-[6px] w-3.5 h-3.5 cursor-s-resize select-none opacity-30 hover:opacity-60 transition-opacity"
+                      className="absolute bottom-0 right-0 w-8 h-8 cursor-s-resize"
                       title="Redimensionner"
-                      style={{ backgroundImage: 'linear-gradient(135deg,transparent 0 55%,rgba(148,163,184,0.9) 55% 65%,transparent 65%),linear-gradient(135deg,transparent 0 70%,rgba(148,163,184,0.7) 70% 80%,transparent 80%),linear-gradient(135deg,transparent 0 85%,rgba(148,163,184,0.5) 85% 95%,transparent 95%)', backgroundRepeat: 'no-repeat', backgroundSize: '14px 14px', backgroundPosition: 'center' }}
                     />
                   </div>
                   {suggestions.length > 0 && (
