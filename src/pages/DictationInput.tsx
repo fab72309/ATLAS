@@ -1,9 +1,7 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
-import { Sparkles, ClipboardCopy, Share2, FileText, ImageDown, Check, QrCode, LocateFixed, Archive, Clock, Mic, MicOff } from 'lucide-react';
+import { ClipboardCopy, Share2, FileText, ImageDown, Check, QrCode, LocateFixed, Archive, Clock, Mic, MicOff } from 'lucide-react';
 import { SpeechRecognitionService } from '../utils/speechRecognition';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
-import { saveDictationData, saveCommunicationData } from '../utils/dataStore';
 import QRCode from 'react-qr-code';
 import DominantSelector, { DominanteType } from '../components/DominantSelector';
 import OrdreInitialView from '../components/OrdreInitialView';
@@ -473,7 +471,7 @@ const DictationInput = () => {
   const [validatedCompteRendu, setValidatedCompteRendu] = useState<CompteRenduMessage | null>(null);
   // Dictée vocale — onglet Messages
   const [listeningField, setListeningField] = useState<string | null>(null);
-  const [dictationError, setDictationError] = useState<string | null>(null);
+  const [_dictationError, setDictationError] = useState<string | null>(null);
   const speechServiceRef = useRef<SpeechRecognitionService | null>(null);
 
   const ensureSpeechService = useCallback(() => {
@@ -1234,7 +1232,7 @@ const DictationInput = () => {
                       className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 pr-10 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
                     />
                     <button type="button"
-                      onClick={() => { const fk = isAmbianceTab ? 'amb-jeSuis' : 'cr-jeSuis'; listeningField === fk ? stopDictation() : startDictation(fk, (v) => isAmbianceTab ? setAmbianceMessage(prev => ({ ...prev, jeSuis: v, addressConfirmed: false })) : setCompteRenduMessage(prev => ({ ...prev, jeSuis: v, addressConfirmed: false }))); }}
+                      onClick={() => { const fk = isAmbianceTab ? 'amb-jeSuis' : 'cr-jeSuis'; if (listeningField === fk) { stopDictation(); } else { startDictation(fk, (v) => isAmbianceTab ? setAmbianceMessage(prev => ({ ...prev, jeSuis: v, addressConfirmed: false })) : setCompteRenduMessage(prev => ({ ...prev, jeSuis: v, addressConfirmed: false }))); } }}
                       className={`absolute bottom-2 right-2 p-1.5 rounded-lg transition ${(isAmbianceTab ? listeningField === 'amb-jeSuis' : listeningField === 'cr-jeSuis') ? 'text-red-400 bg-red-500/10' : 'text-slate-400 hover:text-blue-500 hover:bg-blue-500/10'}`}
                       title={(isAmbianceTab ? listeningField === 'amb-jeSuis' : listeningField === 'cr-jeSuis') ? 'Arrêter la dictée' : 'Dicter'}
                     >
@@ -1256,7 +1254,7 @@ const DictationInput = () => {
                       className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 pr-10 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
                     />
                     <button type="button"
-                      onClick={() => { const fk = isAmbianceTab ? 'amb-jeVois' : 'cr-jeVois'; listeningField === fk ? stopDictation() : startDictation(fk, (v) => isAmbianceTab ? setAmbianceMessage(prev => ({ ...prev, jeVois: v })) : setCompteRenduMessage(prev => ({ ...prev, jeVois: v }))); }}
+                      onClick={() => { const fk = isAmbianceTab ? 'amb-jeVois' : 'cr-jeVois'; if (listeningField === fk) { stopDictation(); } else { startDictation(fk, (v) => isAmbianceTab ? setAmbianceMessage(prev => ({ ...prev, jeVois: v })) : setCompteRenduMessage(prev => ({ ...prev, jeVois: v }))); } }}
                       className={`absolute bottom-2 right-2 p-1.5 rounded-lg transition ${(isAmbianceTab ? listeningField === 'amb-jeVois' : listeningField === 'cr-jeVois') ? 'text-red-400 bg-red-500/10' : 'text-slate-400 hover:text-blue-500 hover:bg-blue-500/10'}`}
                       title={(isAmbianceTab ? listeningField === 'amb-jeVois' : listeningField === 'cr-jeVois') ? 'Arrêter la dictée' : 'Dicter'}
                     >
@@ -1277,7 +1275,7 @@ const DictationInput = () => {
                           className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 pr-10 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
                         />
                         <button type="button"
-                          onClick={() => listeningField === 'cr-jePrevois' ? stopDictation() : startDictation('cr-jePrevois', (v) => setCompteRenduMessage(prev => ({ ...prev, jePrevois: v })))}
+                          onClick={() => { if (listeningField === 'cr-jePrevois') { stopDictation(); } else { startDictation('cr-jePrevois', (v) => setCompteRenduMessage(prev => ({ ...prev, jePrevois: v }))); } }}
                           className={`absolute bottom-2 right-2 p-1.5 rounded-lg transition ${listeningField === 'cr-jePrevois' ? 'text-red-400 bg-red-500/10' : 'text-slate-400 hover:text-blue-500 hover:bg-blue-500/10'}`}
                           title={listeningField === 'cr-jePrevois' ? 'Arrêter la dictée' : 'Dicter'}
                         >
@@ -1296,7 +1294,7 @@ const DictationInput = () => {
                           className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 pr-10 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
                         />
                         <button type="button"
-                          onClick={() => listeningField === 'cr-jeFais' ? stopDictation() : startDictation('cr-jeFais', (v) => setCompteRenduMessage(prev => ({ ...prev, jeFais: v })))}
+                          onClick={() => { if (listeningField === 'cr-jeFais') { stopDictation(); } else { startDictation('cr-jeFais', (v) => setCompteRenduMessage(prev => ({ ...prev, jeFais: v }))); } }}
                           className={`absolute bottom-2 right-2 p-1.5 rounded-lg transition ${listeningField === 'cr-jeFais' ? 'text-red-400 bg-red-500/10' : 'text-slate-400 hover:text-blue-500 hover:bg-blue-500/10'}`}
                           title={listeningField === 'cr-jeFais' ? 'Arrêter la dictée' : 'Dicter'}
                         >
@@ -1320,7 +1318,7 @@ const DictationInput = () => {
                       className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 pr-10 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
                     />
                     <button type="button"
-                      onClick={() => { const fk = isAmbianceTab ? 'amb-jeDemande' : 'cr-jeDemande'; listeningField === fk ? stopDictation() : startDictation(fk, (v) => isAmbianceTab ? setAmbianceMessage(prev => ({ ...prev, jeDemande: v })) : setCompteRenduMessage(prev => ({ ...prev, jeDemande: v }))); }}
+                      onClick={() => { const fk = isAmbianceTab ? 'amb-jeDemande' : 'cr-jeDemande'; if (listeningField === fk) { stopDictation(); } else { startDictation(fk, (v) => isAmbianceTab ? setAmbianceMessage(prev => ({ ...prev, jeDemande: v })) : setCompteRenduMessage(prev => ({ ...prev, jeDemande: v }))); } }}
                       className={`absolute bottom-2 right-2 p-1.5 rounded-lg transition ${(isAmbianceTab ? listeningField === 'amb-jeDemande' : listeningField === 'cr-jeDemande') ? 'text-red-400 bg-red-500/10' : 'text-slate-400 hover:text-blue-500 hover:bg-blue-500/10'}`}
                       title={(isAmbianceTab ? listeningField === 'amb-jeDemande' : listeningField === 'cr-jeDemande') ? 'Arrêter la dictée' : 'Dicter'}
                     >
