@@ -471,7 +471,6 @@ const DictationInput = () => {
   const [validatedCompteRendu, setValidatedCompteRendu] = useState<CompteRenduMessage | null>(null);
   // Dictée vocale — onglet Messages
   const [listeningField, setListeningField] = useState<string | null>(null);
-  const [_dictationError, setDictationError] = useState<string | null>(null);
   const speechServiceRef = useRef<SpeechRecognitionService | null>(null);
 
   const ensureSpeechService = useCallback(() => {
@@ -491,7 +490,6 @@ const DictationInput = () => {
     setValue: (v: string) => void
   ) => {
     const service = ensureSpeechService();
-    setDictationError(null);
     if (!service.isRecognitionSupported()) {
       setDictationError('La reconnaissance vocale n\'est pas supportée par votre navigateur.');
       return;
@@ -501,7 +499,6 @@ const DictationInput = () => {
       onEnd: () => setListeningField(null),
       onError: (err) => {
         setListeningField(null);
-        setDictationError(err.message || 'Erreur de dictée');
       },
       onResult: (text) => setValue(text),
     });
