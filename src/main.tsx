@@ -5,6 +5,7 @@ import './index.css';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { ProfileProvider } from './contexts/ProfileContext';
+import { init as initVoiceDictation } from './utils/voice-dictation.js';
 
 // Ensure HashRouter has a starting hash on iOS WebView (Capacitor) to prevent blank screen
 if (!window.location.hash) {
@@ -24,6 +25,10 @@ try {
 } catch (e) {
   console.error('[BOOT ERROR]', e);
 }
+
+// Initialise la dictée vocale hybride dès que le DOM est prêt
+// (le MutationObserver interne détecte les [data-voice-target] ajoutés dynamiquement)
+initVoiceDictation();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

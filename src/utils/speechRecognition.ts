@@ -37,7 +37,6 @@ export class SpeechRecognitionService {
   private isSupported: boolean;
 
   constructor() {
-    // Vérifier le support de la reconnaissance vocale
     const speechWindow = window as Window & {
       SpeechRecognition?: SpeechRecognitionConstructor;
       webkitSpeechRecognition?: SpeechRecognitionConstructor;
@@ -50,7 +49,7 @@ export class SpeechRecognitionService {
                              speechWindow.msSpeechRecognition;
 
     this.isSupported = !!SpeechRecognition;
-    
+
     if (this.isSupported) {
       this.recognition = new SpeechRecognition();
       this.recognition.lang = 'fr-FR';
@@ -59,35 +58,51 @@ export class SpeechRecognitionService {
     }
   }
 
+  /**
+   * Retourne true si le réseau est disponible.
+   * Utilisé pour choisir entre API STT en ligne et reconnaissance native hors ligne.
+   */
+  public static isOnline(): boolean {
+    return navigator.onLine;
+  }
+
   public start(config: SpeechRecognitionConfig) {
     if (!this.isSupported) {
       config.onError(new Error('La reconnaissance vocale n\'est pas supportée par votre navigateur.'));
       return;
     }
 
+    if (SpeechRecognitionService.isOnline()) {
+      // TODO: Intégration API Speech-to-Text (ex. Whisper, Google STT…)
+      // Lorsque l'API sera disponible, remplacer ce bloc par l'appel HTTP
+      // et supprimer le fallback vers la reconnaissance native ci-dessous.
+      this._startNative(config);
+    } else {
+      // Mode hors ligne : utilisation de la Web Speech API native du navigateur
+      this._startNative(config);
+    }
+  }
+
+  private _startNative(config: SpeechRecognitionConfig) {
     try {
       const recognition = this.recognition;
       if (!recognition) {
         config.onError(new Error('La reconnaissance vocale n\'est pas disponible.'));
         return;
       }
-      // Configuration des événements
-      recognition.onstart = () => {
-        config.onStart();
-      };
+
+      recognition.onstart = () => config.onStart();
 
       recognition.onresult = (event: SpeechRecognitionEventLike) => {
         const transcript = Array.from(event.results)
           .map((result) => result[0])
           .map((result) => result?.transcript || '')
           .join('');
-        
         config.onResult(transcript);
       };
 
       recognition.onerror = (event: SpeechRecognitionErrorEventLike) => {
         let errorMessage = 'Une erreur est survenue avec la reconnaissance vocale.';
-        
         switch (event.error) {
           case 'network':
             errorMessage = 'Erreur réseau. Vérifiez votre connexion internet.';
@@ -103,15 +118,11 @@ export class SpeechRecognitionService {
             errorMessage = 'Aucun microphone n\'a été détecté.';
             break;
         }
-
         config.onError(new Error(errorMessage));
       };
 
-      recognition.onend = () => {
-        config.onEnd();
-      };
+      recognition.onend = () => config.onEnd();
 
-      // Démarrer la reconnaissance
       recognition.start();
     } catch (error) {
       const fallbackError = error instanceof Error ? error : new Error('Erreur de reconnaissance vocale.');

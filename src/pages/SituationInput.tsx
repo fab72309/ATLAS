@@ -191,6 +191,7 @@ const SituationInput = () => {
                 className="w-full min-h-[100px] resize-none rounded-2xl p-4 text-slate-800 dark:text-gray-200 text-base focus:outline-none bg-transparent placeholder-slate-400 dark:placeholder-gray-600"
                 placeholder="Météo, moyens déjà engagés, contraintes particulières..."
                 disabled={isLoading}
+                data-voice-target
               />
             </div>
           </div>
