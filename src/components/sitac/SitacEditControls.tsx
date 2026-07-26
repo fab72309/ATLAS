@@ -216,9 +216,9 @@ const SitacEditControls: React.FC<SitacEditControlsProps> = ({
             )}
 
             {/* Right Bar (Save / Export / Fullscreen) */}
-            <div className="pointer-events-auto absolute top-4 right-4 flex items-center gap-2">
+            <div className="pointer-events-auto absolute right-3 top-16 flex items-center gap-2 lg:right-4 lg:top-4">
                 <div
-                    className={`relative flex items-center gap-2 rounded-2xl px-2 py-2 transition-all duration-300 ${isRightCollapsed
+                    className={`relative flex items-center gap-1.5 rounded-2xl p-1.5 transition-all duration-300 ${isRightCollapsed
                         ? 'w-16 bg-white/10 border border-white/25 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl backdrop-saturate-150 overflow-hidden'
                         : 'bg-white/10 border border-white/20 shadow-[0_8px_24px_rgba(0,0,0,0.25)] backdrop-blur-xl backdrop-saturate-150'
                         }`}
@@ -248,7 +248,7 @@ const SitacEditControls: React.FC<SitacEditControlsProps> = ({
                                         onClick={() => {
                                             setIsExportOpen((prev) => !prev);
                                         }}
-                                        className="flex items-center gap-2 px-4 py-2 bg-blue-600/90 hover:bg-blue-600 rounded-xl text-white text-xs font-semibold shadow-[0_6px_18px_rgba(0,0,0,0.4)] backdrop-blur-sm transition-all hover:scale-105"
+                                        className="flex h-8 items-center gap-1.5 rounded-lg bg-blue-600/90 px-3 text-white text-xs font-semibold shadow-[0_6px_18px_rgba(0,0,0,0.4)] backdrop-blur-sm transition-colors hover:bg-blue-600"
                                         aria-label="Exporter"
                                     >
                                         <Download className="w-3 h-3" />
@@ -282,7 +282,7 @@ const SitacEditControls: React.FC<SitacEditControlsProps> = ({
                                 </div>
                                 <button
                                     onClick={onToggleFullscreen}
-                                    className="flex items-center gap-2 px-3 py-2 bg-black/45 hover:bg-black/55 border border-white/25 rounded-xl text-white text-xs font-semibold shadow-[0_6px_18px_rgba(0,0,0,0.35)] backdrop-blur-sm transition-all hover:scale-105"
+                                    className="flex h-8 items-center gap-1.5 rounded-lg border border-white/25 bg-black/45 px-2.5 text-xs font-semibold text-white shadow-[0_6px_18px_rgba(0,0,0,0.35)] backdrop-blur-sm transition-colors hover:bg-black/55"
                                     title={isFullscreen ? 'Quitter le plein écran' : 'Plein écran'}
                                     aria-label={isFullscreen ? 'Quitter le plein écran' : 'Plein écran'}
                                 >
@@ -295,7 +295,7 @@ const SitacEditControls: React.FC<SitacEditControlsProps> = ({
                                             setIsExportOpen(false);
                                             onSnapshot?.();
                                         }}
-                                        className="p-2 bg-black/45 hover:bg-black/55 text-white border border-white/25 rounded-xl shadow-[0_6px_18px_rgba(0,0,0,0.35)] backdrop-blur-sm transition-all hover:scale-105"
+                                        className="p-1.5 bg-black/45 hover:bg-black/55 text-white border border-white/25 rounded-lg shadow-[0_6px_18px_rgba(0,0,0,0.35)] backdrop-blur-sm transition-colors"
                                         aria-label="Snapshot"
                                         title="Snapshot"
                                     >

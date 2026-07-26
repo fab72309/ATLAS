@@ -43,7 +43,7 @@ const SitacToolsSidebar: React.FC<SitacToolsSidebarProps> = ({
     const [isCollapsed, setIsCollapsed] = React.useState(false);
 
     return (
-        <div className="absolute top-24 left-4 bottom-28 z-20 pointer-events-none">
+        <div className="absolute bottom-28 left-3 top-28 z-20 pointer-events-none lg:left-4 lg:top-20">
             <div
                 className={`pointer-events-auto relative h-full rounded-3xl transition-all duration-300 overflow-hidden flex flex-col ${isCollapsed
                     ? 'w-16 p-2 bg-white/10 border border-white/25 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl backdrop-saturate-150'

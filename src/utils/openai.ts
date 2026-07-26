@@ -1,5 +1,5 @@
 import { getSupabaseClient } from './supabaseClient';
-import { readAppSettings } from './appSettings';
+import { readAppSettings, updateAppSettings } from './appSettings';
 
 const normalizeTitle = (title: string) => (
   title
@@ -111,6 +111,12 @@ const shouldRetryWithEnvFallback = (
   && isLegacyProxyAuthError(rawMessage)
 );
 
+const clearStaleProxyOverride = (config: OpenAIProxyConfig, activeUrl: string) => {
+  if (config.source !== 'settings') return;
+  if (!config.envUrl || activeUrl !== config.envUrl) return;
+  updateAppSettings((prev) => ({ ...prev, openaiProxyUrlOverride: '' }));
+};
+
 const normalizeProxyPayload = (payload: unknown) => {
   if (!payload || typeof payload !== 'object') return payload;
   const record = payload as { sections?: unknown };
@@ -214,6 +220,9 @@ export const checkOpenAIProxyHealth = async (options?: { overrideUrl?: string | 
       activeUrl = config.envUrl;
       source = 'env';
       ({ response, rawText, payload, payloadMessage } = await attempt(activeUrl));
+      if (response.ok) {
+        clearStaleProxyOverride(config, activeUrl);
+      }
     }
 
     const message = response.ok
@@ -312,6 +321,9 @@ export const analyzeEmergency = async (
     let { response, rawText } = await attempt(proxyConfig.url);
     if (!response.ok && shouldRetryWithEnvFallback(proxyConfig, response.status, rawText) && proxyConfig.envUrl) {
       ({ response, rawText } = await attempt(proxyConfig.envUrl));
+      if (response.ok) {
+        clearStaleProxyOverride(proxyConfig, proxyConfig.envUrl);
+      }
     }
 
     if (!response.ok) {

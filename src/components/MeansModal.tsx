@@ -458,13 +458,14 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
                   >
                     <div className="space-y-2">
                       <div className="min-w-0 text-sm font-semibold text-slate-800 dark:text-gray-100">{s.name}</div>
-                      <div className="inline-grid w-full sm:w-auto grid-cols-1 items-center gap-1.5 sm:grid-cols-[14rem_auto_auto]">
-                        <div className="relative w-full">
+                      <div className="grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 sm:w-auto sm:grid-cols-[14rem_5rem_2.25rem]">
+                        <div className="relative min-w-0 w-full">
                           <select
                             value={assignSelection[s.id] || assignableNodes[0]?.id || ''}
                             onChange={(e) => setAssignSelection((prev) => ({ ...prev, [s.id]: e.target.value }))}
-                            className="h-9 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200/80 dark:border-white/10 dark:bg-white/5 dark:text-gray-200 dark:focus:ring-white/20"
+                            className="h-9 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700 transition focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200/80 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400 dark:border-white/10 dark:bg-white/5 dark:text-gray-200 dark:focus:border-white/20 dark:focus:ring-white/20 dark:disabled:bg-white/[0.03] dark:disabled:text-gray-500"
                             disabled={!assignableNodes.length}
+                            aria-label={`Secteur d'affectation de ${s.name}`}
                           >
                             {!assignableNodes.length && <option value="">Aucun secteur disponible</option>}
                             {assignableNodes.map((node) => (
@@ -473,9 +474,10 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
                           </select>
                         </div>
                         <button
+                          type="button"
                           onClick={() => handleAssignMean(s)}
                           disabled={!assignableNodes.length || isAssigned || alreadyInOct}
-                          className={`h-9 px-2.5 rounded-md border text-[11px] font-semibold text-white transition ${
+                          className={`inline-flex h-9 min-w-20 items-center justify-center whitespace-nowrap rounded-lg border px-2.5 text-xs font-semibold text-white transition ${
                             isAssigned
                               ? 'bg-emerald-500 border-emerald-300/70 text-emerald-50'
                               : 'bg-amber-500 border-amber-300/70 text-amber-50 hover:bg-amber-400'
@@ -484,11 +486,13 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
                           {isAssigned ? 'Affecté' : 'À affecter'}
                         </button>
                         <button
+                          type="button"
                           onClick={() => remove(s.id)}
-                          className="p-1.5 rounded-md border border-slate-200 bg-white text-red-600 transition hover:bg-red-50 dark:border-white/10 dark:bg-white/5 dark:text-red-300 dark:hover:bg-red-500/20"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-red-600 transition hover:border-red-200 hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-200/70 dark:border-white/10 dark:bg-white/5 dark:text-red-300 dark:hover:border-red-400/30 dark:hover:bg-red-500/20 dark:focus:ring-red-500/30"
                           title="Retirer"
+                          aria-label={`Retirer ${s.name}`}
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
+                          <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                     </div>

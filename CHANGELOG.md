@@ -1,5 +1,11 @@
 # Changelog
 
+## Alpha-0.8.0 — 2026-07-26
+- Refonte ergonomique de l’accueil, des fonctions opérationnelles, des moyens et des outils SITAC
+- Nouveau parcours de rédaction et d’historisation des messages opérationnels
+- Conservation de la dictée vocale hybride introduite en 0.7.0
+- Préparation du déploiement public avec routage SPA et en-têtes de sécurité Netlify
+
 ## Alpha-0.6.1 — 2026-04-08
 - Cartes du Recueil des moyens : texte centré et taille de police augmentée pour une meilleure ergonomie
 
