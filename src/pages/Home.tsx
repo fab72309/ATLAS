@@ -1,106 +1,149 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { History, Radio, Map } from 'lucide-react';
+import { Activity, ArrowRight, Clock3, History, Map, Network, Radio } from 'lucide-react';
 import ShieldFlameIcon from '../components/ShieldFlameIcon';
 import HistoryDialog from '../components/HistoryDialog';
 
 const Home = () => {
   const navigate = useNavigate();
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const entryCards = [
+  const primaryActions = [
     {
-      title: 'Fonctions\nOpérationnelles',
-      description: 'Accéder rapidement aux cadres de commandement et aux outils de conduite.',
-      icon: <ShieldFlameIcon className="w-14 h-14 glossy-blue-icon transition-transform duration-500 group-hover:scale-110" />,
+      title: 'Fonctions opérationnelles',
+      eyebrow: 'Conduite',
+      description: 'Cadres de commandement et outils de conduite.',
+      icon: <ShieldFlameIcon className="h-9 w-9 glossy-blue-icon" />,
       action: () => navigate('/functions'),
-      accent: 'from-red-500/14 via-red-500/6 to-transparent',
+      ariaLabel: 'Ouvrir fonctions opérationnelles',
     },
     {
-      title: 'Communication\nOPS',
-      description: 'Préparer et structurer les échanges opérationnels sans perdre le fil tactique.',
-      icon: <Radio className="w-14 h-14 glossy-blue-icon transition-all duration-500 group-hover:scale-110" />,
+      title: 'Communication OPS',
+      eyebrow: 'Message',
+      description: 'Préparer les échanges sans perdre le fil tactique.',
+      icon: <Radio className="h-9 w-9 glossy-blue-icon" />,
       action: () => navigate('/command-type/communication'),
-      accent: 'from-sky-500/14 via-sky-500/6 to-transparent',
+      ariaLabel: 'Ouvrir communication OPS',
     },
     {
-      title: 'Zonage\nOpérationnel',
-      description: 'Visualiser le terrain, les secteurs et les repères utiles à la manoeuvre.',
-      icon: <Map className="w-14 h-14 glossy-blue-icon transition-all duration-500 group-hover:scale-110" />,
+      title: 'Zonage opérationnel',
+      eyebrow: 'Terrain',
+      description: 'Visualiser secteurs, repères et appuis à la manoeuvre.',
+      icon: <Map className="h-9 w-9 glossy-blue-icon" />,
       action: () => navigate('/operational-zoning'),
-      accent: 'from-amber-500/14 via-amber-500/6 to-transparent',
+      ariaLabel: 'Ouvrir zonage opérationnel',
+    },
+  ];
+
+  const quickActions = [
+    {
+      title: 'SITAC',
+      description: 'Carte tactique',
+      icon: <Activity className="h-5 w-5" />,
+      action: () => navigate('/sitac'),
+      ariaLabel: 'Ouvrir SITAC',
+    },
+    {
+      title: 'OCT',
+      description: 'Organigramme transmissions',
+      icon: <Network className="h-5 w-5" />,
+      action: () => navigate('/oct'),
+      ariaLabel: 'Ouvrir OCT',
     },
   ];
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-slate-50 text-slate-900 dark:bg-[#0A0A0A] dark:text-white">
-      {/* Background Ambient Glow */}
-      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
-        <div className="atlas-grid absolute inset-0 opacity-70 dark:opacity-60" />
-        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-200/70 dark:bg-blue-900/20 rounded-full blur-[120px]" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-red-200/60 dark:bg-red-900/20 rounded-full blur-[120px]" />
-      </div>
-
-      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 pb-10 pt-28 safe-left safe-right safe-bottom sm:px-6 lg:px-8">
-        {/* Header Actions */}
-        <div className="absolute right-4 top-4 md:right-8 md:top-8">
-          <button
-            onClick={() => setIsHistoryOpen(true)}
-            className="atlas-panel group rounded-2xl p-3 transition-all duration-300 hover:scale-105"
-            title="Historique"
-          >
-            <History className="w-6 h-6 text-slate-500 group-hover:text-slate-900 dark:text-gray-400 dark:group-hover:text-white transition-colors" />
-          </button>
-        </div>
-
-        {/* Hero Section */}
-        <div className="flex flex-1 flex-col justify-center py-8 animate-fade-in-down">
-          <div className="mx-auto flex w-full max-w-5xl flex-col items-center gap-8 text-center">
-            <div className="space-y-4">
-          <h1 className="text-5xl md:text-7xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-br from-slate-900 via-slate-700 to-slate-500 dark:from-white dark:via-gray-200 dark:to-gray-500 drop-shadow-2xl">
-            A.T.L.A.S
-          </h1>
-              <p className="mx-auto max-w-2xl text-lg font-light leading-relaxed tracking-wide text-slate-600 dark:text-gray-400 md:text-xl">
-                Aide Tactique et Logique pour l'Action des Secours
-              </p>
+    <div className="relative min-h-screen text-slate-900 dark:text-white">
+      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 pb-24 pt-28 safe-left safe-right safe-bottom sm:px-6 lg:px-8">
+        <section className="grid flex-1 content-center gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(560px,1.1fr)] lg:items-center">
+          <div className="space-y-6">
+            <div className="space-y-3">
+              <div className="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/75 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/5 dark:text-gray-400">
+                <Clock3 className="h-3.5 w-3.5" />
+                Session opérationnelle
+              </div>
+              <div className="space-y-2">
+                <p className="text-sm font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-gray-400">
+                  A.T.L.A.S
+                </p>
+                <h1 className="max-w-xl text-4xl font-black leading-[0.98] text-slate-950 dark:text-white sm:text-5xl lg:text-6xl">
+                  Poste de conduite ATLAS
+                </h1>
+                <p className="max-w-lg text-base leading-7 text-slate-600 dark:text-gray-300">
+                  Accès direct aux modules tactiques, aux communications et aux repères terrain.
+                </p>
+              </div>
             </div>
-          </div>
-        </div>
 
-        <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-5 pb-4 md:grid-cols-2 xl:grid-cols-3">
-          {entryCards.map((card) => (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {quickActions.map((action) => (
+                <button
+                  key={action.title}
+                  type="button"
+                  onClick={action.action}
+                  aria-label={action.ariaLabel}
+                  className="atlas-panel group flex items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left text-slate-800 hover:border-slate-300 dark:text-gray-100 dark:hover:border-white/20"
+                >
+                  <span className="flex min-w-0 items-center gap-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-950">
+                      {action.icon}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-bold">{action.title}</span>
+                      <span className="block truncate text-xs text-slate-500 dark:text-gray-400">{action.description}</span>
+                    </span>
+                  </span>
+                  <ArrowRight className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5 dark:text-gray-500" />
+                </button>
+              ))}
+            </div>
+
             <button
-              key={card.title}
-              onClick={card.action}
-              className="gyro-glow atlas-panel group relative flex min-h-[280px] flex-col overflow-hidden rounded-[28px] p-6 text-left transition-all duration-500 hover:-translate-y-1.5 hover:border-slate-300/70 dark:hover:border-white/20"
+              type="button"
+              onClick={() => setIsHistoryOpen(true)}
+              aria-label="Ouvrir l'historique"
+              className="inline-flex w-full items-center justify-between rounded-2xl border border-dashed border-slate-300/80 bg-white/55 px-4 py-3 text-left text-sm font-semibold text-slate-600 backdrop-blur transition-colors hover:border-slate-400 hover:text-slate-950 dark:border-white/15 dark:bg-white/5 dark:text-gray-300 dark:hover:border-white/30 dark:hover:text-white sm:w-auto"
             >
-              <div className={`absolute inset-0 bg-gradient-to-br ${card.accent} opacity-0 transition-opacity duration-500 group-hover:opacity-100`} />
-              <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-white/70 to-transparent dark:via-white/15" />
+              <span className="inline-flex items-center gap-2">
+                <History className="h-4 w-4" />
+                Historique des opérations
+              </span>
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
 
-              <div className="relative z-10 flex h-full flex-col">
+          <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+            {primaryActions.map((card) => (
+              <button
+                key={card.title}
+                type="button"
+                onClick={card.action}
+                aria-label={card.ariaLabel}
+                className="atlas-panel group flex min-h-[190px] flex-col justify-between rounded-2xl p-5 text-left hover:border-slate-300/80 dark:hover:border-white/20"
+              >
                 <div className="flex items-start justify-between gap-4">
-                  <div className="flex h-20 w-20 items-center justify-center rounded-3xl border border-slate-200/90 bg-slate-200/85 shadow-xl transition-colors duration-500 group-hover:border-white/80 dark:border-white/5 dark:bg-black/45">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-200/90 bg-slate-100 text-slate-900 dark:border-white/10 dark:bg-black/35 dark:text-white">
                     {card.icon}
                   </div>
+                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 dark:bg-white/10 dark:text-gray-400">
+                    {card.eyebrow}
+                  </span>
                 </div>
-
-                <div className="mt-8 space-y-4">
-                  <h2 className="whitespace-pre-line text-2xl font-bold leading-tight text-slate-800 transition-colors group-hover:text-slate-900 dark:text-gray-200 dark:group-hover:text-white">
+                <div className="space-y-3 pt-6">
+                  <h2 className="text-xl font-black leading-tight text-slate-900 dark:text-white">
                     {card.title}
                   </h2>
-                  <p className="max-w-[28ch] text-sm leading-6 text-slate-600 dark:text-gray-400">
+                  <p className="text-sm leading-6 text-slate-600 dark:text-gray-400">
                     {card.description}
                   </p>
                 </div>
-
-                <div className="mt-auto pt-8">
-                  <div className="inline-flex items-center rounded-full border border-slate-200/80 bg-white/75 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors group-hover:border-slate-300 group-hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-gray-200 dark:group-hover:border-white/20 dark:group-hover:text-white">
-                    Ouvrir le module
-                  </div>
+                <div className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
+                  Ouvrir le module
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                 </div>
-              </div>
-            </button>
-          ))}
-        </div>
+              </button>
+            ))}
+          </div>
+        </section>
       </div>
 
       <HistoryDialog isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} />

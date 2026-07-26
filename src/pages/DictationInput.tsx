@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { Sparkles, ClipboardCopy, Share2, FileText, ImageDown, Check, QrCode, LocateFixed, Archive, Clock } from 'lucide-react';
+import { Sparkles, ClipboardCopy, Share2, FileText, ImageDown, Check, QrCode, LocateFixed, Archive, Clock, ChevronRight, X, Radio, MessageSquareText } from 'lucide-react';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { saveDictationData, saveCommunicationData } from '../utils/dataStore';
 import QRCode from 'react-qr-code';
@@ -130,6 +131,8 @@ type DraftPayload = {
   compteRenduMessage?: Partial<CompteRenduMessage>;
   validatedAmbiance?: Partial<AmbianceMessage>;
   validatedCompteRendu?: Partial<CompteRenduMessage>;
+  validatedAmbianceList?: Partial<AmbianceMessage>[];
+  validatedCompteRenduList?: Partial<CompteRenduMessage>[];
   ordreValidatedAt?: string;
   ordreConduite?: OrdreInitial;
   showConduite?: boolean;
@@ -185,6 +188,12 @@ const parseDraftPayload = (value: unknown): DraftPayload | null => {
     compteRenduMessage: isRecord(value.compteRenduMessage) ? value.compteRenduMessage : undefined,
     validatedAmbiance: isRecord(value.validatedAmbiance) ? value.validatedAmbiance : undefined,
     validatedCompteRendu: isRecord(value.validatedCompteRendu) ? value.validatedCompteRendu : undefined,
+    validatedAmbianceList: Array.isArray(value.validatedAmbianceList)
+      ? value.validatedAmbianceList.filter(isRecord)
+      : undefined,
+    validatedCompteRenduList: Array.isArray(value.validatedCompteRenduList)
+      ? value.validatedCompteRenduList.filter(isRecord)
+      : undefined,
     ordreValidatedAt: isNonEmptyString(value.ordreValidatedAt) ? value.ordreValidatedAt : undefined,
     ordreConduite: isOrdreInitialLike(value.ordreConduite) ? value.ordreConduite : undefined,
     showConduite: typeof value.showConduite === 'boolean' ? value.showConduite : undefined,
@@ -273,6 +282,39 @@ const normalizeSurLesLieux = (input: unknown): MessageSurLesLieux => {
   };
 };
 
+const normalizeAmbianceMessage = (input: Partial<AmbianceMessage>): AmbianceMessage => ({
+  ...createAmbianceMessage(),
+  ...input,
+  demandes: normalizeDemandes(input.demandes),
+  surLesLieux: normalizeSurLesLieux(input.surLesLieux)
+});
+
+const normalizeCompteRenduMessage = (input: Partial<CompteRenduMessage>): CompteRenduMessage => ({
+  ...createCompteRenduMessage(),
+  ...input,
+  demandes: normalizeDemandes(input.demandes),
+  surLesLieux: normalizeSurLesLieux(input.surLesLieux)
+});
+
+type MessageSummaryRowProps = {
+  label: string;
+  value: string;
+};
+
+const MessageSummaryRow: React.FC<MessageSummaryRowProps> = ({ label, value }) => (
+  <div className="grid grid-cols-[96px,minmax(0,1fr)] gap-2 items-start">
+    <div className="text-[10px] uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400">
+      {label}
+    </div>
+    <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap break-words">
+      {value || '-'}
+    </div>
+  </div>
+);
+
+const MESSAGE_INPUT_CLASS = 'min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm outline-none transition focus:border-slate-400/70 focus:ring-2 focus:ring-slate-200/70 dark:border-white/10 dark:bg-[#151515] dark:text-gray-200 dark:focus:border-white/20 dark:focus:ring-white/10';
+const MESSAGE_SMALL_INPUT_CLASS = 'min-h-10 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm text-slate-800 shadow-sm outline-none transition focus:border-slate-400/70 focus:ring-2 focus:ring-slate-200/70 dark:border-white/10 dark:bg-[#151515] dark:text-gray-200 dark:focus:border-white/20 dark:focus:ring-white/10';
+
 type DemandesSectionProps = {
   value: MessageDemandes;
   onChange: (next: MessageDemandes) => void;
@@ -289,43 +331,53 @@ const DemandesSection: React.FC<DemandesSectionProps> = ({ value, onChange, opti
   };
 
   return (
-    <div className="space-y-3 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50/80 dark:bg-white/5 p-3">
-      <div className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400">Je demande (cases à cocher)</div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+    <div className="space-y-4 rounded-2xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 p-4">
+      <div>
+        <div className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400">Je demande</div>
+        <p className="mt-1 text-sm text-slate-600 dark:text-gray-400">Sélectionnez rapidement les renforts et compléments nécessaires.</p>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
         {options.map((opt) => (
-          <label key={opt.id} className="inline-flex items-center gap-2 text-sm text-slate-700 dark:text-gray-200">
+          <label
+            key={opt.id}
+            className={`flex items-center gap-3 rounded-xl border px-3 py-3 text-sm transition cursor-pointer ${
+              value.selections[opt.id]
+                ? 'border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-900'
+                : 'border-slate-200 bg-slate-50/90 text-slate-700 hover:border-slate-300 dark:border-white/10 dark:bg-white/5 dark:text-gray-200 dark:hover:border-white/20'
+            }`}
+          >
             <input
               type="checkbox"
               checked={Boolean(value.selections[opt.id])}
               onChange={() => toggleOption(opt.id)}
-              className="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+              className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500 dark:border-white/20"
             />
-            {opt.label}
+            <span className="font-medium">{opt.label}</span>
           </label>
         ))}
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-[1.1fr,1.2fr] gap-3 md:items-end">
+      <div className="grid grid-cols-1 md:grid-cols-[1.1fr,1.2fr] gap-3 md:items-start">
         <div className="space-y-1">
-          <label className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400 md:min-h-[28px] md:flex md:items-end">Autres moyens SP</label>
+          <label className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400">Autres moyens SP</label>
           <input
             value={value.autresMoyensSp}
             onChange={(e) => handleFieldChange('autresMoyensSp', e.target.value)}
             placeholder="Précisions"
-            className="w-full bg-white dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30"
+            className={MESSAGE_INPUT_CLASS}
           />
         </div>
         <div className="space-y-1">
-          <label className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400 md:min-h-[28px] md:flex md:items-end">Moyens Sapeurs-Pompiers</label>
+          <label className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400">Moyens Sapeurs-Pompiers</label>
           <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
             {MOYENS_SP_FIELDS.map(({ key, label }) => (
-              <div key={key} className="flex flex-col gap-1">
-                <span className="text-[10px] uppercase text-slate-500 dark:text-gray-400">{label}</span>
+              <div key={key} className="flex flex-col gap-1 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/80 dark:bg-white/5 p-2">
+                <span className="text-[10px] uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400">{label}</span>
                 <input
                   value={value[key]}
                   onChange={(e) => handleFieldChange(key, e.target.value)}
                   inputMode="numeric"
                   placeholder="0"
-                  className="w-full bg-white dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-lg px-2 py-1.5 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30"
+                  className={MESSAGE_SMALL_INPUT_CLASS}
                 />
               </div>
             ))}
@@ -338,7 +390,7 @@ const DemandesSection: React.FC<DemandesSectionProps> = ({ value, onChange, opti
           value={value.autres}
           onChange={(e) => handleFieldChange('autres', e.target.value)}
           placeholder="Autres demandes"
-          className="w-full bg-white dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30"
+          className={MESSAGE_INPUT_CLASS}
         />
       </div>
     </div>
@@ -358,30 +410,41 @@ const SurLesLieuxSection: React.FC<SurLesLieuxSectionProps> = ({ value, onChange
   const feuEteintOption = options.find((opt) => opt.id === FEU_ETEINT_ID);
 
   return (
-    <div className="space-y-3 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-50/80 dark:bg-white/5 p-3">
-      <div className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400">Sur les lieux</div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+    <div className="space-y-4 rounded-2xl border border-slate-200 dark:border-white/10 bg-white/70 dark:bg-white/5 p-4">
+      <div>
+        <div className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400">Sur les lieux</div>
+        <p className="mt-1 text-sm text-slate-600 dark:text-gray-400">Cochez les faits marquants et précisez l’horaire si nécessaire.</p>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
         {options.filter((opt) => opt.id !== FEU_ETEINT_ID).map((opt) => (
-          <label key={opt.id} className="inline-flex items-center gap-2 text-sm text-slate-700 dark:text-gray-200">
+          <label
+            key={opt.id}
+            className={`flex items-center gap-3 rounded-xl border px-3 py-3 text-sm transition cursor-pointer ${
+              value.selections[opt.id]
+                ? 'border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-900'
+                : 'border-slate-200 bg-slate-50/90 text-slate-700 hover:border-slate-300 dark:border-white/10 dark:bg-white/5 dark:text-gray-200 dark:hover:border-white/20'
+            }`}
+          >
             <input
               type="checkbox"
               checked={Boolean(value.selections[opt.id])}
               onChange={() => toggleOption(opt.id)}
-              className="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+              className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500 dark:border-white/20"
             />
-            {opt.label}
+            <span className="font-medium">{opt.label}</span>
           </label>
         ))}
         {feuEteintOption && (
-          <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
-            <label className="inline-flex items-center gap-2 text-sm text-slate-700 dark:text-gray-200">
+          <div className="sm:col-span-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/80 dark:bg-white/5 p-3">
+            <div className="flex flex-wrap items-center gap-3">
+            <label className={`inline-flex items-center gap-3 text-sm ${value.selections[FEU_ETEINT_ID] ? 'text-slate-900 dark:text-white' : 'text-slate-700 dark:text-gray-200'}`}>
               <input
                 type="checkbox"
                 checked={Boolean(value.selections[FEU_ETEINT_ID])}
                 onChange={() => toggleOption(FEU_ETEINT_ID)}
-                className="h-4 w-4 rounded border-slate-300 text-red-600 focus:ring-red-500"
+                className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-500 dark:border-white/20"
               />
-              {feuEteintOption.label}
+              <span className="font-medium">{feuEteintOption.label}</span>
             </label>
             <div className="flex items-center gap-2">
               <input
@@ -389,9 +452,10 @@ const SurLesLieuxSection: React.FC<SurLesLieuxSectionProps> = ({ value, onChange
                 value={value.feuEteintHeure}
                 onChange={(e) => onChange({ ...value, feuEteintHeure: e.target.value })}
                 disabled={!value.selections[FEU_ETEINT_ID]}
-                className="w-28 bg-white dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-lg px-2 py-1.5 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 disabled:opacity-60"
+                className={`w-32 ${MESSAGE_SMALL_INPUT_CLASS} disabled:opacity-60`}
               />
               <span className="text-xs text-slate-500 dark:text-gray-400">hrs</span>
+            </div>
             </div>
           </div>
         )}
@@ -473,8 +537,10 @@ const DictationInput = () => {
   const [activeTab, setActiveTab] = useState<'soiec' | 'moyens' | 'oct' | 'message' | 'sitac' | 'aide'>(() => defaultTab || 'moyens');
   const [ambianceMessage, setAmbianceMessage] = useState<AmbianceMessage>(() => createAmbianceMessage());
   const [compteRenduMessage, setCompteRenduMessage] = useState<CompteRenduMessage>(() => createCompteRenduMessage());
-  const [validatedAmbiance, setValidatedAmbiance] = useState<AmbianceMessage | null>(null);
-  const [validatedCompteRendu, setValidatedCompteRendu] = useState<CompteRenduMessage | null>(null);
+  const [validatedAmbianceList, setValidatedAmbianceList] = useState<AmbianceMessage[]>([]);
+  const [validatedCompteRenduList, setValidatedCompteRenduList] = useState<CompteRenduMessage[]>([]);
+  const [collapsedValidatedMessages, setCollapsedValidatedMessages] = useState<Record<string, boolean>>({});
+  const [messageModal, setMessageModal] = useState<'ambiance' | 'compte-rendu' | null>(null);
   const boardRef = React.useRef<HTMLDivElement>(null);
   const previousTabRef = React.useRef(activeTab);
   const lastAppliedHydrationRef = React.useRef<string | null>(null);
@@ -514,6 +580,8 @@ const DictationInput = () => {
     () => [address, city].filter(Boolean).join(', '),
     [address, city]
   );
+  const latestValidatedAmbiance = validatedAmbianceList[0] ?? null;
+  const latestValidatedCompteRendu = validatedCompteRenduList[0] ?? null;
   const hasHistory = ordreInitialHistory.length > 0 || ordreConduiteHistory.length > 0;
   const formatHistoryTimestamp = React.useCallback((value: string) => {
     const date = new Date(value);
@@ -1020,24 +1088,391 @@ const DictationInput = () => {
 
     if (activeTab === 'message') {
       const isAddressAvailable = Boolean(fullAddress.trim());
-      const hasValidatedMessages = Boolean(validatedAmbiance || validatedCompteRendu);
+      const hasValidatedMessages = validatedAmbianceList.length > 0 || validatedCompteRenduList.length > 0;
       const demandeOptions = settings.messageDemandeOptions || [];
       const surLesLieuxOptions = settings.messageSurLesLieuxOptions || [];
-      const ambianceDemandesSummary = validatedAmbiance
-        ? buildMessageDemandesSummary(validatedAmbiance.demandes, demandeOptions)
-        : [];
-      const ambianceSurLesLieuxSummary = validatedAmbiance
-        ? buildMessageSurLesLieuxSummary(validatedAmbiance.surLesLieux, surLesLieuxOptions)
-        : [];
-      const compteRenduDemandesSummary = validatedCompteRendu
-        ? buildMessageDemandesSummary(validatedCompteRendu.demandes, demandeOptions)
-        : [];
-      const compteRenduSurLesLieuxSummary = validatedCompteRendu
-        ? buildMessageSurLesLieuxSummary(validatedCompteRendu.surLesLieux, surLesLieuxOptions)
-        : [];
+
+      const ambianceModalContent = (
+        <div className="grid grid-cols-1 gap-4 auto-rows-min xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.95fr)]">
+          <div className="order-2 space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5 xl:order-2">
+            <div>
+              <h4 className="text-lg font-semibold text-slate-900 dark:text-white">Contexte du message</h4>
+              <p className="text-sm text-slate-600 dark:text-gray-400">Cadrez l&apos;émission avant de rédiger.</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center rounded-full border border-slate-200 dark:border-white/10 bg-white dark:bg-white/10 px-3 py-1 text-xs font-medium text-slate-600 dark:text-gray-300">
+                {roleLabel || 'Chef de groupe'}
+              </span>
+              <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${
+                ambianceMessage.stamped
+                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+                  : 'bg-slate-200/80 text-slate-600 dark:bg-white/10 dark:text-gray-300'
+              }`}>
+                <Clock className="w-3.5 h-3.5" />
+                {ambianceMessage.stamped ? 'Horodaté' : 'À horodater'}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr,110px] gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr,112px] gap-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] uppercase tracking-[0.25em] text-slate-500 dark:text-gray-400">Date</label>
+                  <input
+                    type="date"
+                    value={ambianceMessage.date}
+                    onChange={(e) =>
+                      setAmbianceMessage((prev) => ({
+                        ...prev,
+                        date: e.target.value,
+                        stamped: false
+                      }))
+                    }
+                    className={MESSAGE_INPUT_CLASS}
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] uppercase tracking-[0.25em] text-slate-500 dark:text-gray-400">Heure</label>
+                  <input
+                    type="time"
+                    value={ambianceMessage.time}
+                    onChange={(e) =>
+                      setAmbianceMessage((prev) => ({
+                        ...prev,
+                        time: e.target.value,
+                        stamped: false
+                      }))
+                    }
+                    className={MESSAGE_INPUT_CLASS}
+                  />
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const nowStamp = getNowStamp();
+                  setAmbianceMessage((prev) => ({
+                    ...prev,
+                    stamped: true,
+                    date: prev.date || nowStamp.date,
+                    time: prev.time || nowStamp.time
+                  }));
+                }}
+                data-no-pill
+                className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition self-end ${
+                  ambianceMessage.stamped
+                    ? 'bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100'
+                    : 'bg-red-600 hover:bg-red-500 text-white'
+                }`}
+              >
+                <Check className="w-4 h-4" />
+                Horodater
+              </button>
+            </div>
+          </div>
+
+          <div className="order-1 space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+            <div>
+              <h4 className="text-lg font-semibold text-slate-900 dark:text-white">Rédiger le message</h4>
+              <p className="text-sm text-slate-600 dark:text-gray-400">Renseignez uniquement les éléments utiles à la transmission.</p>
+            </div>
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je suis</label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isAddressAvailable) return;
+                    setAmbianceMessage((prev) => ({
+                      ...prev,
+                      jeSuis: fullAddress,
+                      addressConfirmed: true
+                    }));
+                  }}
+                  disabled={!isAddressAvailable}
+                  className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition ${
+                    ambianceMessage.addressConfirmed
+                      ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
+                      : 'bg-white border border-slate-200 text-slate-700 hover:border-slate-300 dark:bg-white/5 dark:border-white/10 dark:text-gray-200'
+                  } ${!isAddressAvailable ? 'opacity-60 cursor-not-allowed' : ''}`}
+                >
+                  <Check className="w-4 h-4" />
+                  Utiliser l&apos;adresse
+                </button>
+              </div>
+              <textarea
+                value={ambianceMessage.jeSuis}
+                onChange={(e) =>
+                  setAmbianceMessage((prev) => ({
+                    ...prev,
+                    jeSuis: e.target.value,
+                    addressConfirmed: false
+                  }))
+                }
+                rows={3}
+                placeholder="Votre position, votre mission, votre action en cours."
+                className={`atlas-resizable-textarea ${MESSAGE_INPUT_CLASS}`}
+              />
+              {!isAddressAvailable && (
+                <div className="text-xs text-amber-600 dark:text-amber-400">
+                  Adresse non renseignée dans l&apos;intervention.
+                </div>
+              )}
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je vois</label>
+              <textarea
+                value={ambianceMessage.jeVois}
+                onChange={(e) => setAmbianceMessage((prev) => ({ ...prev, jeVois: e.target.value }))}
+                rows={3}
+                placeholder="Ce que vous observez sur place."
+                className={`atlas-resizable-textarea ${MESSAGE_INPUT_CLASS}`}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je demande</label>
+              <textarea
+                value={ambianceMessage.jeDemande}
+                onChange={(e) => setAmbianceMessage((prev) => ({ ...prev, jeDemande: e.target.value }))}
+                rows={3}
+                placeholder="Renforts, moyens, consignes."
+                className={`atlas-resizable-textarea ${MESSAGE_INPUT_CLASS}`}
+              />
+            </div>
+          </div>
+
+          <details className="group order-3 rounded-2xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/5 xl:col-span-2">
+            <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 text-left">
+              <span>
+                <span className="block text-base font-semibold text-slate-900 dark:text-white">Compléments opérationnels</span>
+                <span className="mt-0.5 block text-sm text-slate-600 dark:text-gray-400">Demandes codifiées et éléments constatés sur les lieux.</span>
+              </span>
+              <ChevronRight className="h-5 w-5 shrink-0 text-slate-400 transition-transform group-open:rotate-90" />
+            </summary>
+            <div className="space-y-3 border-t border-slate-200 p-4 dark:border-white/10">
+              <DemandesSection
+                value={ambianceMessage.demandes}
+                onChange={(next) => setAmbianceMessage((prev) => ({ ...prev, demandes: next }))}
+                options={demandeOptions}
+              />
+              <SurLesLieuxSection
+                value={ambianceMessage.surLesLieux}
+                onChange={(next) => setAmbianceMessage((prev) => ({ ...prev, surLesLieux: next }))}
+                options={surLesLieuxOptions}
+              />
+            </div>
+          </details>
+
+        </div>
+      );
+
+      const compteRenduModalContent = (
+        <div className="grid grid-cols-1 gap-4 auto-rows-min xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.95fr)]">
+          <div className="order-2 space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5 xl:order-2">
+            <div>
+              <h4 className="text-lg font-semibold text-slate-900 dark:text-white">Contexte du message</h4>
+              <p className="text-sm text-slate-600 dark:text-gray-400">Cadrez l&apos;émission avant de renseigner le compte rendu.</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center rounded-full border border-slate-200 dark:border-white/10 bg-white dark:bg-white/10 px-3 py-1 text-xs font-medium text-slate-600 dark:text-gray-300">
+                {roleLabel || 'Chef de groupe'}
+              </span>
+              <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium ${
+                compteRenduMessage.stamped
+                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+                  : 'bg-slate-200/80 text-slate-600 dark:bg-white/10 dark:text-gray-300'
+              }`}>
+                <Clock className="w-3.5 h-3.5" />
+                {compteRenduMessage.stamped ? 'Horodaté' : 'À horodater'}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr,110px] gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr,112px] gap-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] uppercase tracking-[0.25em] text-slate-500 dark:text-gray-400">Date</label>
+                  <input
+                    type="date"
+                    value={compteRenduMessage.date}
+                    onChange={(e) =>
+                      setCompteRenduMessage((prev) => ({
+                        ...prev,
+                        date: e.target.value,
+                        stamped: false
+                      }))
+                    }
+                    className={MESSAGE_INPUT_CLASS}
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] uppercase tracking-[0.25em] text-slate-500 dark:text-gray-400">Heure</label>
+                  <input
+                    type="time"
+                    value={compteRenduMessage.time}
+                    onChange={(e) =>
+                      setCompteRenduMessage((prev) => ({
+                        ...prev,
+                        time: e.target.value,
+                        stamped: false
+                      }))
+                    }
+                    className={MESSAGE_INPUT_CLASS}
+                  />
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const nowStamp = getNowStamp();
+                  setCompteRenduMessage((prev) => ({
+                    ...prev,
+                    stamped: true,
+                    date: prev.date || nowStamp.date,
+                    time: prev.time || nowStamp.time
+                  }));
+                }}
+                data-no-pill
+                className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition self-end ${
+                  compteRenduMessage.stamped
+                    ? 'bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100'
+                    : 'bg-red-600 hover:bg-red-500 text-white'
+                }`}
+              >
+                <Check className="w-4 h-4" />
+                Horodater
+              </button>
+            </div>
+          </div>
+
+          <div className="order-1 space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
+            <div>
+              <h4 className="text-lg font-semibold text-slate-900 dark:text-white">Rédiger le compte rendu</h4>
+              <p className="text-sm text-slate-600 dark:text-gray-400">Présentez la situation, l&apos;évolution et les besoins de manière concise.</p>
+            </div>
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je suis</label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isAddressAvailable) return;
+                    setCompteRenduMessage((prev) => ({
+                      ...prev,
+                      jeSuis: fullAddress,
+                      addressConfirmed: true
+                    }));
+                  }}
+                  disabled={!isAddressAvailable}
+                  className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition ${
+                    compteRenduMessage.addressConfirmed
+                      ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
+                      : 'bg-white border border-slate-200 text-slate-700 hover:border-slate-300 dark:bg-white/5 dark:border-white/10 dark:text-gray-200'
+                  } ${!isAddressAvailable ? 'opacity-60 cursor-not-allowed' : ''}`}
+                >
+                  <Check className="w-4 h-4" />
+                  Utiliser l&apos;adresse
+                </button>
+              </div>
+              <textarea
+                value={compteRenduMessage.jeSuis}
+                onChange={(e) =>
+                  setCompteRenduMessage((prev) => ({
+                    ...prev,
+                    jeSuis: e.target.value,
+                    addressConfirmed: false
+                  }))
+                }
+                rows={2}
+                placeholder="Votre position, votre mission, votre action en cours."
+                className={`atlas-resizable-textarea ${MESSAGE_INPUT_CLASS}`}
+              />
+              {!isAddressAvailable && (
+                <div className="text-xs text-amber-600 dark:text-amber-400">
+                  Adresse non renseignée dans l&apos;intervention.
+                </div>
+              )}
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je vois</label>
+              <textarea
+                value={compteRenduMessage.jeVois}
+                onChange={(e) => setCompteRenduMessage((prev) => ({ ...prev, jeVois: e.target.value }))}
+                rows={2}
+                placeholder="Ce que vous constatez sur place."
+                className={`atlas-resizable-textarea ${MESSAGE_INPUT_CLASS}`}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je prévois</label>
+              <textarea
+                value={compteRenduMessage.jePrevois}
+                onChange={(e) => setCompteRenduMessage((prev) => ({ ...prev, jePrevois: e.target.value }))}
+                rows={2}
+                placeholder="Hypothèses ou prochaines actions."
+                className={`atlas-resizable-textarea ${MESSAGE_INPUT_CLASS}`}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je fais</label>
+              <textarea
+                value={compteRenduMessage.jeFais}
+                onChange={(e) => setCompteRenduMessage((prev) => ({ ...prev, jeFais: e.target.value }))}
+                rows={2}
+                placeholder="Actions en cours ou réalisées."
+                className={`atlas-resizable-textarea ${MESSAGE_INPUT_CLASS}`}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je demande</label>
+              <textarea
+                value={compteRenduMessage.jeDemande}
+                onChange={(e) => setCompteRenduMessage((prev) => ({ ...prev, jeDemande: e.target.value }))}
+                rows={2}
+                placeholder="Renforts, moyens, consignes."
+                className={`atlas-resizable-textarea ${MESSAGE_INPUT_CLASS}`}
+              />
+            </div>
+          </div>
+
+          <details className="group order-3 rounded-2xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/5 xl:col-span-2">
+            <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 text-left">
+              <span>
+                <span className="block text-base font-semibold text-slate-900 dark:text-white">Compléments opérationnels</span>
+                <span className="mt-0.5 block text-sm text-slate-600 dark:text-gray-400">Demandes codifiées et constats utiles.</span>
+              </span>
+              <ChevronRight className="h-5 w-5 shrink-0 text-slate-400 transition-transform group-open:rotate-90" />
+            </summary>
+            <div className="space-y-3 border-t border-slate-200 p-4 dark:border-white/10">
+              <DemandesSection
+                value={compteRenduMessage.demandes}
+                onChange={(next) => setCompteRenduMessage((prev) => ({ ...prev, demandes: next }))}
+                options={demandeOptions}
+              />
+              <SurLesLieuxSection
+                value={compteRenduMessage.surLesLieux}
+                onChange={(next) => setCompteRenduMessage((prev) => ({ ...prev, surLesLieux: next }))}
+                options={surLesLieuxOptions}
+              />
+            </div>
+          </details>
+
+        </div>
+      );
+
+      const isAmbianceModal = messageModal === 'ambiance';
+      const activeDraftMessage = isAmbianceModal ? ambianceMessage : compteRenduMessage;
+      const activeTitle = isAmbianceModal ? 'Message d’ambiance' : 'Message de compte rendu';
+      const activeActionLabel = isAmbianceModal
+        ? (latestValidatedAmbiance ? 'Ajouter ce message' : 'Valider le message')
+        : (latestValidatedCompteRendu ? 'Ajouter ce message' : 'Valider le compte rendu');
+      const activeAction = isAmbianceModal ? handleValidateAmbiance : handleValidateCompteRendu;
+      const activeActionClass = isAmbianceModal
+        ? 'bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-600/20'
+        : 'bg-slate-900 hover:bg-slate-800 text-white shadow-lg shadow-slate-900/20 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100';
+      const modalDescription = isAmbianceModal
+        ? 'Renseignez un message initial, bref et opérationnel.'
+        : 'Renseignez une mise à jour de situation concise et exploitable.';
+
       return (
-        <div className="space-y-4">
-          <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white/90 dark:bg-white/5 p-4 md:p-5 space-y-4 shadow-sm">
+        <div className="flex flex-col gap-5">
+          <div className="order-2 rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm dark:border-white/10 dark:bg-white/5 md:p-5 space-y-4">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
                 <p className="text-xs uppercase text-slate-500 dark:text-gray-400 tracking-[0.2em]">Messages validés</p>
@@ -1046,104 +1481,80 @@ const DictationInput = () => {
             </div>
 
             {hasValidatedMessages ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                {validatedAmbiance && (
-                  <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 p-3 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="text-sm font-semibold text-slate-800 dark:text-gray-100">Message d&apos;ambiance</div>
-                      <div className="text-xs text-slate-500 dark:text-gray-400">
-                        {validatedAmbiance.date} {validatedAmbiance.time}
-                      </div>
+              <div className="space-y-3">
+                {validatedAmbianceList.map((message, index) => {
+                  const demandesSummary = buildMessageDemandesSummary(message.demandes, demandeOptions);
+                  const surLesLieuxSummary = buildMessageSurLesLieuxSummary(message.surLesLieux, surLesLieuxOptions);
+                  const messageKey = `ambiance-${message.date}-${message.time}-${index}`;
+                  const isCollapsed = Boolean(collapsedValidatedMessages[messageKey]);
+                  return (
+                    <div
+                      key={messageKey}
+                      className="rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 p-3 md:p-4 space-y-3"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => toggleValidatedMessage(messageKey)}
+                        className="w-full flex flex-wrap items-start justify-between gap-2 text-left"
+                      >
+                        <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-gray-100">
+                          <ChevronRight className={`w-4 h-4 transition-transform ${isCollapsed ? '' : 'rotate-90'}`} />
+                          <span>Message d&apos;ambiance #{index + 1}</span>
+                        </div>
+                        <div className="text-xs text-slate-500 dark:text-gray-400">
+                          {message.date} {message.time}
+                        </div>
+                      </button>
+                      {!isCollapsed && (
+                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-x-6 gap-y-2">
+                          <MessageSummaryRow label="Je suis" value={message.jeSuis} />
+                          <MessageSummaryRow label="Je vois" value={message.jeVois} />
+                          <MessageSummaryRow label="Je demande" value={message.jeDemande} />
+                          <MessageSummaryRow label="Demandes" value={demandesSummary.length ? demandesSummary.join(', ') : '-'} />
+                          <MessageSummaryRow label="Sur les lieux" value={surLesLieuxSummary.length ? surLesLieuxSummary.join(', ') : '-'} />
+                        </div>
+                      )}
                     </div>
-                    <div className="space-y-2">
-                      <div>
-                        <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Je suis</div>
-                        <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">
-                          {validatedAmbiance.jeSuis || '-'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Je vois</div>
-                        <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">
-                          {validatedAmbiance.jeVois || '-'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Je demande</div>
-                        <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">
-                          {validatedAmbiance.jeDemande || '-'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Demandes</div>
-                        <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">
-                          {ambianceDemandesSummary.length ? ambianceDemandesSummary.join(', ') : '-'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Sur les lieux</div>
-                        <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">
-                          {ambianceSurLesLieuxSummary.length ? ambianceSurLesLieuxSummary.join(', ') : '-'}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                  );
+                })}
 
-                {validatedCompteRendu && (
-                  <div className="rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 p-3 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="text-sm font-semibold text-slate-800 dark:text-gray-100">Message de compte rendu</div>
-                      <div className="text-xs text-slate-500 dark:text-gray-400">
-                        {validatedCompteRendu.date} {validatedCompteRendu.time}
-                      </div>
+                {validatedCompteRenduList.map((message, index) => {
+                  const demandesSummary = buildMessageDemandesSummary(message.demandes, demandeOptions);
+                  const surLesLieuxSummary = buildMessageSurLesLieuxSummary(message.surLesLieux, surLesLieuxOptions);
+                  const messageKey = `compte-rendu-${message.date}-${message.time}-${index}`;
+                  const isCollapsed = Boolean(collapsedValidatedMessages[messageKey]);
+                  return (
+                    <div
+                      key={messageKey}
+                      className="rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 p-3 md:p-4 space-y-3"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => toggleValidatedMessage(messageKey)}
+                        className="w-full flex flex-wrap items-start justify-between gap-2 text-left"
+                      >
+                        <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-gray-100">
+                          <ChevronRight className={`w-4 h-4 transition-transform ${isCollapsed ? '' : 'rotate-90'}`} />
+                          <span>Message de compte rendu #{index + 1}</span>
+                        </div>
+                        <div className="text-xs text-slate-500 dark:text-gray-400">
+                          {message.date} {message.time}
+                        </div>
+                      </button>
+                      {!isCollapsed && (
+                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-x-6 gap-y-2">
+                          <MessageSummaryRow label="Je suis" value={message.jeSuis} />
+                          <MessageSummaryRow label="Je vois" value={message.jeVois} />
+                          <MessageSummaryRow label="Je prévois" value={message.jePrevois} />
+                          <MessageSummaryRow label="Je fais" value={message.jeFais} />
+                          <MessageSummaryRow label="Je demande" value={message.jeDemande} />
+                          <MessageSummaryRow label="Demandes" value={demandesSummary.length ? demandesSummary.join(', ') : '-'} />
+                          <MessageSummaryRow label="Sur les lieux" value={surLesLieuxSummary.length ? surLesLieuxSummary.join(', ') : '-'} />
+                        </div>
+                      )}
                     </div>
-                    <div className="space-y-2">
-                      <div>
-                        <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Je suis</div>
-                        <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">
-                          {validatedCompteRendu.jeSuis || '-'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Je vois</div>
-                        <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">
-                          {validatedCompteRendu.jeVois || '-'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Je prévois</div>
-                        <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">
-                          {validatedCompteRendu.jePrevois || '-'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Je fais</div>
-                        <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">
-                          {validatedCompteRendu.jeFais || '-'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Je demande</div>
-                        <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">
-                          {validatedCompteRendu.jeDemande || '-'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Demandes</div>
-                        <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">
-                          {compteRenduDemandesSummary.length ? compteRenduDemandesSummary.join(', ') : '-'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-400">Sur les lieux</div>
-                        <div className="text-sm text-slate-800 dark:text-gray-200 whitespace-pre-wrap">
-                          {compteRenduSurLesLieuxSummary.length ? compteRenduSurLesLieuxSummary.join(', ') : '-'}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                  );
+                })}
               </div>
             ) : (
               <div className="text-sm text-slate-500 dark:text-gray-400">
@@ -1152,353 +1563,146 @@ const DictationInput = () => {
             )}
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-            <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white/90 dark:bg-white/5 p-4 md:p-5 space-y-4 shadow-sm">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <h3 className="text-xl font-semibold">Message d&apos;ambiance</h3>
-                </div>
-                <span className="text-xs text-slate-500 dark:text-gray-400">{roleLabel || 'Chef de groupe'}</span>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex flex-wrap items-end gap-3">
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] uppercase tracking-[0.25em] text-slate-500 dark:text-gray-400">Date</label>
-                    <input
-                      type="date"
-                      value={ambianceMessage.date}
-                      onChange={(e) =>
-                        setAmbianceMessage((prev) => ({
-                          ...prev,
-                          date: e.target.value,
-                          stamped: false
-                        }))
-                      }
-                      className="w-44 bg-white dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 shadow-sm"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] uppercase tracking-[0.25em] text-slate-500 dark:text-gray-400">Heure</label>
-                    <input
-                      type="time"
-                      value={ambianceMessage.time}
-                      onChange={(e) =>
-                        setAmbianceMessage((prev) => ({
-                          ...prev,
-                          time: e.target.value,
-                          stamped: false
-                        }))
-                      }
-                      className="w-28 bg-white dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 shadow-sm"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const nowStamp = getNowStamp();
-                      setAmbianceMessage((prev) => ({
-                        ...prev,
-                        stamped: true,
-                        date: prev.date || nowStamp.date,
-                        time: prev.time || nowStamp.time
-                      }));
-                    }}
-                    className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-semibold transition btn-success ${
-                      ambianceMessage.stamped
-                        ? 'bg-emerald-600/15 text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-500/40'
-                        : ''
-                    }`}
-                  >
-                    <Check className="w-4 h-4" />
-                    Valider
-                  </button>
-                </div>
-                {ambianceMessage.stamped && (
-                  <div className="text-xs text-emerald-600 dark:text-emerald-400">Date/heure validées.</div>
-                )}
-              </div>
-
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je suis</label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!isAddressAvailable) return;
-                        setAmbianceMessage((prev) => ({
-                          ...prev,
-                          jeSuis: fullAddress,
-                          addressConfirmed: true
-                        }));
-                      }}
-                      disabled={!isAddressAvailable}
-                      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold transition btn-success ${
-                        ambianceMessage.addressConfirmed
-                          ? 'bg-emerald-600/15 text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-500/40'
-                          : ''
-                      } ${!isAddressAvailable ? 'opacity-60 cursor-not-allowed' : ''}`}
-                    >
-                      <Check className="w-4 h-4" />
-                      Utiliser l&apos;adresse
-                    </button>
-                  </div>
-                  <textarea
-                    value={ambianceMessage.jeSuis}
-                    onChange={(e) =>
-                      setAmbianceMessage((prev) => ({
-                        ...prev,
-                        jeSuis: e.target.value,
-                        addressConfirmed: false
-                      }))
-                    }
-                    rows={2}
-                    placeholder="Votre position, votre mission, votre action en cours."
-                    className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
-                  />
-                  {!isAddressAvailable && (
-                    <div className="text-xs text-amber-600 dark:text-amber-400">
-                      Adresse non renseignée dans l&apos;intervention.
-                    </div>
-                  )}
-                  {ambianceMessage.addressConfirmed && (
-                    <div className="text-xs text-emerald-600 dark:text-emerald-400">
-                      Adresse validée.
-                    </div>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je vois</label>
-                  <input
-                    value={ambianceMessage.jeVois}
-                    onChange={(e) => setAmbianceMessage((prev) => ({ ...prev, jeVois: e.target.value }))}
-                    placeholder="Ce que vous observez sur place."
-                    className="w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je demande</label>
-                  <textarea
-                    value={ambianceMessage.jeDemande}
-                    onChange={(e) => setAmbianceMessage((prev) => ({ ...prev, jeDemande: e.target.value }))}
-                    rows={2}
-                    placeholder="Renforts, moyens, consignes."
-                    className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
-                  />
-                </div>
-                <DemandesSection
-                  value={ambianceMessage.demandes}
-                  onChange={(next) => setAmbianceMessage((prev) => ({ ...prev, demandes: next }))}
-                  options={demandeOptions}
-                />
-                <SurLesLieuxSection
-                  value={ambianceMessage.surLesLieux}
-                  onChange={(next) => setAmbianceMessage((prev) => ({ ...prev, surLesLieux: next }))}
-                  options={surLesLieuxOptions}
-                />
-              </div>
-
-              <div className="flex flex-wrap justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={handleValidateAmbiance}
-                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition border ${
-                    validatedAmbiance
-                      ? 'bg-emerald-600/15 text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-500/40'
-                      : 'btn-success'
-                  }`}
-                >
-                  <Check className="w-4 h-4" />
-                  {validatedAmbiance ? 'Message validé' : 'Valider le message'}
-                </button>
-              </div>
+          <section className="order-1 space-y-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400">Nouveau message</p>
+              <h2 className="mt-1 text-2xl font-bold text-slate-950 dark:text-white">Que souhaitez-vous transmettre ?</h2>
+              <p className="mt-1 text-sm text-slate-600 dark:text-gray-400">Choisissez un type de message. Seul le formulaire correspondant sera ouvert.</p>
             </div>
-
-            <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white/90 dark:bg-white/5 p-4 md:p-5 space-y-4 shadow-sm">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <h3 className="text-xl font-semibold">Message de compte rendu</h3>
-                </div>
-                <span className="text-xs text-slate-500 dark:text-gray-400">{roleLabel || 'Chef de groupe'}</span>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex flex-wrap items-end gap-3">
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] uppercase tracking-[0.25em] text-slate-500 dark:text-gray-400">Date</label>
-                    <input
-                      type="date"
-                      value={compteRenduMessage.date}
-                      onChange={(e) =>
-                        setCompteRenduMessage((prev) => ({
-                          ...prev,
-                          date: e.target.value,
-                          stamped: false
-                        }))
-                      }
-                      className="w-44 bg-white dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 shadow-sm"
-                    />
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => setMessageModal('ambiance')}
+              className="group rounded-2xl border border-red-200 bg-white p-5 text-left shadow-sm transition hover:border-red-300 hover:shadow-md dark:border-red-500/25 dark:bg-[#121722] dark:hover:border-red-500/40 md:p-6"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex min-w-0 items-start gap-4">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-300">
+                    <Radio className="h-6 w-6" />
+                  </span>
+                  <div>
+                    <h3 className="text-xl font-bold text-slate-900 dark:text-white">Message d&apos;ambiance</h3>
+                    <p className="mt-1 max-w-xl text-sm leading-6 text-slate-600 dark:text-gray-300">
+                      Transmettre rapidement la situation initiale, ce que vous voyez et vos premières demandes.
+                    </p>
                   </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[10px] uppercase tracking-[0.25em] text-slate-500 dark:text-gray-400">Heure</label>
-                    <input
-                      type="time"
-                      value={compteRenduMessage.time}
-                      onChange={(e) =>
-                        setCompteRenduMessage((prev) => ({
-                          ...prev,
-                          time: e.target.value,
-                          stamped: false
-                        }))
-                      }
-                      className="w-28 bg-white dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2 text-sm text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 shadow-sm"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const nowStamp = getNowStamp();
-                      setCompteRenduMessage((prev) => ({
-                        ...prev,
-                        stamped: true,
-                        date: prev.date || nowStamp.date,
-                        time: prev.time || nowStamp.time
-                      }));
-                    }}
-                    className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-semibold transition btn-success ${
-                      compteRenduMessage.stamped
-                        ? 'bg-emerald-600/15 text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-500/40'
-                        : ''
-                    }`}
-                  >
-                    <Check className="w-4 h-4" />
-                    Valider
-                  </button>
                 </div>
-                {compteRenduMessage.stamped && (
-                  <div className="text-xs text-emerald-600 dark:text-emerald-400">Date/heure validées.</div>
-                )}
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-red-600 transition-transform group-hover:translate-x-0.5 dark:text-red-300">
+                  <ChevronRight className="h-5 w-5" />
+                </div>
               </div>
-
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je suis</label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!isAddressAvailable) return;
-                        setCompteRenduMessage((prev) => ({
-                          ...prev,
-                          jeSuis: fullAddress,
-                          addressConfirmed: true
-                        }));
-                      }}
-                      disabled={!isAddressAvailable}
-                      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold transition btn-success ${
-                        compteRenduMessage.addressConfirmed
-                          ? 'bg-emerald-600/15 text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-500/40'
-                          : ''
-                      } ${!isAddressAvailable ? 'opacity-60 cursor-not-allowed' : ''}`}
-                    >
-                      <Check className="w-4 h-4" />
-                      Utiliser l&apos;adresse
-                    </button>
-                  </div>
-                  <textarea
-                    value={compteRenduMessage.jeSuis}
-                    onChange={(e) =>
-                      setCompteRenduMessage((prev) => ({
-                        ...prev,
-                        jeSuis: e.target.value,
-                        addressConfirmed: false
-                      }))
-                    }
-                    rows={2}
-                    placeholder="Votre position, votre mission, votre action en cours."
-                    className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
-                  />
-                  {!isAddressAvailable && (
-                    <div className="text-xs text-amber-600 dark:text-amber-400">
-                      Adresse non renseignée dans l&apos;intervention.
-                    </div>
-                  )}
-                  {compteRenduMessage.addressConfirmed && (
-                    <div className="text-xs text-emerald-600 dark:text-emerald-400">
-                      Adresse validée.
-                    </div>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je vois</label>
-                  <textarea
-                    value={compteRenduMessage.jeVois}
-                    onChange={(e) => setCompteRenduMessage((prev) => ({ ...prev, jeVois: e.target.value }))}
-                    rows={2}
-                    placeholder="Ce que vous constatez sur place."
-                    className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je prévois</label>
-                  <textarea
-                    value={compteRenduMessage.jePrevois}
-                    onChange={(e) => setCompteRenduMessage((prev) => ({ ...prev, jePrevois: e.target.value }))}
-                    rows={2}
-                    placeholder="Hypothèses ou prochaines actions."
-                    className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je fais</label>
-                  <textarea
-                    value={compteRenduMessage.jeFais}
-                    onChange={(e) => setCompteRenduMessage((prev) => ({ ...prev, jeFais: e.target.value }))}
-                    rows={2}
-                    placeholder="Actions en cours ou réalisées."
-                    className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je demande</label>
-                  <textarea
-                    value={compteRenduMessage.jeDemande}
-                    onChange={(e) => setCompteRenduMessage((prev) => ({ ...prev, jeDemande: e.target.value }))}
-                    rows={2}
-                    placeholder="Renforts, moyens, consignes."
-                    className="atlas-resizable-textarea w-full bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm"
-                  />
-                </div>
-                <DemandesSection
-                  value={compteRenduMessage.demandes}
-                  onChange={(next) => setCompteRenduMessage((prev) => ({ ...prev, demandes: next }))}
-                  options={demandeOptions}
-                />
-                <SurLesLieuxSection
-                  value={compteRenduMessage.surLesLieux}
-                  onChange={(next) => setCompteRenduMessage((prev) => ({ ...prev, surLesLieux: next }))}
-                  options={surLesLieuxOptions}
-                />
+              <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-slate-200 pt-4 text-xs text-slate-500 dark:border-white/10 dark:text-gray-400">
+                <span><strong className="font-semibold text-slate-700 dark:text-gray-200">{ambianceMessage.date || '-'}</strong> · {ambianceMessage.time || '-'}</span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5" />
+                  {ambianceMessage.stamped ? 'Horodaté' : 'Brouillon à horodater'}
+                </span>
               </div>
+            </button>
 
-              <div className="flex flex-wrap justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={handleValidateCompteRendu}
-                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition border ${
-                    validatedCompteRendu
-                      ? 'bg-emerald-600/15 text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-500/40'
-                      : 'btn-success'
-                  }`}
-                >
-                  <Check className="w-4 h-4" />
-                  {validatedCompteRendu ? 'Message validé' : 'Valider le message'}
-                </button>
+            <button
+              type="button"
+              onClick={() => setMessageModal('compte-rendu')}
+              className="group rounded-2xl border border-slate-300 bg-white p-5 text-left shadow-sm transition hover:border-slate-400 hover:shadow-md dark:border-white/15 dark:bg-[#121722] dark:hover:border-white/25 md:p-6"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex min-w-0 items-start gap-4">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-800 dark:bg-white/10 dark:text-white">
+                    <MessageSquareText className="h-6 w-6" />
+                  </span>
+                  <div>
+                    <h3 className="text-xl font-bold text-slate-900 dark:text-white">Message de compte rendu</h3>
+                    <p className="mt-1 max-w-xl text-sm leading-6 text-slate-600 dark:text-gray-300">
+                      Actualiser l&apos;évolution, les actions menées, les prévisions et les besoins.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-slate-600 transition-transform group-hover:translate-x-0.5 dark:text-gray-300">
+                  <ChevronRight className="h-5 w-5" />
+                </div>
+              </div>
+              <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-slate-200 pt-4 text-xs text-slate-500 dark:border-white/10 dark:text-gray-400">
+                <span><strong className="font-semibold text-slate-700 dark:text-gray-200">{compteRenduMessage.date || '-'}</strong> · {compteRenduMessage.time || '-'}</span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5" />
+                  {compteRenduMessage.stamped ? 'Horodaté' : 'Brouillon à horodater'}
+                </span>
+              </div>
+            </button>
             </div>
-          </div>
+          </section>
+
+          {messageModal && typeof document !== 'undefined' && createPortal(
+            <div className="fixed inset-0 z-[999] overflow-hidden bg-slate-950/60 backdrop-blur-[6px]">
+              <div className="absolute inset-0 atlas-grid opacity-40" />
+              <div className="relative flex h-[100dvh] w-[100dvw] flex-col overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.95),_rgba(241,245,249,0.98)_48%,_rgba(226,232,240,0.98)_100%)] dark:bg-[radial-gradient(circle_at_top_left,_rgba(15,23,42,0.98),_rgba(10,14,24,0.99)_52%,_rgba(2,6,23,1)_100%)]">
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-white/75 via-white/30 to-transparent dark:from-white/5 dark:via-transparent" />
+                <div className="relative flex min-h-0 h-full w-full flex-1 flex-col overflow-hidden border-white/70 bg-white/88 shadow-[0_28px_90px_-40px_rgba(15,23,42,0.5)] backdrop-blur-xl dark:border-white/10 dark:bg-[#0c1220]/92">
+                  <div className="border-b border-slate-200/80 bg-white/80 px-4 py-3 backdrop-blur dark:border-white/10 dark:bg-[#0c1220]/85 md:px-6 md:py-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex min-w-0 items-start gap-3">
+                        <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
+                          isAmbianceModal
+                            ? 'bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-300'
+                            : 'bg-slate-100 text-slate-800 dark:bg-white/10 dark:text-white'
+                        }`}>
+                          {isAmbianceModal ? <Radio className="h-5 w-5" /> : <MessageSquareText className="h-5 w-5" />}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400">Rédaction du message</p>
+                          <h3 className="mt-0.5 text-xl font-bold text-slate-950 dark:text-white md:text-2xl">{activeTitle}</h3>
+                          <p className="mt-1 hidden text-sm text-slate-600 dark:text-gray-300 sm:block">{modalDescription}</p>
+                          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                            <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 font-medium text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-gray-300">
+                              {roleLabel || 'Chef de groupe'}
+                            </span>
+                            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-medium ${
+                              activeDraftMessage.stamped
+                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+                                : 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-gray-300'
+                            }`}>
+                              <Clock className="h-3.5 w-3.5" />
+                              {activeDraftMessage.stamped ? 'Horodaté' : 'Brouillon en cours'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setMessageModal(null)}
+                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-slate-300 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-gray-300 dark:hover:border-white/20 dark:hover:text-white"
+                        aria-label="Fermer la fenêtre"
+                      >
+                        <X className="h-5 w-5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 pb-28 md:px-6 md:py-5 md:pb-28">
+                    {isAmbianceModal ? ambianceModalContent : compteRenduModalContent}
+                  </div>
+
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-4 pb-4 md:px-6 md:pb-6">
+                    <div className="pointer-events-auto flex w-full items-center gap-4 rounded-2xl border border-slate-200/80 bg-white/95 p-2.5 shadow-[0_18px_48px_-34px_rgba(15,23,42,0.4)] backdrop-blur dark:border-white/10 dark:bg-[#0f172a]/95 md:p-3">
+                      <button
+                        type="button"
+                        onClick={activeAction}
+                        data-no-pill
+                        className={`min-h-12 flex-1 rounded-xl px-5 py-3 text-base font-bold transition ${activeActionClass}`}
+                      >
+                        {activeActionLabel}
+                      </button>
+                      <p className="hidden max-w-xs text-xs leading-5 text-slate-500 dark:text-gray-400 lg:block">
+                        Ajout à l&apos;historique sans quitter l&apos;éditeur.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )}
         </div>
-      </div>
       );
     }
 
@@ -1532,8 +1736,10 @@ const DictationInput = () => {
     selectedMeans,
     ambianceMessage,
     compteRenduMessage,
-    validatedAmbiance: validatedAmbiance ?? undefined,
-    validatedCompteRendu: validatedCompteRendu ?? undefined,
+    validatedAmbiance: latestValidatedAmbiance ?? undefined,
+    validatedCompteRendu: latestValidatedCompteRendu ?? undefined,
+    validatedAmbianceList: validatedAmbianceList.length ? validatedAmbianceList : undefined,
+    validatedCompteRenduList: validatedCompteRenduList.length ? validatedCompteRenduList : undefined,
     ordreValidatedAt: ordreValidatedAt ?? undefined,
     conduiteValidatedAt: conduiteValidatedAt ?? undefined,
     conduiteSelectedRisks,
@@ -1560,8 +1766,10 @@ const DictationInput = () => {
     selectedMeans,
     selectedRisks,
     showConduite,
-    validatedAmbiance,
-    validatedCompteRendu
+    latestValidatedAmbiance,
+    latestValidatedCompteRendu,
+    validatedAmbianceList,
+    validatedCompteRenduList
   ]);
 
   const applyStoredDraft = React.useCallback((draft: DraftPayload) => {
@@ -1575,36 +1783,20 @@ const DictationInput = () => {
     if (draft.orderTime) setOrderTime(draft.orderTime);
     if (draft.selectedMeans) setSelectedMeans(normalizeMeans(draft.selectedMeans));
     if (draft.ambianceMessage) {
-      setAmbianceMessage({
-        ...createAmbianceMessage(),
-        ...draft.ambianceMessage,
-        demandes: normalizeDemandes(draft.ambianceMessage.demandes),
-        surLesLieux: normalizeSurLesLieux(draft.ambianceMessage.surLesLieux)
-      });
+      setAmbianceMessage(normalizeAmbianceMessage(draft.ambianceMessage));
     }
     if (draft.compteRenduMessage) {
-      setCompteRenduMessage({
-        ...createCompteRenduMessage(),
-        ...draft.compteRenduMessage,
-        demandes: normalizeDemandes(draft.compteRenduMessage.demandes),
-        surLesLieux: normalizeSurLesLieux(draft.compteRenduMessage.surLesLieux)
-      });
+      setCompteRenduMessage(normalizeCompteRenduMessage(draft.compteRenduMessage));
     }
-    if (draft.validatedAmbiance) {
-      setValidatedAmbiance({
-        ...createAmbianceMessage(),
-        ...draft.validatedAmbiance,
-        demandes: normalizeDemandes(draft.validatedAmbiance.demandes),
-        surLesLieux: normalizeSurLesLieux(draft.validatedAmbiance.surLesLieux)
-      });
+    if (draft.validatedAmbianceList?.length) {
+      setValidatedAmbianceList(draft.validatedAmbianceList.map((message) => normalizeAmbianceMessage(message)));
+    } else if (draft.validatedAmbiance) {
+      setValidatedAmbianceList([normalizeAmbianceMessage(draft.validatedAmbiance)]);
     }
-    if (draft.validatedCompteRendu) {
-      setValidatedCompteRendu({
-        ...createCompteRenduMessage(),
-        ...draft.validatedCompteRendu,
-        demandes: normalizeDemandes(draft.validatedCompteRendu.demandes),
-        surLesLieux: normalizeSurLesLieux(draft.validatedCompteRendu.surLesLieux)
-      });
+    if (draft.validatedCompteRenduList?.length) {
+      setValidatedCompteRenduList(draft.validatedCompteRenduList.map((message) => normalizeCompteRenduMessage(message)));
+    } else if (draft.validatedCompteRendu) {
+      setValidatedCompteRenduList([normalizeCompteRenduMessage(draft.validatedCompteRendu)]);
     }
     if (draft.ordreValidatedAt) setOrdreValidatedAt(draft.ordreValidatedAt);
     if (draft.ordreConduite) setOrdreConduite(draft.ordreConduite);
@@ -1663,8 +1855,10 @@ const DictationInput = () => {
       selectedMeans,
       ambianceMessage,
       compteRenduMessage,
-      validatedAmbiance,
-      validatedCompteRendu,
+      validatedAmbiance: latestValidatedAmbiance,
+      validatedCompteRendu: latestValidatedCompteRendu,
+      validatedAmbianceList,
+      validatedCompteRenduList,
       ordreConduite
     };
     let snapshotHash = '';
@@ -1688,8 +1882,10 @@ const DictationInput = () => {
     orderTime,
     selectedMeans,
     selectedRisks,
-    validatedAmbiance,
-    validatedCompteRendu,
+    latestValidatedAmbiance,
+    latestValidatedCompteRendu,
+    validatedAmbianceList,
+    validatedCompteRenduList,
     scheduleDraftSnapshot
   ]);
 
@@ -1825,6 +2021,13 @@ const DictationInput = () => {
     previousTabRef.current = activeTab;
   }, [activeTab, meansTelemetry, persistMeansState]);
 
+  const toggleValidatedMessage = React.useCallback((key: string) => {
+    setCollapsedValidatedMessages((prev) => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  }, []);
+
   const handleValidateAmbiance = () => {
     const nowStamp = getNowStamp();
     const stampedMessage: AmbianceMessage = {
@@ -1833,8 +2036,11 @@ const DictationInput = () => {
       date: ambianceMessage.date || nowStamp.date,
       time: ambianceMessage.time || nowStamp.time
     };
-    setAmbianceMessage(stampedMessage);
-    setValidatedAmbiance(stampedMessage);
+    setValidatedAmbianceList((prev) => [stampedMessage, ...prev]);
+    setAmbianceMessage(() => {
+      const next = createAmbianceMessage();
+      return fullAddress ? { ...next, jeSuis: fullAddress } : next;
+    });
     logInterventionEventSafe(
       'MESSAGE_AMBIANCE_VALIDATED',
       stampedMessage,
@@ -1850,8 +2056,11 @@ const DictationInput = () => {
       date: compteRenduMessage.date || nowStamp.date,
       time: compteRenduMessage.time || nowStamp.time
     };
-    setCompteRenduMessage(stampedMessage);
-    setValidatedCompteRendu(stampedMessage);
+    setValidatedCompteRenduList((prev) => [stampedMessage, ...prev]);
+    setCompteRenduMessage(() => {
+      const next = createCompteRenduMessage();
+      return fullAddress ? { ...next, jeSuis: fullAddress } : next;
+    });
     logInterventionEventSafe(
       'MESSAGE_COMPTE_RENDU_VALIDATED',
       stampedMessage,
@@ -1940,8 +2149,8 @@ const DictationInput = () => {
         throw new Error('Veuillez remplir au moins une section avant de générer.');
       }
 
-      const messageAmbiance = validatedAmbiance ?? ambianceMessage;
-      const messageCompteRendu = validatedCompteRendu ?? compteRenduMessage;
+      const messageAmbiance = latestValidatedAmbiance ?? ambianceMessage;
+      const messageCompteRendu = latestValidatedCompteRendu ?? compteRenduMessage;
       const dominante = selectedRisks.length > 0 ? selectedRisks[0] : 'Incendie';
 
       if (type === 'communication') {
@@ -2250,8 +2459,9 @@ const DictationInput = () => {
   const resetMessageState = () => {
     setAmbianceMessage(createAmbianceMessage());
     setCompteRenduMessage(createCompteRenduMessage());
-    setValidatedAmbiance(null);
-    setValidatedCompteRendu(null);
+    setValidatedAmbianceList([]);
+    setValidatedCompteRenduList([]);
+    setCollapsedValidatedMessages({});
   };
 
   const handleResetTab = () => {

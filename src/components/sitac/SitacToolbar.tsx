@@ -36,36 +36,36 @@ const SitacToolbar: React.FC<SitacToolbarProps> = ({
     const [isCollapsed, setIsCollapsed] = React.useState(false);
 
     return (
-        <div className="absolute top-4 left-4 z-20 pointer-events-none">
+        <div className="absolute left-3 right-3 top-3 z-20 pointer-events-none lg:left-4 lg:right-[20.5rem] lg:top-4">
             <div
-                className={`pointer-events-auto relative rounded-2xl px-2 py-2 transition-all duration-300 ${isCollapsed
+                className={`pointer-events-auto relative max-w-full rounded-2xl p-1.5 transition-all duration-300 ${isCollapsed
                     ? 'w-16 bg-white/10 border border-white/25 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl backdrop-saturate-150 overflow-hidden'
-                    : 'bg-white/10 border border-white/20 shadow-[0_8px_24px_rgba(0,0,0,0.25)] backdrop-blur-xl backdrop-saturate-150'
+                    : 'w-full overflow-x-auto bg-white/10 border border-white/20 shadow-[0_8px_24px_rgba(0,0,0,0.25)] backdrop-blur-xl backdrop-saturate-150'
                     }`}
             >
                 {isCollapsed && (
                     <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br from-white/35 via-white/10 to-transparent opacity-70" />
                 )}
-                <div className={`relative z-10 flex items-center gap-2 ${isCollapsed ? 'w-full justify-center' : ''}`}>
+                <div className={`relative z-10 flex items-center gap-1.5 ${isCollapsed ? 'w-full justify-center' : 'min-w-max'}`}>
                     {!isCollapsed && (
                         <>
                         <button
                             onClick={undo}
-                            className="p-2 rounded-xl bg-black/45 hover:bg-black/55 text-white border border-white/25 shadow-[0_6px_16px_rgba(0,0,0,0.35)]"
+                            className="p-1.5 rounded-lg bg-black/45 hover:bg-black/55 text-white border border-white/25 shadow-[0_6px_16px_rgba(0,0,0,0.35)]"
                             aria-label="Annuler"
                         >
                             <Undo2 className="w-4 h-4" />
                         </button>
                         <button
                             onClick={redoAction}
-                            className="p-2 rounded-xl bg-black/45 hover:bg-black/55 text-white border border-white/25 shadow-[0_6px_16px_rgba(0,0,0,0.35)]"
+                            className="p-1.5 rounded-lg bg-black/45 hover:bg-black/55 text-white border border-white/25 shadow-[0_6px_16px_rgba(0,0,0,0.35)]"
                             aria-label="Rétablir"
                         >
                             <Redo2 className="w-4 h-4" />
                         </button>
                         <button
                             onClick={clear}
-                            className="p-2 rounded-xl bg-black/45 hover:bg-black/55 text-white border border-white/25 shadow-[0_6px_16px_rgba(0,0,0,0.35)]"
+                            className="p-1.5 rounded-lg bg-black/45 hover:bg-black/55 text-white border border-white/25 shadow-[0_6px_16px_rgba(0,0,0,0.35)]"
                             aria-label="Tout effacer"
                         >
                             <Trash2 className="w-4 h-4" />
@@ -76,17 +76,19 @@ const SitacToolbar: React.FC<SitacToolbarProps> = ({
                                 value={searchValue}
                                 onChange={(e) => setSearchValue(e.target.value)}
                                 placeholder="Recherche adresse ou lat,lng"
-                                className="bg-black/35 border border-white/25 rounded-xl px-3 py-1.5 text-sm text-white/90 placeholder:text-gray-300 shadow-[0_6px_16px_rgba(0,0,0,0.25)] w-52 md:w-72"
+                                className="h-8 w-40 rounded-lg border border-white/25 bg-black/35 px-3 text-xs text-white/90 shadow-[0_6px_16px_rgba(0,0,0,0.25)] placeholder:text-gray-300 sm:w-48 xl:w-52"
                             />
                         <button
                             onClick={handleSearch}
-                            className="px-3 py-2 rounded-xl bg-blue-500/90 hover:bg-blue-500 text-white text-sm font-semibold shadow-[0_6px_16px_rgba(0,0,0,0.35)]"
+                            className="p-1.5 rounded-lg bg-blue-500/90 hover:bg-blue-500 text-white shadow-[0_6px_16px_rgba(0,0,0,0.35)]"
+                            aria-label="Rechercher l’adresse"
+                            title="Rechercher l’adresse"
                         >
                             <Search className="w-4 h-4" />
                         </button>
                         <button
                             onClick={onLocateUser}
-                            className="p-2 rounded-xl bg-black/45 hover:bg-black/55 text-white border border-white/25 shadow-[0_6px_16px_rgba(0,0,0,0.35)]"
+                            className="p-1.5 rounded-lg bg-black/45 hover:bg-black/55 text-white border border-white/25 shadow-[0_6px_16px_rgba(0,0,0,0.35)]"
                             aria-label="Se localiser"
                             title="Se localiser"
                         >
@@ -94,7 +96,7 @@ const SitacToolbar: React.FC<SitacToolbarProps> = ({
                         </button>
                         <button
                             onClick={onToggleInterventionPlacement}
-                            className={`px-3 py-2 rounded-xl text-white text-sm font-semibold shadow-[0_6px_16px_rgba(0,0,0,0.35)] flex items-center gap-2 ${isPlacingIntervention
+                            className={`flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-white shadow-[0_6px_16px_rgba(0,0,0,0.35)] ${isPlacingIntervention
                                 ? 'bg-emerald-600/90 hover:bg-emerald-600'
                                 : 'bg-emerald-500/90 hover:bg-emerald-500'
                                 }`}
@@ -107,7 +109,7 @@ const SitacToolbar: React.FC<SitacToolbarProps> = ({
                     </div>
                     <button
                         onClick={cycleBaseLayer}
-                        className="px-3 py-2 rounded-xl bg-black/45 hover:bg-black/55 text-white border border-white/25 text-sm flex items-center gap-2 shadow-[0_6px_16px_rgba(0,0,0,0.35)]"
+                        className="flex h-8 items-center gap-1.5 rounded-lg border border-white/25 bg-black/45 px-2.5 text-xs text-white shadow-[0_6px_16px_rgba(0,0,0,0.35)] hover:bg-black/55"
                     >
                             <Layers className="w-4 h-4" />
                             {baseLayer === 'plan'
@@ -122,7 +124,7 @@ const SitacToolbar: React.FC<SitacToolbarProps> = ({
                         </button>
                         <button
                             onClick={toggleLock}
-                            className={`p-2 rounded-xl border text-white shadow-[0_6px_16px_rgba(0,0,0,0.35)] ${locked
+                            className={`p-1.5 rounded-lg border text-white shadow-[0_6px_16px_rgba(0,0,0,0.35)] ${locked
                                 ? 'bg-red-600/80 hover:bg-red-600 border-red-400/70'
                                 : 'bg-black/45 hover:bg-black/55 border-white/25'
                                 }`}
@@ -135,7 +137,7 @@ const SitacToolbar: React.FC<SitacToolbarProps> = ({
                     )}
                     <button
                         onClick={() => setIsCollapsed((prev) => !prev)}
-                        className={`p-2 rounded-lg border transition-colors ${isCollapsed
+                        className={`p-1.5 rounded-lg border transition-colors ${isCollapsed
                             ? 'bg-black/80 border-white/40 text-white shadow-[0_10px_28px_rgba(0,0,0,0.5)] hover:bg-black/90'
                             : 'bg-black/45 border-white/25 text-white shadow-[0_6px_16px_rgba(0,0,0,0.35)] hover:bg-black/55'
                             }`}

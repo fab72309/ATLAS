@@ -86,28 +86,28 @@ const Layout = () => {
       <SideMenu open={open} onClose={() => setOpen(false)} />
       <main className="relative min-h-screen overflow-x-hidden">
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          <div className="atlas-grid absolute inset-0 opacity-70 dark:opacity-60" />
-          <div className="absolute left-[-14rem] top-[-10rem] h-[22rem] w-[22rem] rounded-full bg-sky-300/18 blur-3xl dark:bg-sky-500/12" />
-          <div className="absolute bottom-[-12rem] right-[-10rem] h-[24rem] w-[24rem] rounded-full bg-red-300/16 blur-3xl dark:bg-red-500/12" />
+          <div className="atlas-grid absolute inset-0 opacity-55 dark:opacity-45" />
+          <div className="absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-sky-100/70 to-transparent dark:from-sky-950/25" />
+          <div className="absolute inset-x-0 bottom-0 h-56 bg-gradient-to-t from-red-50/70 to-transparent dark:from-red-950/20" />
         </div>
 
         <div className="fixed left-0 top-0 z-30 safe-left safe-top">
           <div className="flex gap-3">
           <button
             onClick={() => setOpen(true)}
-            className="atlas-panel rounded-2xl p-3 text-slate-900 dark:text-white transition-all duration-200 hover:scale-[1.03] active:scale-95"
+            className="atlas-action atlas-panel text-slate-900 dark:text-white transition-all duration-200 hover:scale-[1.03] active:scale-95"
             aria-label="Menu"
           >
-            <Menu className="w-6 h-6" />
+            <Menu className="h-5 w-5" />
           </button>
 
           {location.pathname !== '/' && (
             <button
               onClick={() => navigate('/')}
-              className="atlas-panel rounded-2xl p-3 text-slate-900 dark:text-white transition-all duration-200 hover:scale-[1.03] active:scale-95"
+              className="atlas-action atlas-panel text-slate-900 dark:text-white transition-all duration-200 hover:scale-[1.03] active:scale-95"
               aria-label="Accueil"
             >
-              <Home className="w-6 h-6" />
+              <Home className="h-5 w-5" />
             </button>
           )}
         </div>
@@ -119,13 +119,13 @@ const Layout = () => {
             <button
               type="button"
               onClick={() => setProfileMenuOpen((prev) => !prev)}
-              className="atlas-panel flex max-w-[280px] items-center gap-3 rounded-2xl px-3.5 py-2.5 text-slate-700 dark:text-gray-200 transition-colors"
+              className="atlas-panel flex max-w-[250px] items-center gap-3 rounded-2xl px-3 py-2 text-slate-700 dark:text-gray-200 transition-colors sm:max-w-[280px] sm:px-3.5 sm:py-2.5"
               aria-haspopup="menu"
               aria-expanded={profileMenuOpen}
             >
               {roleBadge && (
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200/80 bg-slate-200/80 dark:border-white/10 dark:bg-black/40">
-                  <RoleBadgeIcon role={roleBadge} className="w-6 h-6" />
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-slate-200/80 bg-slate-200/80 dark:border-white/10 dark:bg-black/40 sm:h-9 sm:w-9">
+                  <RoleBadgeIcon role={roleBadge} className="h-5 w-5 sm:h-6 sm:w-6" />
                 </div>
               )}
               <div className="min-w-0 text-left leading-snug">
