@@ -1,5 +1,11 @@
 # Changelog
 
+## Alpha-0.8.1 — 2026-09-19
+- Refonte responsive de l’onglet Moyens : sélection, secteurs et recueil optimisés.
+- Statut des moyens harmonisé entre bordures pleines et pointillées selon « Sur place » ou « Demandé ».
+- Refonte de l’onglet Messages avec validation, édition, suppression et historique repliable.
+- Version applicative alignée sur Alpha-0.8.1 pour la release GitHub et la production.
+
 ## Alpha-0.8.0 — 2026-07-26
 - Refonte ergonomique de l’accueil, des fonctions opérationnelles, des moyens et des outils SITAC
 - Nouveau parcours de rédaction et d’historisation des messages opérationnels
