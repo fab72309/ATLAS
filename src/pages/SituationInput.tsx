@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Mic, Sparkles } from 'lucide-react';
+import { Mic, MicOff, Sparkles } from 'lucide-react';
 import { SpeechRecognitionService } from '../utils/speechRecognition';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { saveCommunicationIAData } from '../utils/dataStore';
@@ -170,13 +170,15 @@ const SituationInput = () => {
                 type="button"
                 onClick={isListening ? stopSpeechRecognition : startSpeechRecognition}
                 disabled={isLoading}
-                className={`absolute bottom-4 right-4 p-3 rounded-xl transition-all duration-300 ${isListening
-                  ? 'bg-red-500 text-white shadow-[0_0_8px_rgba(59,130,246,0.55),0_0_18px_rgba(239,68,68,0.55)] animate-pulse'
-                  : 'bg-slate-200 text-slate-600 hover:bg-slate-300 hover:text-slate-900 dark:bg-white/10 dark:text-gray-400 dark:hover:bg-white/20 dark:hover:text-white'
+                aria-pressed={isListening}
+                aria-label={isListening ? 'Arrêter la dictée' : 'Démarrer la dictée'}
+                className={`absolute bottom-3 right-3 inline-flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-400/60 disabled:cursor-not-allowed disabled:opacity-50 ${isListening
+                  ? 'animate-pulse border-red-100 bg-red-600 text-white shadow-[0_0_0_4px_rgba(239,68,68,0.2),0_8px_18px_rgba(127,29,29,0.35)]'
+                  : 'border-white/40 bg-[#101522] text-white shadow-[0_8px_16px_rgba(15,23,42,0.22)] hover:border-white/60 hover:bg-[#1b2435]'
                   }`}
                 title={isListening ? 'Arrêter la dictée' : 'Démarrer la dictée'}
               >
-                <Mic className="w-6 h-6" />
+                {isListening ? <MicOff className="h-5 w-5" strokeWidth={3} /> : <Mic className="h-5 w-5" strokeWidth={3} />}
               </button>
             </div>
           </div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mic } from 'lucide-react';
+import { Mic, MicOff } from 'lucide-react';
 import { SpeechRecognitionService } from '../utils/speechRecognition';
 
 interface DictationCardProps {
@@ -66,13 +66,18 @@ const DictationCard: React.FC<DictationCardProps> = ({
           placeholder={placeholder}
         />
         <button
+          type="button"
           onClick={isListening ? stopSpeechRecognition : startSpeechRecognition}
-          className={`absolute bottom-3 right-3 ${
-            isListening ? 'bg-[#FF1801]' : 'bg-[#1A1A1A]'
-          } hover:bg-[#2A2A2A] transition-colors rounded-full p-3 z-10`}
+          aria-pressed={isListening}
+          aria-label={isListening ? 'Arrêter la dictée' : 'Démarrer la dictée'}
+          className={`absolute bottom-2 right-2 z-10 inline-flex h-10 w-10 items-center justify-center rounded-full border-2 transition-all focus:outline-none focus:ring-2 focus:ring-blue-400/60 ${
+            isListening
+              ? 'animate-pulse border-red-100 bg-red-600 text-white shadow-[0_0_0_4px_rgba(239,68,68,0.2),0_8px_18px_rgba(127,29,29,0.35)]'
+              : 'border-white/40 bg-[#101522] text-white shadow-[0_8px_16px_rgba(15,23,42,0.22)] hover:border-white/60 hover:bg-[#1b2435]'
+          }`}
           title={isListening ? 'Arrêter la dictée' : 'Démarrer la dictée'}
         >
-          <Mic className="w-5 h-5 text-white" />
+          {isListening ? <MicOff className="h-5 w-5" strokeWidth={3} /> : <Mic className="h-5 w-5" strokeWidth={3} />}
         </button>
       </div>
     </div>
