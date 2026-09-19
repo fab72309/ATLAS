@@ -53,7 +53,7 @@ const Home = () => {
 
   return (
     <div className="relative min-h-screen text-slate-900 dark:text-white">
-      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 pb-24 pt-28 safe-left safe-right safe-bottom sm:px-6 lg:px-8">
+      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 pb-24 pt-36 safe-left safe-right safe-bottom sm:px-6 sm:pt-28 lg:px-8">
         <section className="grid flex-1 content-center gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(560px,1.1fr)] lg:items-center">
           <div className="space-y-6">
             <div className="space-y-3">

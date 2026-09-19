@@ -1,5 +1,9 @@
 import React from 'react';
 import { ArrowRight, Check, CheckCircle2, ChevronDown, Clock, Filter, MapPin, Plus, Trash2, X } from 'lucide-react';
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Pagination } from 'swiper/modules';
+import 'swiper/css';
+import 'swiper/css/pagination';
 import { useSessionSettings } from '../utils/sessionSettings';
 import { OctColor, OctTreeNode, useOctTree } from '../utils/octTreeStore';
 import { readUserScopedJSON, writeUserScopedJSON } from '../utils/userStorage';
@@ -416,11 +420,8 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
 
   if (!isOpen && !inline) return null;
 
-  const content = (
-    <div className="flex flex-1 flex-col gap-5 overflow-hidden p-4">
-      <div className="flex flex-1 flex-col gap-5 overflow-hidden md:flex-row">
-        <div className="flex w-full min-w-0 flex-col gap-5 md:w-auto md:flex-1">
-          <div className="w-full overflow-y-auto rounded-3xl border border-slate-200/80 bg-white/88 p-5 shadow-[0_16px_40px_-28px_rgba(15,23,42,0.28)] dark:border-white/10 dark:bg-white/5 dark:shadow-none">
+  const selectionPanel = (
+    <div className="w-full min-w-0 overflow-y-auto rounded-3xl border border-slate-200/80 bg-white/88 p-4 shadow-[0_16px_40px_-28px_rgba(15,23,42,0.28)] sm:p-5 dark:border-white/10 dark:bg-white/5 dark:shadow-none">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h4 className="text-sm font-semibold text-slate-800 dark:text-gray-200">Sélection</h4>
               <button
@@ -643,11 +644,10 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
               </div>
             )}
           </div>
+  );
 
-        </div>
-
-        <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-hidden xl:w-[min(50rem,calc(100vw-32rem))] xl:flex-none">
-          <div className="w-full max-h-[min(42vh,28rem)] overflow-y-auto rounded-3xl border border-slate-200/80 bg-white/88 p-5 shadow-[0_16px_40px_-28px_rgba(15,23,42,0.28)] dark:border-white/10 dark:bg-white/5 dark:shadow-none">
+  const sectorsPanel = (
+    <div className="w-full min-w-0 overflow-y-auto rounded-3xl border border-slate-200/80 bg-white/88 p-4 shadow-[0_16px_40px_-28px_rgba(15,23,42,0.28)] sm:p-5 dark:border-white/10 dark:bg-white/5 dark:shadow-none">
             <div className="flex items-center gap-2">
               <h4 className="text-sm font-semibold text-slate-800 dark:text-gray-200">Secteurs</h4>
               <button
@@ -760,7 +760,10 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
             </div>
           </div>
 
-          <div className="w-full min-h-0 min-w-0 flex-1 overflow-y-auto rounded-3xl border border-slate-200/80 bg-white/88 p-5 shadow-[0_16px_40px_-28px_rgba(15,23,42,0.28)] dark:border-white/10 dark:bg-white/5 dark:shadow-none">
+  );
+
+  const recueilPanel = (
+    <div className="w-full min-w-0 overflow-y-auto rounded-3xl border border-slate-200/80 bg-white/88 p-4 shadow-[0_16px_40px_-28px_rgba(15,23,42,0.28)] sm:p-5 dark:border-white/10 dark:bg-white/5 dark:shadow-none">
           <div className="flex items-center justify-between gap-2">
             <h4 className="text-sm font-semibold text-slate-800 dark:text-gray-200">Recueil des moyens</h4>
             <span className="text-[11px] text-slate-500 dark:text-gray-400">{meansList.length} disponibles</span>
@@ -769,7 +772,7 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
           {categories.map(({ key: catKey, ...meta }) => {
             const moyens = meansByCategory[catKey] || [];
             if (!moyens.length) return null;
-            const isCollapsed = collapsedCategories[catKey] ?? false;
+            const isCollapsed = collapsedCategories[catKey] ?? true;
             return (
               <div key={catKey} className="space-y-2">
                 <button
@@ -880,7 +883,39 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
             );
           })}
           </div>
-          </div>
+    </div>
+  );
+
+  const content = (
+    <div className="flex min-h-0 w-full flex-1 flex-col gap-4 overflow-visible p-2 sm:gap-5 sm:p-4 md:overflow-hidden">
+      <div className="min-h-0 w-full md:hidden">
+        <Swiper
+          modules={[Pagination]}
+          slidesPerView={1}
+          spaceBetween={12}
+          autoHeight
+          observer
+          observeParents
+          allowTouchMove
+          resistance
+          resistanceRatio={0.85}
+          pagination={{ clickable: true }}
+          className="atlas-mobile-slider"
+          aria-label="Navigation de la gestion des moyens"
+        >
+          <SwiperSlide className="!h-auto">{recueilPanel}</SwiperSlide>
+          <SwiperSlide className="!h-auto">{sectorsPanel}</SwiperSlide>
+          <SwiperSlide className="!h-auto">{selectionPanel}</SwiperSlide>
+        </Swiper>
+      </div>
+
+      <div className="hidden min-h-0 flex-1 flex-col gap-5 overflow-hidden md:flex md:flex-row">
+        <div className="flex w-full min-w-0 flex-col gap-5 md:w-auto md:flex-1">
+          {selectionPanel}
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-hidden md:w-[min(50rem,calc(100vw-32rem))] md:flex-none">
+          {sectorsPanel}
+          {recueilPanel}
         </div>
       </div>
     </div>
@@ -888,7 +923,7 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
 
   if (inline) {
     return (
-      <div className="w-full bg-white/80 dark:bg-[#0f121a] border border-slate-200/80 dark:border-white/10 rounded-2xl shadow-sm dark:shadow-lg flex flex-col">
+      <div className="w-full overflow-visible bg-white/80 dark:bg-[#0f121a] border border-slate-200/80 dark:border-white/10 rounded-2xl shadow-sm dark:shadow-lg flex flex-col">
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200/80 dark:border-white/10">
           <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Moyens</h3>
         </div>
@@ -899,7 +934,7 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
 
   return (
     <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-      <div className="bg-white/90 dark:bg-[#0f121a] border border-slate-200/80 dark:border-white/10 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-white/90 dark:bg-[#0f121a] border border-slate-200/80 dark:border-white/10 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto flex flex-col">
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200/80 dark:border-white/10">
           <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Ajouter des moyens</h3>
           <button onClick={onClose} className="p-2 text-slate-500 hover:text-slate-700 dark:text-gray-400 dark:hover:text-white">

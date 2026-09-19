@@ -1690,7 +1690,7 @@ const DictationInput = () => {
               <div className="relative flex h-[100dvh] w-[100dvw] flex-col overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.95),_rgba(241,245,249,0.98)_48%,_rgba(226,232,240,0.98)_100%)] dark:bg-[radial-gradient(circle_at_top_left,_rgba(15,23,42,0.98),_rgba(10,14,24,0.99)_52%,_rgba(2,6,23,1)_100%)]">
                 <div className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-white/75 via-white/30 to-transparent dark:from-white/5 dark:via-transparent" />
                 <div className="relative flex min-h-0 h-full w-full flex-1 flex-col overflow-hidden border-white/70 bg-white/88 shadow-[0_28px_90px_-40px_rgba(15,23,42,0.5)] backdrop-blur-xl dark:border-white/10 dark:bg-[#0c1220]/92">
-                  <div className="border-b border-slate-200/80 bg-white/80 px-4 py-3 backdrop-blur dark:border-white/10 dark:bg-[#0c1220]/85 md:px-6 md:py-4">
+                  <div className="border-b border-slate-200/80 bg-white/80 px-3 py-3 backdrop-blur dark:border-white/10 dark:bg-[#0c1220]/85 sm:px-4 md:px-6 md:py-4">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex min-w-0 items-start gap-3">
                         <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
@@ -1704,7 +1704,7 @@ const DictationInput = () => {
                           <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400">
                             {isEditingActiveMessage ? 'Modification du message' : 'Rédaction du message'}
                           </p>
-                          <h3 className="mt-0.5 text-xl font-bold text-slate-950 dark:text-white md:text-2xl">{activeTitle}</h3>
+                          <h3 className="mt-0.5 break-words text-lg font-bold text-slate-950 dark:text-white sm:text-xl md:text-2xl">{activeTitle}</h3>
                           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                             <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 font-medium text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-gray-300">
                               {roleLabel || 'Chef de groupe'}
@@ -1731,17 +1731,17 @@ const DictationInput = () => {
                     </div>
                   </div>
 
-                  <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 pb-28 md:px-6 md:py-5 md:pb-28">
+                  <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 pb-28 sm:px-4 sm:py-4 md:px-6 md:py-5 md:pb-28">
                     {isAmbianceModal ? ambianceModalContent : compteRenduModalContent}
                   </div>
 
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-4 pb-4 md:px-6 md:pb-6">
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-4 md:px-6 md:pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
                     <div className="pointer-events-auto flex w-full items-center rounded-2xl border border-slate-200/80 bg-white/95 p-2.5 shadow-[0_18px_48px_-34px_rgba(15,23,42,0.4)] backdrop-blur dark:border-white/10 dark:bg-[#0f172a]/95 md:p-3">
                       <button
                         type="button"
                         onClick={activeAction}
                         data-no-pill
-                        className={`min-h-12 flex-1 rounded-xl px-5 py-3 text-base font-bold transition ${activeActionClass}`}
+                        className={`min-h-12 flex-1 rounded-xl px-4 py-3 text-sm font-bold transition sm:px-5 sm:text-base ${activeActionClass}`}
                       >
                         {activeActionLabel}
                       </button>
@@ -2608,14 +2608,14 @@ const DictationInput = () => {
   };
 
   return (
-    <div className="min-h-screen md:min-h-[100dvh] md:h-auto flex flex-col items-center justify-start relative overflow-hidden md:overflow-y-auto md:overflow-x-hidden bg-slate-50 text-slate-900 dark:bg-[#0A0A0A] dark:text-white">
+    <div className="min-h-screen md:min-h-[100dvh] md:h-auto flex flex-col items-center justify-start relative overflow-x-hidden overflow-y-auto bg-slate-50 text-slate-900 dark:bg-[#0A0A0A] dark:text-white">
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-200/70 dark:bg-blue-900/10 rounded-full blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-green-200/60 dark:bg-green-900/10 rounded-full blur-[120px]" />
       </div>
 
-      <div className="relative z-10 w-full max-w-[98%] mx-auto px-4 pt-4 pb-6 flex flex-col items-center">
-        <div className="flex flex-col items-center mb-6 animate-fade-in-down">
+      <div className="relative z-10 w-full max-w-[98%] mx-auto px-2 pt-20 pb-4 sm:px-4 sm:pt-4 sm:pb-6 flex flex-col items-center">
+        <div className="hidden sm:flex flex-col items-center mb-6 animate-fade-in-down">
           <h1 className="text-2xl md:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-slate-900 to-slate-500 dark:from-white dark:to-gray-400 mb-1">
             A.T.L.A.S
           </h1>
@@ -2626,8 +2626,8 @@ const DictationInput = () => {
 
         <div className="w-full flex-1 flex flex-col relative animate-fade-in-down md:min-h-0" style={{ animationDelay: '0.3s' }}>
           <div className="w-full flex-1 flex flex-col bg-white/90 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl overflow-visible md:overflow-hidden md:min-h-0 shadow-lg shadow-black/30 backdrop-blur-sm">
-            <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-slate-200 dark:border-white/10 bg-slate-100/70 dark:bg-white/5">
-              <div className="flex flex-wrap gap-2">
+            <div className="flex flex-col gap-2 px-2 py-2 border-b border-slate-200 dark:border-white/10 bg-slate-100/70 dark:bg-white/5 sm:flex-row sm:flex-wrap sm:items-center sm:px-3">
+              <div className="flex min-w-0 w-full gap-1.5 overflow-x-auto overscroll-x-contain pb-0.5 [scrollbar-width:none] sm:w-auto sm:flex-wrap sm:gap-2 sm:overflow-visible sm:pb-0">
                 {tabs.map((tab) => {
                   const isActive = activeTab === tab.id;
                   return (
@@ -2635,17 +2635,17 @@ const DictationInput = () => {
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}
                       aria-selected={isActive}
-                      className={`px-3 py-2 rounded-full text-sm font-semibold transition btn-neutral ${isActive ? 'text-slate-900 dark:text-white' : 'text-slate-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'}`}
+                      className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-2 text-xs font-semibold transition btn-neutral sm:px-3 sm:text-sm ${isActive ? 'text-slate-900 dark:text-white' : 'text-slate-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'}`}
                     >
                       {tab.label}
                     </button>
                   );
                 })}
               </div>
-              <div className="ml-auto flex items-center gap-3">
+              <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-1.5 sm:ml-auto sm:w-auto sm:gap-3">
                 {syncStatus !== 'idle' && (
                   <div
-                    className={`text-[11px] leading-tight ${
+                    className={`min-w-0 shrink text-[10px] leading-tight sm:text-[11px] ${
                       syncStatus === 'error'
                         ? 'text-red-500 dark:text-red-300'
                         : syncStatus === 'loading'
@@ -2662,7 +2662,7 @@ const DictationInput = () => {
                   </div>
                 )}
                 {closeNotice && (
-                  <div className="text-[11px] text-emerald-600 dark:text-emerald-300">
+                  <div className="max-w-20 truncate text-[10px] text-emerald-600 dark:text-emerald-300 sm:max-w-none sm:text-[11px]">
                     {closeNotice}
                   </div>
                 )}
@@ -2670,10 +2670,12 @@ const DictationInput = () => {
                   <div className="relative">
                     <button
                       onClick={() => setShowShareMenu((v) => !v)}
-                      className="flex items-center gap-2 px-3 py-2 btn-neutral rounded-xl text-sm"
+                      className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-2.5 text-xs btn-neutral sm:h-auto sm:px-3 sm:py-2 sm:text-sm"
+                      title="Partage et export"
                     >
                       <Share2 className="w-4 h-4" />
-                      Partage et export
+                      <span className="hidden sm:inline">Partage et export</span>
+                      <span className="sm:hidden">Partager</span>
                     </button>
                     {showShareMenu && (
                       <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-[#0F121A] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl p-3 space-y-2 z-30">
@@ -2707,7 +2709,7 @@ const DictationInput = () => {
                 )}
                 <button
                   onClick={() => setResetDialogOpen(true)}
-                  className="px-3 py-2 rounded-xl text-sm font-semibold btn-danger transition"
+                  className="shrink-0 whitespace-nowrap rounded-xl px-2.5 py-2 text-xs font-semibold btn-danger transition sm:px-3 sm:text-sm"
                 >
                   Réinitialiser
                 </button>
@@ -2717,7 +2719,7 @@ const DictationInput = () => {
                     if (!isInterventionClosed) setCloseDialogOpen(true);
                   }}
                   disabled={isCloseDisabled}
-                  className={`px-3 py-2 rounded-xl text-sm font-semibold border text-white transition flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed ${
+                  className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border px-2.5 py-2 text-xs font-semibold text-white transition disabled:opacity-60 disabled:cursor-not-allowed sm:gap-2 sm:px-3 sm:text-sm ${
                     isInterventionClosed
                       ? 'bg-emerald-600/90 border-emerald-500/70'
                       : 'bg-red-600/90 hover:bg-red-500 border-red-500/70'
@@ -2728,7 +2730,7 @@ const DictationInput = () => {
                 </button>
               </div>
             </div>
-            <div className="flex-1 p-3 md:p-5 overflow-visible md:overflow-y-auto md:overflow-x-hidden md:min-h-0">
+            <div className="flex-1 min-w-0 p-2 sm:p-3 md:p-5 overflow-visible md:overflow-y-auto md:overflow-x-hidden md:min-h-0">
               {renderTabContent()}
             </div>
       </div>

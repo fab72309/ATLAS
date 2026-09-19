@@ -4,6 +4,10 @@ import { SpeechRecognitionService } from '../utils/speechRecognition';
 import { DominanteType } from './DominantSelector';
 import { OFFLINE_DOCTRINE_SUGGESTIONS } from '../constants/offlineDoctrine';
 import { Sparkles, Mic, MicOff, PaintBucket } from 'lucide-react';
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Pagination } from 'swiper/modules';
+import 'swiper/css';
+import 'swiper/css/pagination';
 import { analyzeEmergency } from '../utils/openai';
 import { logInterventionEvent } from '../utils/atlasTelemetry';
 import { parseOrdreInitial } from '../utils/soiec';
@@ -1323,8 +1327,31 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
       )}
 
       {/* Kanban Board */}
-      <div className={`flex-1 grid ${useExtendedLayout ? 'grid-cols-7' : 'grid-cols-5'} gap-4 min-h-[600px]`} ref={boardRef}>
-        {Object.values(columns).map(col => {
+      <div className="flex-1 min-h-0" ref={boardRef}>
+        <Swiper
+          modules={[Pagination]}
+          slidesPerView={1}
+          spaceBetween={12}
+          autoHeight
+          observer
+          observeParents
+          allowTouchMove
+          resistance
+          resistanceRatio={0.85}
+          pagination={{ clickable: true }}
+          breakpoints={{
+            768: {
+              enabled: false,
+              slidesPerView: useExtendedLayout ? 7 : 5,
+              spaceBetween: 16
+            }
+          }}
+          className={`atlas-mobile-slider soiec-board-slider min-h-[min(62dvh,36rem)] md:min-h-[600px] ${useExtendedLayout ? 'soiec-board-slider-extended' : ''}`}
+          aria-label={`Navigation ${soiecLabel}`}
+        >
+        {Object.values(columns).map(col => (
+          <SwiperSlide key={col.id} className="!h-auto">
+            {(() => {
           const headerColor = {
             blue: 'text-blue-700 border-blue-200/80 bg-blue-50/80 dark:text-blue-400 dark:border-blue-500/30 dark:bg-blue-900/20',
             green: 'text-green-700 border-green-200/80 bg-green-50/80 dark:text-green-400 dark:border-green-500/30 dark:bg-green-900/20',
@@ -1338,10 +1365,9 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
 
           return (
             <div
-              key={col.id}
               onDragOver={handleDragOver}
               onDrop={(e) => handleDrop(e, col.id)}
-              className="flex flex-col h-full bg-white/80 dark:bg-gray-900/40 rounded-xl border border-slate-200/80 dark:border-white/5 overflow-hidden transition-colors hover:border-slate-300 dark:hover:border-white/10 shadow-sm dark:shadow-none"
+              className="soiec-column-card w-full flex min-h-[min(62dvh,36rem)] flex-col bg-white/80 dark:bg-gray-900/40 rounded-xl border border-slate-200/80 dark:border-white/5 overflow-hidden transition-colors hover:border-slate-300 dark:hover:border-white/10 shadow-sm dark:shadow-none md:h-full md:min-h-0"
             >
               <div className={`px-4 py-3 border-b flex items-center justify-between ${headerColor}`}>
                 <div className="flex items-center gap-3 font-bold">
@@ -1436,7 +1462,10 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
               </div>
             </div>
           );
-        })}
+            })()}
+          </SwiperSlide>
+        ))}
+        </Swiper>
       </div>
 
       {/* Modal d'édition */}

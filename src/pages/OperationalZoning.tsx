@@ -406,15 +406,15 @@ const OperationalZoning = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 dark:bg-[#0A0A0A] dark:text-white relative overflow-hidden">
+    <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 dark:bg-[#0A0A0A] dark:text-white relative overflow-x-hidden overflow-y-auto">
       {/* Background Ambient Glow */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-900/10 rounded-full blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-orange-900/10 rounded-full blur-[120px]" />
       </div>
 
-      <div className="relative z-10 flex flex-col h-full">
-        <div className="p-4 flex justify-between items-center">
+      <div className="relative z-10 flex min-h-full flex-col">
+        <div className="flex justify-between items-center px-3 pt-20 pb-3 sm:p-4">
           <style>
             {`
             .north-arrow-container {
@@ -450,8 +450,8 @@ const OperationalZoning = () => {
           </style>
         </div>
 
-        <div className="flex-1 flex flex-col px-4 pb-4">
-          <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-slate-900 to-slate-500 dark:from-white dark:to-gray-400 mb-6 text-center animate-fade-in-down">
+        <div className="flex flex-1 flex-col px-3 pb-3 sm:px-4 sm:pb-4">
+          <h1 className="mb-4 text-center text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-slate-900 to-slate-500 dark:from-white dark:to-gray-400 animate-fade-in-down sm:mb-6 sm:text-3xl">
             Zonage opérationnel
           </h1>
 
@@ -472,7 +472,7 @@ const OperationalZoning = () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 placeholder="Rechercher une adresse..."
-                className={`w-full px-6 py-4 pr-14 rounded-2xl bg-white/90 dark:bg-[#151515] border border-slate-200 dark:border-white/10 text-slate-800 dark:text-gray-200 placeholder-slate-500 dark:placeholder-gray-500 focus:outline-none focus:border-blue-500/50 dark:focus:bg-[#1A1A1A] transition-all duration-300 shadow-lg ${error ? 'border-red-500/50 focus:border-red-500' : ''
+                className={`w-full rounded-2xl border bg-white/90 px-4 py-3 pr-12 text-slate-800 shadow-lg transition-all duration-300 placeholder-slate-500 focus:border-blue-500/50 focus:outline-none dark:bg-[#151515] dark:text-gray-200 dark:placeholder-gray-500 dark:focus:bg-[#1A1A1A] sm:px-6 sm:py-4 sm:pr-14 ${error ? 'border-red-500/50 focus:border-red-500' : 'border-slate-200 dark:border-white/10'
                   }`}
               />
               <button
@@ -500,7 +500,7 @@ const OperationalZoning = () => {
             )}
           </div>
 
-          <div className="w-full max-w-4xl mx-auto mb-4 flex justify-end gap-2 animate-fade-in-down" style={{ animationDelay: '0.2s' }}>
+          <div className="mx-auto mb-4 flex w-full max-w-4xl flex-wrap justify-end gap-2 animate-fade-in-down" style={{ animationDelay: '0.2s' }}>
             <button
               onClick={() => changeMapLayer('street')}
               className={`px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition-all duration-200 ${currentLayer === 'street'
@@ -557,7 +557,7 @@ const OperationalZoning = () => {
                 ref={leafletMapRef}
                 center={position}
                 zoom={16}
-                style={{ height: 'calc(100vh - 400px)', width: '100%' }}
+                style={{ height: 'clamp(20rem, calc(100dvh - 24rem), 48rem)', width: '100%' }}
               >
                 <TileLayer
                   attribution={
