@@ -99,17 +99,18 @@ function createUI() {
   Object.assign(micButton.style, {
     position: 'fixed',
     zIndex: '9999',
-    width: '36px',
-    height: '36px',
-    borderRadius: '10px',
-    border: 'none',
+    width: '40px',
+    height: '40px',
+    borderRadius: '999px',
+    border: '2px solid rgba(255, 255, 255, 0.4)',
     cursor: 'pointer',
     display: 'none',
     alignItems: 'center',
     justifyContent: 'center',
     transition: 'background 0.2s, box-shadow 0.2s, color 0.2s',
-    background: 'rgba(100,116,139,0.15)',
-    color: '#94a3b8',
+    background: '#101522',
+    color: '#ffffff',
+    boxShadow: '0 8px 16px rgba(15, 23, 42, 0.22)',
     padding: '0',
     lineHeight: '1',
   });
@@ -157,8 +158,8 @@ function repositionButton() {
   if (!activeTarget || !micButton) return;
   const r = activeTarget.getBoundingClientRect();
   // Positionné en bas à droite de l'élément cible
-  micButton.style.top = `${r.bottom - 42}px`;
-  micButton.style.left = `${r.right - 42}px`;
+  micButton.style.top = `${r.bottom - 46}px`;
+  micButton.style.left = `${r.right - 46}px`;
 
   if (errorBanner.style.display !== 'none') {
     errorBanner.style.top = `${r.bottom + 4}px`;
@@ -215,15 +216,17 @@ function setRecordingUI(recording) {
   isRecording = recording;
   if (!micButton) return;
   if (recording) {
-    micButton.style.background = 'rgba(239,68,68,0.15)';
-    micButton.style.color = '#ef4444';
-    micButton.style.boxShadow = '0 0 0 3px rgba(239,68,68,0.25)';
+    micButton.style.background = '#dc2626';
+    micButton.style.color = '#ffffff';
+    micButton.style.border = '2px solid #fecaca';
+    micButton.style.boxShadow = '0 0 0 4px rgba(239, 68, 68, 0.2), 0 8px 18px rgba(127, 29, 29, 0.35)';
     micButton.innerHTML = iconMicOff();
     micButton.setAttribute('aria-label', 'Arrêter la dictée');
   } else {
-    micButton.style.background = 'rgba(100,116,139,0.15)';
-    micButton.style.color = '#94a3b8';
-    micButton.style.boxShadow = 'none';
+    micButton.style.background = '#101522';
+    micButton.style.color = '#ffffff';
+    micButton.style.border = '2px solid rgba(255, 255, 255, 0.4)';
+    micButton.style.boxShadow = '0 8px 16px rgba(15, 23, 42, 0.22)';
     micButton.innerHTML = iconMic();
     micButton.setAttribute('aria-label', 'Démarrer la dictée');
   }
@@ -433,8 +436,8 @@ function getSupportedMimeType() {
 }
 
 function iconMic() {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+    fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
     aria-hidden="true">
     <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
     <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
@@ -443,8 +446,8 @@ function iconMic() {
 }
 
 function iconMicOff() {
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
-    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+    fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
     aria-hidden="true">
     <line x1="1" y1="1" x2="23" y2="23"/>
     <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V5a3 3 0 0 0-5.94-.6"/>

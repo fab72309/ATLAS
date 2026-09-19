@@ -24,6 +24,7 @@ import { addToHistory } from '../utils/history';
 import { exportBoardDesignImage, exportBoardDesignPdf, exportBoardDesignWordEditable, exportOrdreToClipboard, exportOrdreToImage, exportOrdreToPdf, shareOrdreAsText } from '../utils/export';
 import MeansModal from '../components/MeansModal';
 import ViewportModal from '../components/ViewportModal';
+import SpeechDictationButton from '../components/SpeechDictationButton';
 import type { MeanItem } from '../types/means';
 import SitacMap from './SitacMap';
 import { OctDiagram } from './OctDiagram';
@@ -318,6 +319,28 @@ const MessageSummaryRow: React.FC<MessageSummaryRowProps> = ({ label, value }) =
 
 const MESSAGE_INPUT_CLASS = 'min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 shadow-sm outline-none transition focus:border-slate-400/70 focus:ring-2 focus:ring-slate-200/70 dark:border-white/10 dark:bg-[#151515] dark:text-gray-200 dark:focus:border-white/20 dark:focus:ring-white/10';
 const MESSAGE_SMALL_INPUT_CLASS = 'min-h-10 w-full rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-sm text-slate-800 shadow-sm outline-none transition focus:border-slate-400/70 focus:ring-2 focus:ring-slate-200/70 dark:border-white/10 dark:bg-[#151515] dark:text-gray-200 dark:focus:border-white/20 dark:focus:ring-white/10';
+
+type MessageTextareaProps = {
+  value: string;
+  onChange: (value: string) => void;
+  label: string;
+  placeholder: string;
+  rows: number;
+};
+
+const MessageTextarea: React.FC<MessageTextareaProps> = ({ value, onChange, label, placeholder, rows }) => (
+  <div className="relative">
+    <textarea
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      rows={rows}
+      placeholder={placeholder}
+      aria-label={label}
+      className={`atlas-resizable-textarea ${MESSAGE_INPUT_CLASS} pr-14 pb-12`}
+    />
+    <SpeechDictationButton value={value} onChange={onChange} label={label} />
+  </div>
+);
 
 type DemandesSectionProps = {
   value: MessageDemandes;
@@ -1254,18 +1277,16 @@ const DictationInput = () => {
                   Utiliser l&apos;adresse
                 </button>
               </div>
-              <textarea
+              <MessageTextarea
                 value={ambianceMessage.jeSuis}
-                onChange={(e) =>
-                  setAmbianceMessage((prev) => ({
-                    ...prev,
-                    jeSuis: e.target.value,
-                    addressConfirmed: false
-                  }))
-                }
+                onChange={(value) => setAmbianceMessage((prev) => ({
+                  ...prev,
+                  jeSuis: value,
+                  addressConfirmed: false
+                }))}
+                label="Je suis"
                 rows={3}
                 placeholder="Votre position, votre mission, votre action en cours."
-                className={`atlas-resizable-textarea ${MESSAGE_INPUT_CLASS}`}
               />
               {!isAddressAvailable && (
                 <div className="text-xs text-amber-600 dark:text-amber-400">
@@ -1275,22 +1296,22 @@ const DictationInput = () => {
             </div>
             <div className="min-w-0 space-y-1">
               <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je vois</label>
-              <textarea
+              <MessageTextarea
                 value={ambianceMessage.jeVois}
-                onChange={(e) => setAmbianceMessage((prev) => ({ ...prev, jeVois: e.target.value }))}
+                onChange={(value) => setAmbianceMessage((prev) => ({ ...prev, jeVois: value }))}
+                label="Je vois"
                 rows={3}
                 placeholder="Ce que vous observez sur place."
-                className={`atlas-resizable-textarea ${MESSAGE_INPUT_CLASS}`}
               />
             </div>
             <div className="min-w-0 space-y-1">
               <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je demande</label>
-              <textarea
+              <MessageTextarea
                 value={ambianceMessage.jeDemande}
-                onChange={(e) => setAmbianceMessage((prev) => ({ ...prev, jeDemande: e.target.value }))}
+                onChange={(value) => setAmbianceMessage((prev) => ({ ...prev, jeDemande: value }))}
+                label="Je demande"
                 rows={3}
                 placeholder="Renforts, moyens, consignes."
-                className={`atlas-resizable-textarea ${MESSAGE_INPUT_CLASS}`}
               />
             </div>
           </div>
@@ -1425,18 +1446,16 @@ const DictationInput = () => {
                   Utiliser l&apos;adresse
                 </button>
               </div>
-              <textarea
+              <MessageTextarea
                 value={compteRenduMessage.jeSuis}
-                onChange={(e) =>
-                  setCompteRenduMessage((prev) => ({
-                    ...prev,
-                    jeSuis: e.target.value,
-                    addressConfirmed: false
-                  }))
-                }
+                onChange={(value) => setCompteRenduMessage((prev) => ({
+                  ...prev,
+                  jeSuis: value,
+                  addressConfirmed: false
+                }))}
+                label="Je suis"
                 rows={2}
                 placeholder="Votre position, votre mission, votre action en cours."
-                className={`atlas-resizable-textarea ${MESSAGE_INPUT_CLASS}`}
               />
               {!isAddressAvailable && (
                 <div className="text-xs text-amber-600 dark:text-amber-400">
@@ -1446,42 +1465,42 @@ const DictationInput = () => {
             </div>
             <div className="min-w-0 space-y-1">
               <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je vois</label>
-              <textarea
+              <MessageTextarea
                 value={compteRenduMessage.jeVois}
-                onChange={(e) => setCompteRenduMessage((prev) => ({ ...prev, jeVois: e.target.value }))}
+                onChange={(value) => setCompteRenduMessage((prev) => ({ ...prev, jeVois: value }))}
+                label="Je vois"
                 rows={2}
                 placeholder="Ce que vous constatez sur place."
-                className={`atlas-resizable-textarea ${MESSAGE_INPUT_CLASS}`}
               />
             </div>
             <div className="min-w-0 space-y-1">
               <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je prévois</label>
-              <textarea
+              <MessageTextarea
                 value={compteRenduMessage.jePrevois}
-                onChange={(e) => setCompteRenduMessage((prev) => ({ ...prev, jePrevois: e.target.value }))}
+                onChange={(value) => setCompteRenduMessage((prev) => ({ ...prev, jePrevois: value }))}
+                label="Je prévois"
                 rows={2}
                 placeholder="Hypothèses ou prochaines actions."
-                className={`atlas-resizable-textarea ${MESSAGE_INPUT_CLASS}`}
               />
             </div>
             <div className="min-w-0 space-y-1">
               <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je fais</label>
-              <textarea
+              <MessageTextarea
                 value={compteRenduMessage.jeFais}
-                onChange={(e) => setCompteRenduMessage((prev) => ({ ...prev, jeFais: e.target.value }))}
+                onChange={(value) => setCompteRenduMessage((prev) => ({ ...prev, jeFais: value }))}
+                label="Je fais"
                 rows={2}
                 placeholder="Actions en cours ou réalisées."
-                className={`atlas-resizable-textarea ${MESSAGE_INPUT_CLASS}`}
               />
             </div>
             <div className="min-w-0 space-y-1">
               <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je demande</label>
-              <textarea
+              <MessageTextarea
                 value={compteRenduMessage.jeDemande}
-                onChange={(e) => setCompteRenduMessage((prev) => ({ ...prev, jeDemande: e.target.value }))}
+                onChange={(value) => setCompteRenduMessage((prev) => ({ ...prev, jeDemande: value }))}
+                label="Je demande"
                 rows={2}
                 placeholder="Renforts, moyens, consignes."
-                className={`atlas-resizable-textarea ${MESSAGE_INPUT_CLASS}`}
               />
             </div>
           </div>

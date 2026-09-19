@@ -1535,15 +1535,15 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
                       <button
                         type="button"
                         onClick={() => (isListening ? stopDictation() : startDictation('mission'))}
-                        className={`w-9 h-9 rounded-full border flex items-center justify-center transition ${
+                        className={`h-10 w-10 rounded-full border-2 flex items-center justify-center transition-all focus:outline-none focus:ring-2 focus:ring-blue-400/60 ${
                           isListening
-                            ? 'bg-red-500/20 text-red-200 border-red-500/40'
-                            : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'
+                            ? 'animate-pulse bg-red-600 text-white border-red-100 shadow-[0_0_0_4px_rgba(239,68,68,0.2),0_8px_18px_rgba(127,29,29,0.35)]'
+                            : 'bg-[#101522] text-white border-white/40 shadow-[0_8px_16px_rgba(15,23,42,0.22)] hover:bg-[#1b2435] hover:border-white/60'
                         }`}
                         aria-label={isListening ? 'Arrêter la dictée' : 'Dicter la mission'}
                         title={isListening ? 'Arrêter la dictée' : 'Dicter la mission'}
                       >
-                        {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                        {isListening ? <MicOff className="h-5 w-5" strokeWidth={3} /> : <Mic className="h-5 w-5" strokeWidth={3} />}
                       </button>
                     </div>
                     <input
@@ -1643,21 +1643,21 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
                       }}
                       onFocus={() => clearAutoPlaceholder('content')}
                       rows={4}
-                      className="w-full resize-none bg-black/30 border border-white/10 rounded p-2 pr-10 pb-8 text-white text-sm focus:border-blue-500 outline-none"
+                      className="w-full resize-none bg-black/30 border border-white/10 rounded p-2 pr-14 pb-12 text-white text-sm focus:border-blue-500 outline-none"
                       style={{ backgroundImage: 'linear-gradient(135deg,transparent 0 55%,rgba(148,163,184,0.6) 55% 65%,transparent 65%),linear-gradient(135deg,transparent 0 70%,rgba(148,163,184,0.4) 70% 80%,transparent 80%),linear-gradient(135deg,transparent 0 85%,rgba(148,163,184,0.25) 85% 95%,transparent 95%)', backgroundRepeat: 'no-repeat', backgroundSize: '16px 16px', backgroundPosition: 'calc(100% - 6px) calc(100% - 6px)' }}
                     />
                     <button
                       type="button"
                       onClick={() => (isListening ? stopDictation() : startDictation('content'))}
-                      className={`absolute bottom-4 right-4 w-7 h-7 rounded-full border flex items-center justify-center transition ${
+                      className={`absolute bottom-3 right-3 h-10 w-10 rounded-full border-2 flex items-center justify-center transition-all focus:outline-none focus:ring-2 focus:ring-blue-400/60 ${
                         isListening
-                          ? 'bg-red-500/20 text-red-200 border-red-500/40'
-                          : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'
+                          ? 'animate-pulse bg-red-600 text-white border-red-100 shadow-[0_0_0_4px_rgba(239,68,68,0.2),0_8px_18px_rgba(127,29,29,0.35)]'
+                          : 'bg-[#101522] text-white border-white/40 shadow-[0_8px_16px_rgba(15,23,42,0.22)] hover:bg-[#1b2435] hover:border-white/60'
                       }`}
                       aria-label={isListening ? 'Arrêter la dictée' : 'Dicter une idée de manœuvre'}
                       title={isListening ? 'Arrêter la dictée' : 'Dicter une idée de manœuvre'}
                     >
-                      {isListening ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+                      {isListening ? <MicOff className="h-5 w-5" strokeWidth={3} /> : <Mic className="h-5 w-5" strokeWidth={3} />}
                     </button>
                     <span
                       onMouseDown={e => {
@@ -1702,21 +1702,21 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
                       }}
                       onFocus={() => clearAutoPlaceholder('content')}
                       rows={5}
-                      className="w-full resize-none bg-black/30 border border-white/10 rounded p-2 pr-10 pb-8 text-white text-sm focus:border-blue-500 outline-none"
+                      className="w-full resize-none bg-black/30 border border-white/10 rounded p-2 pr-14 pb-12 text-white text-sm focus:border-blue-500 outline-none"
                       style={{ backgroundImage: 'linear-gradient(135deg,transparent 0 55%,rgba(148,163,184,0.6) 55% 65%,transparent 65%),linear-gradient(135deg,transparent 0 70%,rgba(148,163,184,0.4) 70% 80%,transparent 80%),linear-gradient(135deg,transparent 0 85%,rgba(148,163,184,0.25) 85% 95%,transparent 95%)', backgroundRepeat: 'no-repeat', backgroundSize: '16px 16px', backgroundPosition: 'calc(100% - 6px) calc(100% - 6px)' }}
                     />
                     <button
                       type="button"
                       onClick={() => (isListening ? stopDictation() : startDictation('content'))}
-                      className={`absolute bottom-4 right-4 w-7 h-7 rounded-full border flex items-center justify-center transition ${
+                      className={`absolute bottom-3 right-3 h-10 w-10 rounded-full border-2 flex items-center justify-center transition-all focus:outline-none focus:ring-2 focus:ring-blue-400/60 ${
                         isListening
-                          ? 'bg-red-500/20 text-red-200 border-red-500/40'
-                          : 'bg-white/5 text-gray-300 border-white/10 hover:bg-white/10'
+                          ? 'animate-pulse bg-red-600 text-white border-red-100 shadow-[0_0_0_4px_rgba(239,68,68,0.2),0_8px_18px_rgba(127,29,29,0.35)]'
+                          : 'bg-[#101522] text-white border-white/40 shadow-[0_8px_16px_rgba(15,23,42,0.22)] hover:bg-[#1b2435] hover:border-white/60'
                       }`}
                       aria-label={isListening ? 'Arrêter la dictée' : 'Dicter le contenu'}
                       title={isListening ? 'Arrêter la dictée' : 'Dicter le contenu'}
                     >
-                      {isListening ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+                      {isListening ? <MicOff className="h-5 w-5" strokeWidth={3} /> : <Mic className="h-5 w-5" strokeWidth={3} />}
                     </button>
                     <span
                       onMouseDown={e => {
