@@ -26,6 +26,7 @@ import { useInterventionStore } from '../stores/useInterventionStore';
 import { useMeansStore } from '../stores/useMeansStore';
 import { debounce } from '../utils/debounce';
 import { telemetryBuffer } from '../utils/telemetryBuffer';
+import ViewportModal from '../components/ViewportModal';
 
 type MeanSource = 'manual' | 'means';
 
@@ -1120,20 +1121,20 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
       </div>
 
       {isPortrait && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/80 rotate-message">
-          <div className="bg-[#0f121a] border border-white/10 rounded-2xl p-6 max-w-md text-center space-y-3 shadow-2xl">
+        <ViewportModal>
+          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0f121a] p-6 text-center shadow-2xl">
             <RotateCw className="w-10 h-10 mx-auto text-white" />
             <p className="text-lg font-semibold">Paysage requis</p>
             <p className="text-gray-400 text-sm">
               Tournez votre appareil en mode paysage pour manipuler confortablement l&apos;organigramme OCT.
             </p>
           </div>
-        </div>
+        </ViewportModal>
       )}
 
       {addDialog && addParentNode && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-          <div className="w-full max-w-4xl bg-[#0f121a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+        <ViewportModal onClose={() => setAddDialog(null)}>
+          <div className="w-full max-w-4xl max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded-2xl border border-white/10 bg-[#0f121a] shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
             <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
               <div>
                 <p className="text-xs uppercase tracking-wide text-gray-400">Ajouter sur</p>
@@ -1252,12 +1253,12 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
               </div>
             </div>
           </div>
-        </div>
+        </ViewportModal>
       )}
 
       {editor && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-          <div className="w-full max-w-xl bg-[#0f121a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+        <ViewportModal onClose={() => setEditor(null)}>
+          <div className="w-full max-w-xl max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded-2xl border border-white/10 bg-[#0f121a] shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
             <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
               <div>
                 <p className="text-xs uppercase tracking-wide text-gray-400">Éditer la cellule</p>
@@ -1390,7 +1391,7 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
               </div>
             </div>
           </div>
-        </div>
+        </ViewportModal>
       )}
     </div>
   );

@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Sparkles, ClipboardCopy, Share2, FileText, ImageDown, Check, QrCode, LocateFixed, Archive, Clock, ChevronRight, X, Radio, MessageSquareText, Pencil, Trash2 } from 'lucide-react';
+import { Swiper, SwiperSlide } from 'swiper/react';
+import type { Swiper as SwiperInstance } from 'swiper';
+import 'swiper/css';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { saveDictationData, saveCommunicationData } from '../utils/dataStore';
 import QRCode from 'react-qr-code';
@@ -20,6 +23,7 @@ import {
 import { addToHistory } from '../utils/history';
 import { exportBoardDesignImage, exportBoardDesignPdf, exportBoardDesignWordEditable, exportOrdreToClipboard, exportOrdreToImage, exportOrdreToPdf, shareOrdreAsText } from '../utils/export';
 import MeansModal from '../components/MeansModal';
+import ViewportModal from '../components/ViewportModal';
 import type { MeanItem } from '../types/means';
 import SitacMap from './SitacMap';
 import { OctDiagram } from './OctDiagram';
@@ -543,6 +547,8 @@ const DictationInput = () => {
   const [validatedMessagesOpen, setValidatedMessagesOpen] = useState(true);
   const [messageModal, setMessageModal] = useState<'ambiance' | 'compte-rendu' | null>(null);
   const [editingMessage, setEditingMessage] = useState<{ type: 'ambiance' | 'compte-rendu'; index: number } | null>(null);
+  const messageMobileSwiperRef = React.useRef<SwiperInstance | null>(null);
+  const [messageMobileSlideIndex, setMessageMobileSlideIndex] = useState(0);
   const boardRef = React.useRef<HTMLDivElement>(null);
   const previousTabRef = React.useRef(activeTab);
   const lastAppliedHydrationRef = React.useRef<string | null>(null);
@@ -582,6 +588,11 @@ const DictationInput = () => {
     () => [address, city].filter(Boolean).join(', '),
     [address, city]
   );
+
+  React.useEffect(() => {
+    setMessageMobileSlideIndex(0);
+    messageMobileSwiperRef.current?.slideTo(0, 0);
+  }, [messageModal]);
   const latestValidatedAmbiance = validatedAmbianceList[0] ?? null;
   const latestValidatedCompteRendu = validatedCompteRenduList[0] ?? null;
   const hasHistory = ordreInitialHistory.length > 0 || ordreConduiteHistory.length > 0;
@@ -881,10 +892,9 @@ const DictationInput = () => {
 
   const renderTabContent = () => {
     if (activeTab === 'soiec') {
-      return (
-        <div className="flex flex-col gap-4 md:gap-5">
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-[1.4fr,0.6fr] gap-3">
+      const addressSection = (
+        <div className="space-y-3">
+            <div className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-[1.4fr,0.6fr]">
               <div className="space-y-1 md:w-[70%]">
                 <label className="text-sm font-medium text-slate-600 dark:text-gray-400 ml-2">Adresse de l'intervention</label>
                 <input
@@ -900,7 +910,7 @@ const DictationInput = () => {
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium text-slate-600 dark:text-gray-400 ml-2">Ville</label>
-                <div className="flex items-center gap-2">
+                <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
                   <input
                     value={city}
                     onChange={(e) => {
@@ -909,23 +919,24 @@ const DictationInput = () => {
                     }}
                     placeholder="Ville de l'intervention"
                     disabled={isOiLocked}
-                    className="flex-1 md:flex-[0.7] bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="min-w-0 w-full flex-1 bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
                   />
-                  <button
+                  <div className="flex w-full gap-2 sm:w-auto">
+                    <button
                     type="button"
                     onClick={handleLocateAddress}
                     disabled={isGeolocating || isOiLocked}
-                    className="p-3 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-red-300 dark:hover:border-red-500/40 text-slate-600 dark:text-gray-300 hover:text-red-500 dark:hover:text-red-400 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="shrink-0 rounded-2xl bg-slate-100 p-3 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-red-300 dark:hover:border-red-500/40 text-slate-600 dark:text-gray-300 hover:text-red-500 dark:hover:text-red-400 transition disabled:opacity-60 disabled:cursor-not-allowed"
                     aria-label="Utiliser ma position"
                     title="Utiliser ma position"
                   >
                     <LocateFixed className={`w-4 h-4 ${isGeolocating ? 'animate-spin' : ''}`} />
-                  </button>
-                  <button
+                    </button>
+                    <button
                     type="button"
                     onClick={() => setSoiecAddressValidated(true)}
                     disabled={!fullAddress.trim() || isOiLocked}
-                    className={`inline-flex items-center gap-2 px-3 py-2.5 rounded-2xl border text-sm font-semibold transition btn-success ${
+                    className={`inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border px-3 py-2.5 text-sm font-semibold transition btn-success sm:flex-none ${
                       soiecAddressValidated
                         ? 'bg-emerald-600/15 text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-500/40'
                         : ''
@@ -933,7 +944,8 @@ const DictationInput = () => {
                   >
                     <Check className="w-4 h-4" />
                     Valider
-                  </button>
+                    </button>
+                  </div>
                 </div>
                 {geoError && (
                   <div className="text-xs text-red-500">{geoError}</div>
@@ -943,7 +955,7 @@ const DictationInput = () => {
                 )}
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-[1.4fr,0.6fr] gap-3">
+            <div className="grid min-w-0 grid-cols-1 gap-3 md:grid-cols-[1.4fr,0.6fr]">
               <div className="space-y-1 md:w-[70%]">
                 <label className="text-sm font-medium text-slate-600 dark:text-gray-400 ml-2">Renseignements complémentaires</label>
                 <input
@@ -956,7 +968,7 @@ const DictationInput = () => {
               </div>
               <div className="space-y-1">
                 <label className="text-sm font-medium text-slate-600 dark:text-gray-400 ml-2">Groupe horaire</label>
-                <div className="flex items-center gap-2">
+                <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
                   <input
                     type="datetime-local"
                     value={orderTime}
@@ -965,22 +977,23 @@ const DictationInput = () => {
                       setSoiecTimeValidated(false);
                     }}
                     disabled={isOiLocked}
-                    className="flex-1 md:flex-[0.7] bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="min-w-0 w-full flex-1 bg-slate-100 dark:bg-[#151515] border border-slate-200 dark:border-white/10 rounded-2xl px-3 py-2.5 text-slate-800 dark:text-gray-200 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
                   />
-                  <button
+                  <div className="flex w-full gap-2 sm:w-auto">
+                    <button
                     type="button"
                     onClick={() => {
                       setOrderTime(getLocalDateTime(new Date()));
                       setSoiecTimeValidated(false);
                     }}
                     disabled={isOiLocked}
-                    className="p-3 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-blue-300 dark:hover:border-blue-500/40 text-slate-600 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="shrink-0 rounded-2xl bg-slate-100 p-3 dark:bg-white/5 border border-slate-200 dark:border-white/10 hover:border-blue-300 dark:hover:border-blue-500/40 text-slate-600 dark:text-gray-300 hover:text-blue-500 dark:hover:text-blue-400 transition disabled:opacity-60 disabled:cursor-not-allowed"
                     aria-label="Utiliser l'heure actuelle"
                     title="Utiliser l'heure actuelle"
                   >
                     <Clock className="w-4 h-4" />
-                  </button>
-                  <button
+                    </button>
+                    <button
                     type="button"
                     onClick={() => {
                       const nowValue = getLocalDateTime(new Date());
@@ -988,7 +1001,7 @@ const DictationInput = () => {
                       setSoiecTimeValidated(true);
                     }}
                     disabled={isOiLocked}
-                    className={`inline-flex items-center gap-2 px-3 py-2.5 rounded-2xl border text-sm font-semibold transition btn-success ${
+                    className={`inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border px-3 py-2.5 text-sm font-semibold transition btn-success sm:flex-none ${
                       soiecTimeValidated
                         ? 'bg-emerald-600/15 text-emerald-700 border-emerald-300 dark:text-emerald-300 dark:border-emerald-500/40'
                         : ''
@@ -996,7 +1009,8 @@ const DictationInput = () => {
                   >
                     <Check className="w-4 h-4" />
                     Valider
-                  </button>
+                    </button>
+                  </div>
                 </div>
                 {soiecTimeValidated && (
                   <div className="text-xs text-emerald-600 dark:text-emerald-400">Groupe horaire validé.</div>
@@ -1005,7 +1019,10 @@ const DictationInput = () => {
             </div>
           </div>
 
-          <div className="flex flex-col gap-2 flex-1 min-w-[260px]">
+      );
+
+      const dominantSection = (
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
             <label className="text-sm font-medium text-slate-600 dark:text-gray-400 ml-2 mb-1 block">
               Séléction du domaine de l'intervention (1er = principal, suivants = secondaires)
             </label>
@@ -1029,6 +1046,10 @@ const DictationInput = () => {
             </div>
           </div>
 
+      );
+
+      const draftStatusSection = (
+        <>
           <div className="w-full text-xs text-slate-500 dark:text-gray-500">
             Brouillon sauvegardé automatiquement sur cet appareil (adresse, heure, contenu).
           </div>
@@ -1048,6 +1069,17 @@ const DictationInput = () => {
             </div>
           )}
 
+        </>
+      );
+
+      return (
+        <div className="flex flex-col gap-4 md:gap-5">
+          <div className="hidden space-y-4 md:block">
+            {addressSection}
+            {dominantSection}
+            {draftStatusSection}
+          </div>
+
           <OrdreInitialView
             ordre={ordreData}
             onChange={setOrdreData}
@@ -1059,6 +1091,28 @@ const DictationInput = () => {
             readOnly={isOiLocked}
             interventionId={currentInterventionId}
             aiEventType="SOIEC_AI_GENERATED"
+            mobileIntroSlides={[
+              {
+                id: 'address',
+                label: 'Adresse',
+                content: (
+                  <div className="w-full rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
+                    <h3 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Adresse et contexte</h3>
+                    {addressSection}
+                  </div>
+                )
+              },
+              {
+                id: 'dominante',
+                label: 'Dominante',
+                content: (
+                  <div className="w-full rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm dark:border-white/10 dark:bg-white/5">
+                    <h3 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">Dominante de l&apos;intervention</h3>
+                    {dominantSection}
+                  </div>
+                )
+              }
+            ]}
           />
         </div>
       );
@@ -1114,9 +1168,9 @@ const DictationInput = () => {
                 {ambianceMessage.stamped ? 'Horodaté' : 'À horodater'}
               </span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-[1fr,110px] gap-3">
-              <div className="grid grid-cols-1 sm:grid-cols-[1fr,112px] gap-3">
-                <div className="flex flex-col gap-1">
+            <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_110px]">
+              <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_112px]">
+                <div className="flex min-w-0 flex-col gap-1">
                   <label className="text-[10px] uppercase tracking-[0.25em] text-slate-500 dark:text-gray-400">Date</label>
                   <input
                     type="date"
@@ -1128,10 +1182,10 @@ const DictationInput = () => {
                         stamped: false
                       }))
                     }
-                    className={MESSAGE_INPUT_CLASS}
+                    className={`${MESSAGE_INPUT_CLASS} min-w-0 text-center sm:text-left`}
                   />
                 </div>
-                <div className="flex flex-col gap-1">
+                <div className="flex min-w-0 flex-col gap-1">
                   <label className="text-[10px] uppercase tracking-[0.25em] text-slate-500 dark:text-gray-400">Heure</label>
                   <input
                     type="time"
@@ -1143,7 +1197,7 @@ const DictationInput = () => {
                         stamped: false
                       }))
                     }
-                    className={MESSAGE_INPUT_CLASS}
+                    className={`${MESSAGE_INPUT_CLASS} min-w-0 text-center sm:text-left`}
                   />
                 </div>
               </div>
@@ -1159,7 +1213,7 @@ const DictationInput = () => {
                   }));
                 }}
                 data-no-pill
-                className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition self-end ${
+                className={`inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition self-end sm:w-auto ${
                   ambianceMessage.stamped
                     ? 'bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100'
                     : 'bg-red-600 hover:bg-red-500 text-white'
@@ -1285,9 +1339,9 @@ const DictationInput = () => {
                 {compteRenduMessage.stamped ? 'Horodaté' : 'À horodater'}
               </span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-[1fr,110px] gap-3">
-              <div className="grid grid-cols-1 sm:grid-cols-[1fr,112px] gap-3">
-                <div className="flex flex-col gap-1">
+            <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_110px]">
+              <div className="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_112px]">
+                <div className="flex min-w-0 flex-col gap-1">
                   <label className="text-[10px] uppercase tracking-[0.25em] text-slate-500 dark:text-gray-400">Date</label>
                   <input
                     type="date"
@@ -1299,10 +1353,10 @@ const DictationInput = () => {
                         stamped: false
                       }))
                     }
-                    className={MESSAGE_INPUT_CLASS}
+                    className={`${MESSAGE_INPUT_CLASS} min-w-0 text-center sm:text-left`}
                   />
                 </div>
-                <div className="flex flex-col gap-1">
+                <div className="flex min-w-0 flex-col gap-1">
                   <label className="text-[10px] uppercase tracking-[0.25em] text-slate-500 dark:text-gray-400">Heure</label>
                   <input
                     type="time"
@@ -1314,7 +1368,7 @@ const DictationInput = () => {
                         stamped: false
                       }))
                     }
-                    className={MESSAGE_INPUT_CLASS}
+                    className={`${MESSAGE_INPUT_CLASS} min-w-0 text-center sm:text-left`}
                   />
                 </div>
               </div>
@@ -1330,7 +1384,7 @@ const DictationInput = () => {
                   }));
                 }}
                 data-no-pill
-                className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition self-end ${
+                className={`inline-flex w-full items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition self-end sm:w-auto ${
                   compteRenduMessage.stamped
                     ? 'bg-slate-900 hover:bg-slate-800 text-white dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100'
                     : 'bg-red-600 hover:bg-red-500 text-white'
@@ -1457,6 +1511,62 @@ const DictationInput = () => {
       );
 
       const isAmbianceModal = messageModal === 'ambiance';
+      const activeModalContent = isAmbianceModal ? ambianceModalContent : compteRenduModalContent;
+      const [contextSection, draftSection, complementsSection] = React.Children.toArray(activeModalContent.props.children);
+      const complementsBody = React.isValidElement<{ children?: React.ReactNode }>(complementsSection)
+        ? React.Children.toArray(complementsSection.props.children)[1]
+        : null;
+      const mobileComplementsCard = (
+        <div className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/5">
+          <div className="flex min-h-14 items-center justify-between gap-4 px-4 py-3 text-left">
+            <span className="block text-base font-semibold text-slate-900 dark:text-white">Compléments opérationnels</span>
+            <ChevronRight className="h-5 w-5 shrink-0 rotate-90 text-slate-400" />
+          </div>
+          {complementsBody}
+        </div>
+      );
+      const mobileModalContent = (
+        <div className="min-w-0">
+          <Swiper
+            slidesPerView={1}
+            spaceBetween={12}
+            autoHeight
+            observer
+            observeParents
+            observeSlideChildren
+            allowTouchMove
+            resistance
+            resistanceRatio={0.85}
+            onSwiper={(swiper) => {
+              messageMobileSwiperRef.current = swiper;
+            }}
+            onSlideChange={(swiper) => setMessageMobileSlideIndex(swiper.activeIndex)}
+            pagination={false}
+            className="atlas-mobile-slider"
+            aria-label="Navigation de la rédaction du message"
+          >
+            <SwiperSlide className="!h-auto">{contextSection}</SwiperSlide>
+            <SwiperSlide className="!h-auto">{draftSection}</SwiperSlide>
+            <SwiperSlide className="!h-auto">{mobileComplementsCard}</SwiperSlide>
+          </Swiper>
+          <div className="mt-2 flex min-h-7 items-center justify-center gap-1.5" aria-label="Position dans la rédaction du message">
+            {['Contexte', 'Rédaction', 'Compléments'].map((label, index) => (
+              <button
+                key={label}
+                type="button"
+                onClick={() => messageMobileSwiperRef.current?.slideTo(index)}
+                className="flex min-h-7 min-w-7 items-center justify-center rounded-full"
+                aria-label={`Afficher la carte ${label}`}
+                aria-current={messageMobileSlideIndex === index ? 'step' : undefined}
+              >
+                <span
+                  className={`block h-2 rounded-full transition-all ${messageMobileSlideIndex === index ? 'w-5 bg-red-600' : 'w-2 bg-slate-300 dark:bg-slate-600'}`}
+                />
+              </button>
+            ))}
+          </div>
+        </div>
+      );
       const activeDraftMessage = isAmbianceModal ? ambianceMessage : compteRenduMessage;
       const activeTitle = isAmbianceModal ? 'Message d’ambiance' : 'Message de compte rendu';
       const isEditingActiveMessage = editingMessage?.type === messageModal;
@@ -1732,7 +1842,12 @@ const DictationInput = () => {
                   </div>
 
                   <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 pb-28 sm:px-4 sm:py-4 md:px-6 md:py-5 md:pb-28">
-                    {isAmbianceModal ? ambianceModalContent : compteRenduModalContent}
+                    <div className="hidden md:block">
+                      {activeModalContent}
+                    </div>
+                    <div className="md:hidden">
+                      {mobileModalContent}
+                    </div>
                   </div>
 
                   <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-4 md:px-6 md:pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
@@ -2667,7 +2782,7 @@ const DictationInput = () => {
                   </div>
                 )}
                 {activeTab === 'soiec' && (
-                  <div className="relative">
+                  <div>
                     <button
                       onClick={() => setShowShareMenu((v) => !v)}
                       className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-2.5 text-xs btn-neutral sm:h-auto sm:px-3 sm:py-2 sm:text-sm"
@@ -2677,35 +2792,66 @@ const DictationInput = () => {
                       <span className="hidden sm:inline">Partage et export</span>
                       <span className="sm:hidden">Partager</span>
                     </button>
-                    {showShareMenu && (
-                      <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-[#0F121A] border border-slate-200 dark:border-white/10 rounded-xl shadow-2xl p-3 space-y-2 z-30">
-                        <div className="text-xs text-slate-500 dark:text-gray-400">Invitation</div>
-                        <div className="flex flex-wrap gap-2">
+                  </div>
+                )}
+                {showShareMenu && (
+                  <ViewportModal onClose={() => setShowShareMenu(false)} closeOnBackdrop>
+                    <div
+                      className="max-h-[calc(100dvh-1.5rem)] w-full max-w-xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-white/10 dark:bg-[#0f121a] sm:max-h-[calc(100dvh-2rem)] sm:p-5"
+                      role="dialog"
+                      aria-modal="true"
+                      aria-labelledby="share-menu-title"
+                    >
+                      <div className="flex items-start justify-between gap-3 border-b border-slate-200 pb-4 dark:border-white/10">
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500 dark:text-gray-400">Partage et export</p>
+                          <h3 id="share-menu-title" className="mt-1 text-xl font-bold text-slate-900 dark:text-white">Partager l&apos;intervention</h3>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowShareMenu(false)}
+                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:border-slate-300 hover:text-slate-900 dark:border-white/10 dark:text-gray-300 dark:hover:border-white/20 dark:hover:text-white"
+                          aria-label="Fermer le partage"
+                        >
+                          <X className="h-5 w-5" />
+                        </button>
+                      </div>
+
+                      <div className="mt-4 space-y-4">
+                        <section className="rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5">
+                          <h4 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400">Invitation</h4>
                           <button
                             onClick={handleOpenShareModal}
-                            className="px-3 py-1.5 btn-neutral rounded-lg text-xs flex items-center gap-1"
+                            className="mt-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl btn-neutral px-4 py-3 text-sm font-semibold"
                           >
-                            <QrCode className="w-4 h-4" />
-                            QR Code
+                            <QrCode className="h-4 w-4" />
+                            Générer un QR Code
                           </button>
-                        </div>
-                        <div className="text-xs text-slate-500 dark:text-gray-400 pt-1">Texte</div>
-                        <div className="flex flex-wrap gap-2">
-                          <button onClick={() => handleShareText('sms')} className="px-3 py-1.5 btn-neutral rounded-lg text-xs">SMS</button>
-                          <button onClick={() => handleShareText('whatsapp')} className="px-3 py-1.5 btn-neutral rounded-lg text-xs">WhatsApp</button>
-                          <button onClick={() => handleShareText('mail')} className="px-3 py-1.5 btn-neutral rounded-lg text-xs">Mail</button>
-                          <button onClick={handleCopyDraft} className="px-3 py-1.5 btn-neutral rounded-lg text-xs flex items-center gap-1"><ClipboardCopy className="w-4 h-4" />Copier</button>
-                        </div>
-                        <div className="text-xs text-slate-500 dark:text-gray-400 pt-1">Téléchargements</div>
-                        <div className="flex flex-wrap gap-2">
-                          <button onClick={handleDownloadImage} className="px-3 py-1.5 btn-neutral rounded-lg text-xs flex items-center gap-1"><ImageDown className="w-4 h-4" />Image</button>
-                          <button onClick={() => handleShareFile('pdf')} className="px-3 py-1.5 btn-neutral rounded-lg text-xs">PDF</button>
-                          <button onClick={() => handleShareFile('word')} className="px-3 py-1.5 btn-neutral rounded-lg text-xs flex items-center gap-1"><FileText className="w-4 h-4" />Word</button>
-                        </div>
-                        {showShareHint && <div className="text-[11px] text-red-400">Ajoutez au moins un élément avant de partager.</div>}
+                        </section>
+
+                        <section className="rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5">
+                          <h4 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400">Partager le texte</h4>
+                          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                            <button onClick={() => handleShareText('sms')} className="min-h-11 rounded-xl btn-neutral px-3 py-2 text-xs font-semibold">SMS</button>
+                            <button onClick={() => handleShareText('whatsapp')} className="min-h-11 rounded-xl btn-neutral px-3 py-2 text-xs font-semibold">WhatsApp</button>
+                            <button onClick={() => handleShareText('mail')} className="min-h-11 rounded-xl btn-neutral px-3 py-2 text-xs font-semibold">Mail</button>
+                            <button onClick={handleCopyDraft} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl btn-neutral px-3 py-2 text-xs font-semibold"><ClipboardCopy className="h-4 w-4" />Copier</button>
+                          </div>
+                        </section>
+
+                        <section className="rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5">
+                          <h4 className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400">Téléchargements</h4>
+                          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                            <button onClick={handleDownloadImage} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl btn-neutral px-3 py-2 text-xs font-semibold"><ImageDown className="h-4 w-4" />Image</button>
+                            <button onClick={() => handleShareFile('pdf')} className="min-h-11 rounded-xl btn-neutral px-3 py-2 text-xs font-semibold">PDF</button>
+                            <button onClick={() => handleShareFile('word')} className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-xl btn-neutral px-3 py-2 text-xs font-semibold"><FileText className="h-4 w-4" />Word</button>
+                          </div>
+                        </section>
+
+                        {showShareHint && <div className="text-xs text-red-500 dark:text-red-300">Ajoutez au moins un élément avant de partager.</div>}
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  </ViewportModal>
                 )}
                 <button
                   onClick={() => setResetDialogOpen(true)}
@@ -2934,19 +3080,20 @@ const DictationInput = () => {
       </div>
 
       {shareModalOpen && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white dark:bg-[#0f121a] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+        <ViewportModal onClose={() => setShareModalOpen(false)}>
+          <div className="max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-[#0f121a] sm:max-h-[calc(100dvh-2rem)]">
             <div className="px-4 py-3 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-semibold">Inviter par QR Code</h3>
                 <p className="text-xs text-slate-500 dark:text-gray-400">Scannez pour rejoindre l’intervention.</p>
               </div>
               <button
+                type="button"
                 onClick={() => setShareModalOpen(false)}
-                className="text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:border-slate-300 hover:text-slate-900 dark:border-white/10 dark:text-gray-400 dark:hover:border-white/20 dark:hover:text-white"
                 aria-label="Fermer la fenêtre"
               >
-                ✕
+                <X className="h-5 w-5" />
               </button>
             </div>
             <div className="p-4 space-y-4">
@@ -3025,12 +3172,12 @@ const DictationInput = () => {
               </button>
             </div>
           </div>
-        </div>
+        </ViewportModal>
       )}
 
       {historyModalOpen && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-2xl bg-white dark:bg-[#0f121a] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+        <ViewportModal onClose={() => setHistoryModalOpen(false)}>
+          <div className="w-full max-w-2xl max-h-[calc(100dvh-1.5rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-[#0f121a] sm:max-h-[calc(100dvh-2rem)]">
             <div className="px-4 py-3 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-semibold">Historique de l’intervention</h3>
@@ -3044,7 +3191,7 @@ const DictationInput = () => {
                 ✕
               </button>
             </div>
-            <div className="p-4 space-y-5 max-h-[70vh] overflow-y-auto">
+            <div className="max-h-[calc(100dvh-7rem)] space-y-5 overflow-y-auto overscroll-contain p-4">
               <div className="space-y-2">
                 <h4 className="text-sm font-semibold text-slate-800 dark:text-gray-100">Ordre initial</h4>
                 {ordreInitialHistory.length ? (
@@ -3142,12 +3289,15 @@ const DictationInput = () => {
               </button>
             </div>
           </div>
-        </div>
+        </ViewportModal>
       )}
 
       {closeDialogOpen && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white dark:bg-[#0f121a] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+        <ViewportModal onClose={() => {
+          setCloseDialogOpen(false);
+          clearCloseError();
+        }}>
+          <div className="w-full max-w-md max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-[#0f121a] sm:max-h-[calc(100dvh-2rem)]">
             <div className="px-4 py-3 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
               <h3 className="text-lg font-semibold">Clôturer l’intervention</h3>
               <button
@@ -3187,12 +3337,12 @@ const DictationInput = () => {
               </button>
             </div>
           </div>
-        </div>
+        </ViewportModal>
       )}
 
       {resetDialogOpen && (
-        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white dark:bg-[#0f121a] border border-slate-200 dark:border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+        <ViewportModal onClose={() => setResetDialogOpen(false)}>
+          <div className="w-full max-w-md max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-[#0f121a] sm:max-h-[calc(100dvh-2rem)]">
             <div className="px-4 py-3 border-b border-slate-200 dark:border-white/10 flex items-center justify-between">
               <h3 className="text-lg font-semibold">Réinitialiser</h3>
               <button onClick={() => setResetDialogOpen(false)} className="text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white">✕</button>
@@ -3223,7 +3373,7 @@ const DictationInput = () => {
               </button>
             </div>
           </div>
-        </div>
+        </ViewportModal>
       )}
     </div>
   );

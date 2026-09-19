@@ -2,7 +2,7 @@
 
 Aide Tactique et Logique pour l'Action des Secours
 
-**Version courante : Alpha-0.8.2**
+**Version courante : Alpha-0.8.3**
 
 ## 📱 Fonctionnalités
 

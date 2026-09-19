@@ -2,6 +2,7 @@ import React from 'react';
 import { X } from 'lucide-react';
 import { HistoryEntry, getHistory } from '../utils/history';
 import { useNavigate } from 'react-router-dom';
+import ViewportModal from './ViewportModal';
 
 interface HistoryDialogProps {
   isOpen: boolean;
@@ -34,18 +35,9 @@ const HistoryDialog: React.FC<HistoryDialogProps> = ({ isOpen, onClose }) => {
     }
   };
 
-  const handleBackdropClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  };
-
   return (
-    <div 
-      className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
-      onClick={handleBackdropClick}
-    >
-      <div className="bg-white rounded-lg w-full max-w-2xl max-h-[80vh] overflow-hidden">
+    <ViewportModal onClose={onClose} closeOnBackdrop>
+      <div className="w-full max-w-2xl max-h-[calc(100dvh-1.5rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
         <div className="p-4 border-b flex justify-between items-center">
           <div>
             <h2 className="text-2xl font-bold">Historique des opérations</h2>
@@ -59,7 +51,7 @@ const HistoryDialog: React.FC<HistoryDialogProps> = ({ isOpen, onClose }) => {
             <X className="w-6 h-6" />
           </button>
         </div>
-        <div className="overflow-y-auto max-h-[calc(80vh-4rem)]">
+        <div className="max-h-[calc(100dvh-7rem)] overflow-y-auto overscroll-contain">
           {history.length === 0 ? (
             <p className="p-4 text-center text-gray-500">Aucun historique disponible</p>
           ) : (
@@ -81,7 +73,7 @@ const HistoryDialog: React.FC<HistoryDialogProps> = ({ isOpen, onClose }) => {
           )}
         </div>
       </div>
-    </div>
+    </ViewportModal>
   );
 }
 

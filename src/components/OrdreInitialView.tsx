@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { OrdreInitial, SimpleSectionItem } from '../types/soiec';
 import { SpeechRecognitionService } from '../utils/speechRecognition';
 import { DominanteType } from './DominantSelector';
 import { OFFLINE_DOCTRINE_SUGGESTIONS } from '../constants/offlineDoctrine';
-import { Sparkles, Mic, MicOff, PaintBucket } from 'lucide-react';
+import { Sparkles, Mic, MicOff, PaintBucket, X } from 'lucide-react';
 import { Swiper, SwiperSlide } from 'swiper/react';
-import { Pagination } from 'swiper/modules';
+import type { Swiper as SwiperInstance } from 'swiper';
 import 'swiper/css';
-import 'swiper/css/pagination';
 import { analyzeEmergency } from '../utils/openai';
 import { logInterventionEvent } from '../utils/atlasTelemetry';
 import { parseOrdreInitial } from '../utils/soiec';
@@ -25,6 +25,7 @@ interface OrdreInitialViewProps {
   aiGenerateLabel?: string;
   interventionId?: string | null;
   aiEventType?: string;
+  mobileIntroSlides?: Array<{ id: string; label: string; content: React.ReactNode }>;
 }
 
 // Types pour la gestion d'état locale
@@ -367,7 +368,8 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
   readOnly = false,
   aiGenerateLabel = "Générer ordre initial avec l'IA",
   interventionId = null,
-  aiEventType
+  aiEventType,
+  mobileIntroSlides = []
 }) => {
   const [columns, setColumns] = useState<Record<string, ColumnData>>({});
   const [draggedItem, setDraggedItem] = useState<{ id: string, sourceCol: string } | null>(null);
@@ -384,6 +386,8 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
   const [speechError, setSpeechError] = useState<string | null>(null);
   const speechServiceRef = useRef<SpeechRecognitionService | null>(null);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const mobileSwiperRef = useRef<SwiperInstance | null>(null);
+  const [mobileSlideIndex, setMobileSlideIndex] = useState(0);
   const doctrineData = useMemo(
     () => (dominante ? OFFLINE_DOCTRINE_SUGGESTIONS[dominante as keyof typeof OFFLINE_DOCTRINE_SUGGESTIONS] ?? null : null),
     [dominante]
@@ -393,6 +397,20 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
     () => (useExtendedLayout ? 'SAOIECL' : 'SOIEC'),
     [useExtendedLayout]
   );
+  const mobileNavigationLabels = useMemo(
+    () => [...mobileIntroSlides.map((slide) => slide.label), ...Object.values(columns).map((column) => column.title)],
+    [columns, mobileIntroSlides]
+  );
+
+  useEffect(() => {
+    const swiper = mobileSwiperRef.current;
+    if (!swiper) return undefined;
+    const frame = window.requestAnimationFrame(() => {
+      swiper.update();
+      swiper.updateAutoHeight(0);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [columns, mobileIntroSlides.length]);
   const getObjectiveIds = React.useCallback((cols: Record<string, ColumnData> = columns) => {
     const items = cols.O?.items ?? [];
     return items
@@ -1329,16 +1347,20 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
       {/* Kanban Board */}
       <div className="flex-1 min-h-0" ref={boardRef}>
         <Swiper
-          modules={[Pagination]}
           slidesPerView={1}
           spaceBetween={12}
           autoHeight
           observer
           observeParents
+          observeSlideChildren
           allowTouchMove
           resistance
           resistanceRatio={0.85}
-          pagination={{ clickable: true }}
+          onSwiper={(swiper) => {
+            mobileSwiperRef.current = swiper;
+          }}
+          onSlideChange={(swiper) => setMobileSlideIndex(swiper.activeIndex)}
+          pagination={false}
           breakpoints={{
             768: {
               enabled: false,
@@ -1349,6 +1371,11 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
           className={`atlas-mobile-slider soiec-board-slider min-h-[min(62dvh,36rem)] md:min-h-[600px] ${useExtendedLayout ? 'soiec-board-slider-extended' : ''}`}
           aria-label={`Navigation ${soiecLabel}`}
         >
+        {mobileIntroSlides.map((slide) => (
+          <SwiperSlide key={`mobile-intro-${slide.id}`} className="!h-auto soiec-mobile-intro-slide md:hidden">
+            {slide.content}
+          </SwiperSlide>
+        ))}
         {Object.values(columns).map(col => (
           <SwiperSlide key={col.id} className="!h-auto">
             {(() => {
@@ -1466,13 +1493,39 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
           </SwiperSlide>
         ))}
         </Swiper>
+        <div className="mt-2 flex min-h-7 items-center justify-center gap-1.5 md:hidden" aria-label={`Position dans ${soiecLabel}`}>
+          {mobileNavigationLabels.map((label, index) => (
+            <button
+              key={`${label}-${index}`}
+              type="button"
+              onClick={() => mobileSwiperRef.current?.slideTo(index)}
+              className="flex min-h-7 min-w-7 items-center justify-center rounded-full"
+              aria-label={`Afficher ${label}`}
+              aria-current={mobileSlideIndex === index ? 'step' : undefined}
+            >
+              <span
+                className={`block h-2 rounded-full transition-all ${mobileSlideIndex === index ? 'w-5 bg-blue-600' : 'w-2 bg-slate-300 dark:bg-slate-600'}`}
+              />
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Modal d'édition */}
-      {editingItem && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 backdrop-blur-sm">
-          <div className="bg-gray-900 border border-white/10 rounded-xl p-6 w-full max-w-3xl max-h-[85vh] overflow-y-auto shadow-2xl">
-            <h3 className="text-lg font-bold text-white mb-4">Modifier l'élément</h3>
+      {editingItem && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[1000] flex min-h-[100dvh] items-center justify-center bg-black/80 p-3 backdrop-blur-sm sm:p-4">
+          <div className="relative max-h-[calc(100dvh-1.5rem)] w-full max-w-3xl overflow-y-auto rounded-xl border border-white/10 bg-gray-900 p-4 shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:p-6">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <h3 className="text-lg font-bold text-white">Modifier l'élément</h3>
+              <button
+                type="button"
+                onClick={() => setEditingItem(null)}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 text-gray-300 transition hover:border-white/20 hover:text-white"
+                aria-label="Fermer la fenêtre de modification"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
             <div className="space-y-4">
               {editingItem.colId === 'E' ? (
                 <>
@@ -1704,20 +1757,31 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Modal d'ajout */}
-      {addModal && !readOnly && (
+      {addModal && !readOnly && typeof document !== 'undefined' && createPortal(
         <div
-          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 backdrop-blur-sm"
+          className="fixed inset-0 z-[1000] flex min-h-[100dvh] items-center justify-center bg-black/80 p-3 backdrop-blur-sm sm:p-4"
           onClick={() => setAddModal(null)}
         >
           <div
-            className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 rounded-xl p-6 w-full max-w-md shadow-2xl"
+            className="relative max-h-[calc(100dvh-1.5rem)] w-full max-w-md overflow-y-auto rounded-xl border border-gray-200 bg-white p-4 shadow-2xl dark:border-white/10 dark:bg-gray-900 sm:max-h-[calc(100dvh-2rem)] sm:p-6"
             onClick={(event) => event.stopPropagation()}
           >
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Ajouter une carte</h3>
+            <div className="mb-2 flex items-start justify-between gap-3">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white">Ajouter une carte</h3>
+              <button
+                type="button"
+                onClick={() => setAddModal(null)}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:border-slate-300 hover:text-slate-900 dark:border-white/10 dark:text-gray-300 dark:hover:border-white/20 dark:hover:text-white"
+                aria-label="Fermer la fenêtre d'ajout"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
               Colonne : {columns[addModal.colId]?.title || addModal.colId}
             </p>
@@ -1763,7 +1827,8 @@ const OrdreInitialView: React.FC<OrdreInitialViewProps> = ({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
