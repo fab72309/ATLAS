@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { Sparkles, ClipboardCopy, Share2, FileText, ImageDown, Check, QrCode, LocateFixed, Archive, Clock, ChevronRight, X, Radio, MessageSquareText } from 'lucide-react';
+import { Sparkles, ClipboardCopy, Share2, FileText, ImageDown, Check, QrCode, LocateFixed, Archive, Clock, ChevronRight, X, Radio, MessageSquareText, Pencil, Trash2 } from 'lucide-react';
 import { Haptics, ImpactStyle } from '@capacitor/haptics';
 import { saveDictationData, saveCommunicationData } from '../utils/dataStore';
 import QRCode from 'react-qr-code';
@@ -336,11 +336,11 @@ const DemandesSection: React.FC<DemandesSectionProps> = ({ value, onChange, opti
         <div className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400">Je demande</div>
         <p className="mt-1 text-sm text-slate-600 dark:text-gray-400">Sélectionnez rapidement les renforts et compléments nécessaires.</p>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
         {options.map((opt) => (
           <label
             key={opt.id}
-            className={`flex items-center gap-3 rounded-xl border px-3 py-3 text-sm transition cursor-pointer ${
+            className={`flex min-h-11 min-w-0 w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-sm leading-5 transition cursor-pointer md:max-w-[280px] md:justify-self-start ${
               value.selections[opt.id]
                 ? 'border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-900'
                 : 'border-slate-200 bg-slate-50/90 text-slate-700 hover:border-slate-300 dark:border-white/10 dark:bg-white/5 dark:text-gray-200 dark:hover:border-white/20'
@@ -356,7 +356,7 @@ const DemandesSection: React.FC<DemandesSectionProps> = ({ value, onChange, opti
           </label>
         ))}
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-[1.1fr,1.2fr] gap-3 md:items-start">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(220px,0.85fr)_minmax(0,1.9fr)] md:items-start">
         <div className="space-y-1">
           <label className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400">Autres moyens SP</label>
           <input
@@ -368,7 +368,7 @@ const DemandesSection: React.FC<DemandesSectionProps> = ({ value, onChange, opti
         </div>
         <div className="space-y-1">
           <label className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400">Moyens Sapeurs-Pompiers</label>
-          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
             {MOYENS_SP_FIELDS.map(({ key, label }) => (
               <div key={key} className="flex flex-col gap-1 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/80 dark:bg-white/5 p-2">
                 <span className="text-[10px] uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400">{label}</span>
@@ -415,11 +415,11 @@ const SurLesLieuxSection: React.FC<SurLesLieuxSectionProps> = ({ value, onChange
         <div className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400">Sur les lieux</div>
         <p className="mt-1 text-sm text-slate-600 dark:text-gray-400">Cochez les faits marquants et précisez l’horaire si nécessaire.</p>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
         {options.filter((opt) => opt.id !== FEU_ETEINT_ID).map((opt) => (
           <label
             key={opt.id}
-            className={`flex items-center gap-3 rounded-xl border px-3 py-3 text-sm transition cursor-pointer ${
+            className={`flex min-h-11 min-w-0 w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-sm leading-5 transition cursor-pointer md:max-w-[280px] md:justify-self-start ${
               value.selections[opt.id]
                 ? 'border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-900'
                 : 'border-slate-200 bg-slate-50/90 text-slate-700 hover:border-slate-300 dark:border-white/10 dark:bg-white/5 dark:text-gray-200 dark:hover:border-white/20'
@@ -435,7 +435,7 @@ const SurLesLieuxSection: React.FC<SurLesLieuxSectionProps> = ({ value, onChange
           </label>
         ))}
         {feuEteintOption && (
-          <div className="sm:col-span-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/80 dark:bg-white/5 p-3">
+          <div className="w-fit max-w-full justify-self-start rounded-xl border border-slate-200 bg-slate-50/80 p-3 dark:border-white/10 dark:bg-white/5 sm:col-span-2 md:col-span-3 xl:col-span-4 2xl:col-span-5">
             <div className="flex flex-wrap items-center gap-3">
             <label className={`inline-flex items-center gap-3 text-sm ${value.selections[FEU_ETEINT_ID] ? 'text-slate-900 dark:text-white' : 'text-slate-700 dark:text-gray-200'}`}>
               <input
@@ -540,7 +540,9 @@ const DictationInput = () => {
   const [validatedAmbianceList, setValidatedAmbianceList] = useState<AmbianceMessage[]>([]);
   const [validatedCompteRenduList, setValidatedCompteRenduList] = useState<CompteRenduMessage[]>([]);
   const [collapsedValidatedMessages, setCollapsedValidatedMessages] = useState<Record<string, boolean>>({});
+  const [validatedMessagesOpen, setValidatedMessagesOpen] = useState(true);
   const [messageModal, setMessageModal] = useState<'ambiance' | 'compte-rendu' | null>(null);
+  const [editingMessage, setEditingMessage] = useState<{ type: 'ambiance' | 'compte-rendu'; index: number } | null>(null);
   const boardRef = React.useRef<HTMLDivElement>(null);
   const previousTabRef = React.useRef(activeTab);
   const lastAppliedHydrationRef = React.useRef<string | null>(null);
@@ -1093,8 +1095,8 @@ const DictationInput = () => {
       const surLesLieuxOptions = settings.messageSurLesLieuxOptions || [];
 
       const ambianceModalContent = (
-        <div className="grid grid-cols-1 gap-4 auto-rows-min xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.95fr)]">
-          <div className="order-2 space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5 xl:order-2">
+        <div className="grid min-w-0 grid-cols-1 gap-4 auto-rows-min xl:grid-cols-[minmax(0,1.7fr)_minmax(300px,0.8fr)] 2xl:grid-cols-[minmax(0,1.85fr)_minmax(340px,0.65fr)]">
+          <div className="order-2 min-w-0 space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5 xl:order-2">
             <div>
               <h4 className="text-lg font-semibold text-slate-900 dark:text-white">Contexte du message</h4>
               <p className="text-sm text-slate-600 dark:text-gray-400">Cadrez l&apos;émission avant de rédiger.</p>
@@ -1169,12 +1171,12 @@ const DictationInput = () => {
             </div>
           </div>
 
-          <div className="order-1 space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
-            <div>
+          <div className="order-1 min-w-0 space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5 xl:col-span-1 xl:grid xl:grid-cols-2 xl:gap-x-4 xl:gap-y-4 xl:space-y-0">
+            <div className="xl:col-span-2">
               <h4 className="text-lg font-semibold text-slate-900 dark:text-white">Rédiger le message</h4>
               <p className="text-sm text-slate-600 dark:text-gray-400">Renseignez uniquement les éléments utiles à la transmission.</p>
             </div>
-            <div className="space-y-1">
+            <div className="min-w-0 space-y-1 xl:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je suis</label>
                 <button
@@ -1217,7 +1219,7 @@ const DictationInput = () => {
                 </div>
               )}
             </div>
-            <div className="space-y-1">
+            <div className="min-w-0 space-y-1">
               <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je vois</label>
               <textarea
                 value={ambianceMessage.jeVois}
@@ -1227,7 +1229,7 @@ const DictationInput = () => {
                 className={`atlas-resizable-textarea ${MESSAGE_INPUT_CLASS}`}
               />
             </div>
-            <div className="space-y-1">
+            <div className="min-w-0 space-y-1">
               <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je demande</label>
               <textarea
                 value={ambianceMessage.jeDemande}
@@ -1239,11 +1241,10 @@ const DictationInput = () => {
             </div>
           </div>
 
-          <details className="group order-3 rounded-2xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/5 xl:col-span-2">
+          <details className="group order-3 min-w-0 rounded-2xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/5 xl:col-span-2">
             <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 text-left">
               <span>
                 <span className="block text-base font-semibold text-slate-900 dark:text-white">Compléments opérationnels</span>
-                <span className="mt-0.5 block text-sm text-slate-600 dark:text-gray-400">Demandes codifiées et éléments constatés sur les lieux.</span>
               </span>
               <ChevronRight className="h-5 w-5 shrink-0 text-slate-400 transition-transform group-open:rotate-90" />
             </summary>
@@ -1265,8 +1266,8 @@ const DictationInput = () => {
       );
 
       const compteRenduModalContent = (
-        <div className="grid grid-cols-1 gap-4 auto-rows-min xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.95fr)]">
-          <div className="order-2 space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5 xl:order-2">
+        <div className="grid min-w-0 grid-cols-1 gap-4 auto-rows-min xl:grid-cols-[minmax(0,1.7fr)_minmax(300px,0.8fr)] 2xl:grid-cols-[minmax(0,1.85fr)_minmax(340px,0.65fr)]">
+          <div className="order-2 min-w-0 space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5 xl:order-2">
             <div>
               <h4 className="text-lg font-semibold text-slate-900 dark:text-white">Contexte du message</h4>
               <p className="text-sm text-slate-600 dark:text-gray-400">Cadrez l&apos;émission avant de renseigner le compte rendu.</p>
@@ -1341,12 +1342,12 @@ const DictationInput = () => {
             </div>
           </div>
 
-          <div className="order-1 space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5">
-            <div>
+          <div className="order-1 min-w-0 space-y-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-white/5 xl:col-span-1 xl:grid xl:grid-cols-2 xl:gap-x-4 xl:gap-y-4 xl:space-y-0">
+            <div className="xl:col-span-2">
               <h4 className="text-lg font-semibold text-slate-900 dark:text-white">Rédiger le compte rendu</h4>
               <p className="text-sm text-slate-600 dark:text-gray-400">Présentez la situation, l&apos;évolution et les besoins de manière concise.</p>
             </div>
-            <div className="space-y-1">
+            <div className="min-w-0 space-y-1 xl:col-span-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je suis</label>
                 <button
@@ -1389,7 +1390,7 @@ const DictationInput = () => {
                 </div>
               )}
             </div>
-            <div className="space-y-1">
+            <div className="min-w-0 space-y-1">
               <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je vois</label>
               <textarea
                 value={compteRenduMessage.jeVois}
@@ -1399,7 +1400,7 @@ const DictationInput = () => {
                 className={`atlas-resizable-textarea ${MESSAGE_INPUT_CLASS}`}
               />
             </div>
-            <div className="space-y-1">
+            <div className="min-w-0 space-y-1">
               <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je prévois</label>
               <textarea
                 value={compteRenduMessage.jePrevois}
@@ -1409,7 +1410,7 @@ const DictationInput = () => {
                 className={`atlas-resizable-textarea ${MESSAGE_INPUT_CLASS}`}
               />
             </div>
-            <div className="space-y-1">
+            <div className="min-w-0 space-y-1">
               <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je fais</label>
               <textarea
                 value={compteRenduMessage.jeFais}
@@ -1419,7 +1420,7 @@ const DictationInput = () => {
                 className={`atlas-resizable-textarea ${MESSAGE_INPUT_CLASS}`}
               />
             </div>
-            <div className="space-y-1">
+            <div className="min-w-0 space-y-1">
               <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Je demande</label>
               <textarea
                 value={compteRenduMessage.jeDemande}
@@ -1431,11 +1432,10 @@ const DictationInput = () => {
             </div>
           </div>
 
-          <details className="group order-3 rounded-2xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/5 xl:col-span-2">
+          <details className="group order-3 min-w-0 rounded-2xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-white/5 xl:col-span-2">
             <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 text-left">
               <span>
                 <span className="block text-base font-semibold text-slate-900 dark:text-white">Compléments opérationnels</span>
-                <span className="mt-0.5 block text-sm text-slate-600 dark:text-gray-400">Demandes codifiées et constats utiles.</span>
               </span>
               <ChevronRight className="h-5 w-5 shrink-0 text-slate-400 transition-transform group-open:rotate-90" />
             </summary>
@@ -1459,29 +1459,35 @@ const DictationInput = () => {
       const isAmbianceModal = messageModal === 'ambiance';
       const activeDraftMessage = isAmbianceModal ? ambianceMessage : compteRenduMessage;
       const activeTitle = isAmbianceModal ? 'Message d’ambiance' : 'Message de compte rendu';
-      const activeActionLabel = isAmbianceModal
-        ? (latestValidatedAmbiance ? 'Ajouter ce message' : 'Valider le message')
-        : (latestValidatedCompteRendu ? 'Ajouter ce message' : 'Valider le compte rendu');
+      const isEditingActiveMessage = editingMessage?.type === messageModal;
+      const activeActionLabel = isEditingActiveMessage
+        ? 'Enregistrer la modification'
+        : isAmbianceModal
+          ? (latestValidatedAmbiance ? 'Ajouter ce message' : 'Valider le message')
+          : (latestValidatedCompteRendu ? 'Ajouter ce message' : 'Valider le compte rendu');
       const activeAction = isAmbianceModal ? handleValidateAmbiance : handleValidateCompteRendu;
       const activeActionClass = isAmbianceModal
         ? 'bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-600/20'
         : 'bg-slate-900 hover:bg-slate-800 text-white shadow-lg shadow-slate-900/20 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100';
-      const modalDescription = isAmbianceModal
-        ? 'Renseignez un message initial, bref et opérationnel.'
-        : 'Renseignez une mise à jour de situation concise et exploitable.';
 
       return (
         <div className="flex flex-col gap-5">
-          <div className="order-2 rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm dark:border-white/10 dark:bg-white/5 md:p-5 space-y-4">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div>
-                <p className="text-xs uppercase text-slate-500 dark:text-gray-400 tracking-[0.2em]">Messages validés</p>
-              </div>
-              <span className="text-xs text-slate-500 dark:text-gray-400">Derniers messages validés</span>
-            </div>
+          <details
+            className="group order-2 rounded-2xl border border-slate-200 bg-white/90 shadow-sm dark:border-white/10 dark:bg-white/5"
+            open={validatedMessagesOpen}
+            onToggle={(event) => setValidatedMessagesOpen(event.currentTarget.open)}
+          >
+            <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-left md:px-5">
+              <span className="min-w-0">
+                <span className="block text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400">Messages validés</span>
+                <span className="mt-1 block text-xs text-slate-500 dark:text-gray-400">Derniers messages validés</span>
+              </span>
+              <ChevronRight className="h-5 w-5 shrink-0 text-slate-400 transition-transform group-open:rotate-90" />
+            </summary>
 
-            {hasValidatedMessages ? (
-              <div className="space-y-3">
+            <div className="space-y-4 border-t border-slate-200 p-4 dark:border-white/10 md:p-5">
+              {hasValidatedMessages ? (
+                <div className="space-y-3">
                 {validatedAmbianceList.map((message, index) => {
                   const demandesSummary = buildMessageDemandesSummary(message.demandes, demandeOptions);
                   const surLesLieuxSummary = buildMessageSurLesLieuxSummary(message.surLesLieux, surLesLieuxOptions);
@@ -1492,19 +1498,41 @@ const DictationInput = () => {
                       key={messageKey}
                       className="rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 p-3 md:p-4 space-y-3"
                     >
-                      <button
-                        type="button"
-                        onClick={() => toggleValidatedMessage(messageKey)}
-                        className="w-full flex flex-wrap items-start justify-between gap-2 text-left"
-                      >
-                        <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-gray-100">
-                          <ChevronRight className={`w-4 h-4 transition-transform ${isCollapsed ? '' : 'rotate-90'}`} />
-                          <span>Message d&apos;ambiance #{index + 1}</span>
+                      <div className="flex flex-wrap items-start gap-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleValidatedMessage(messageKey)}
+                          className="flex min-w-0 flex-1 flex-wrap items-start justify-between gap-2 text-left"
+                        >
+                          <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-gray-100">
+                            <ChevronRight className={`h-4 w-4 shrink-0 transition-transform ${isCollapsed ? '' : 'rotate-90'}`} />
+                            <span>Message d&apos;ambiance #{index + 1}</span>
+                          </div>
+                          <div className="text-xs text-slate-500 dark:text-gray-400">
+                            {message.date} {message.time}
+                          </div>
+                        </button>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleEditAmbiance(index)}
+                            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-gray-300 dark:hover:border-white/20 dark:hover:text-white"
+                            aria-label={`Modifier le message d’ambiance ${index + 1}`}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">Modifier</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteAmbiance(index)}
+                            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 text-xs font-semibold text-red-600 transition hover:border-red-300 hover:bg-red-100 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-300 dark:hover:border-red-500/40"
+                            aria-label={`Supprimer le message d’ambiance ${index + 1}`}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">Supprimer</span>
+                          </button>
                         </div>
-                        <div className="text-xs text-slate-500 dark:text-gray-400">
-                          {message.date} {message.time}
-                        </div>
-                      </button>
+                      </div>
                       {!isCollapsed && (
                         <div className="grid grid-cols-1 xl:grid-cols-2 gap-x-6 gap-y-2">
                           <MessageSummaryRow label="Je suis" value={message.jeSuis} />
@@ -1528,19 +1556,41 @@ const DictationInput = () => {
                       key={messageKey}
                       className="rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 p-3 md:p-4 space-y-3"
                     >
-                      <button
-                        type="button"
-                        onClick={() => toggleValidatedMessage(messageKey)}
-                        className="w-full flex flex-wrap items-start justify-between gap-2 text-left"
-                      >
-                        <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-gray-100">
-                          <ChevronRight className={`w-4 h-4 transition-transform ${isCollapsed ? '' : 'rotate-90'}`} />
-                          <span>Message de compte rendu #{index + 1}</span>
+                      <div className="flex flex-wrap items-start gap-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleValidatedMessage(messageKey)}
+                          className="flex min-w-0 flex-1 flex-wrap items-start justify-between gap-2 text-left"
+                        >
+                          <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-gray-100">
+                            <ChevronRight className={`h-4 w-4 shrink-0 transition-transform ${isCollapsed ? '' : 'rotate-90'}`} />
+                            <span>Message de compte rendu #{index + 1}</span>
+                          </div>
+                          <div className="text-xs text-slate-500 dark:text-gray-400">
+                            {message.date} {message.time}
+                          </div>
+                        </button>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleEditCompteRendu(index)}
+                            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-gray-300 dark:hover:border-white/20 dark:hover:text-white"
+                            aria-label={`Modifier le compte rendu ${index + 1}`}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">Modifier</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCompteRendu(index)}
+                            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 text-xs font-semibold text-red-600 transition hover:border-red-300 hover:bg-red-100 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-300 dark:hover:border-red-500/40"
+                            aria-label={`Supprimer le compte rendu ${index + 1}`}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">Supprimer</span>
+                          </button>
                         </div>
-                        <div className="text-xs text-slate-500 dark:text-gray-400">
-                          {message.date} {message.time}
-                        </div>
-                      </button>
+                      </div>
                       {!isCollapsed && (
                         <div className="grid grid-cols-1 xl:grid-cols-2 gap-x-6 gap-y-2">
                           <MessageSummaryRow label="Je suis" value={message.jeSuis} />
@@ -1555,24 +1605,23 @@ const DictationInput = () => {
                     </div>
                   );
                 })}
-              </div>
-            ) : (
-              <div className="text-sm text-slate-500 dark:text-gray-400">
-                Aucun message validé pour le moment.
-              </div>
-            )}
-          </div>
+                </div>
+              ) : (
+                <div className="text-sm text-slate-500 dark:text-gray-400">
+                  Aucun message validé pour le moment.
+                </div>
+              )}
+            </div>
+          </details>
 
           <section className="order-1 space-y-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400">Nouveau message</p>
-              <h2 className="mt-1 text-2xl font-bold text-slate-950 dark:text-white">Que souhaitez-vous transmettre ?</h2>
-              <p className="mt-1 text-sm text-slate-600 dark:text-gray-400">Choisissez un type de message. Seul le formulaire correspondant sera ouvert.</p>
-            </div>
             <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
             <button
               type="button"
-              onClick={() => setMessageModal('ambiance')}
+              onClick={() => {
+                setEditingMessage(null);
+                setMessageModal('ambiance');
+              }}
               className="group rounded-2xl border border-red-200 bg-white p-5 text-left shadow-sm transition hover:border-red-300 hover:shadow-md dark:border-red-500/25 dark:bg-[#121722] dark:hover:border-red-500/40 md:p-6"
             >
               <div className="flex items-start justify-between gap-4">
@@ -1602,7 +1651,10 @@ const DictationInput = () => {
 
             <button
               type="button"
-              onClick={() => setMessageModal('compte-rendu')}
+              onClick={() => {
+                setEditingMessage(null);
+                setMessageModal('compte-rendu');
+              }}
               className="group rounded-2xl border border-slate-300 bg-white p-5 text-left shadow-sm transition hover:border-slate-400 hover:shadow-md dark:border-white/15 dark:bg-[#121722] dark:hover:border-white/25 md:p-6"
             >
               <div className="flex items-start justify-between gap-4">
@@ -1649,9 +1701,10 @@ const DictationInput = () => {
                           {isAmbianceModal ? <Radio className="h-5 w-5" /> : <MessageSquareText className="h-5 w-5" />}
                         </span>
                         <div className="min-w-0">
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400">Rédaction du message</p>
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400">
+                            {isEditingActiveMessage ? 'Modification du message' : 'Rédaction du message'}
+                          </p>
                           <h3 className="mt-0.5 text-xl font-bold text-slate-950 dark:text-white md:text-2xl">{activeTitle}</h3>
-                          <p className="mt-1 hidden text-sm text-slate-600 dark:text-gray-300 sm:block">{modalDescription}</p>
                           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                             <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 font-medium text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-gray-300">
                               {roleLabel || 'Chef de groupe'}
@@ -1669,7 +1722,7 @@ const DictationInput = () => {
                       </div>
                       <button
                         type="button"
-                        onClick={() => setMessageModal(null)}
+                        onClick={handleCloseMessageModal}
                         className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-slate-300 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-gray-300 dark:hover:border-white/20 dark:hover:text-white"
                         aria-label="Fermer la fenêtre"
                       >
@@ -1683,7 +1736,7 @@ const DictationInput = () => {
                   </div>
 
                   <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-4 pb-4 md:px-6 md:pb-6">
-                    <div className="pointer-events-auto flex w-full items-center gap-4 rounded-2xl border border-slate-200/80 bg-white/95 p-2.5 shadow-[0_18px_48px_-34px_rgba(15,23,42,0.4)] backdrop-blur dark:border-white/10 dark:bg-[#0f172a]/95 md:p-3">
+                    <div className="pointer-events-auto flex w-full items-center rounded-2xl border border-slate-200/80 bg-white/95 p-2.5 shadow-[0_18px_48px_-34px_rgba(15,23,42,0.4)] backdrop-blur dark:border-white/10 dark:bg-[#0f172a]/95 md:p-3">
                       <button
                         type="button"
                         onClick={activeAction}
@@ -1692,9 +1745,6 @@ const DictationInput = () => {
                       >
                         {activeActionLabel}
                       </button>
-                      <p className="hidden max-w-xs text-xs leading-5 text-slate-500 dark:text-gray-400 lg:block">
-                        Ajout à l&apos;historique sans quitter l&apos;éditeur.
-                      </p>
                     </div>
                   </div>
                 </div>
@@ -2030,17 +2080,26 @@ const DictationInput = () => {
 
   const handleValidateAmbiance = () => {
     const nowStamp = getNowStamp();
+    const isEditing = editingMessage?.type === 'ambiance';
     const stampedMessage: AmbianceMessage = {
       ...ambianceMessage,
       stamped: true,
-      date: ambianceMessage.date || nowStamp.date,
-      time: ambianceMessage.time || nowStamp.time
+      date: isEditing ? nowStamp.date : (ambianceMessage.date || nowStamp.date),
+      time: isEditing ? nowStamp.time : (ambianceMessage.time || nowStamp.time)
     };
-    setValidatedAmbianceList((prev) => [stampedMessage, ...prev]);
+    if (isEditing && editingMessage) {
+      setValidatedAmbianceList((prev) => prev.map((message, index) => (
+        index === editingMessage.index ? stampedMessage : message
+      )));
+    } else {
+      setValidatedAmbianceList((prev) => [stampedMessage, ...prev]);
+    }
     setAmbianceMessage(() => {
       const next = createAmbianceMessage();
       return fullAddress ? { ...next, jeSuis: fullAddress } : next;
     });
+    setEditingMessage(null);
+    setMessageModal(null);
     logInterventionEventSafe(
       'MESSAGE_AMBIANCE_VALIDATED',
       stampedMessage,
@@ -2050,22 +2109,82 @@ const DictationInput = () => {
 
   const handleValidateCompteRendu = () => {
     const nowStamp = getNowStamp();
+    const isEditing = editingMessage?.type === 'compte-rendu';
     const stampedMessage: CompteRenduMessage = {
       ...compteRenduMessage,
       stamped: true,
-      date: compteRenduMessage.date || nowStamp.date,
-      time: compteRenduMessage.time || nowStamp.time
+      date: isEditing ? nowStamp.date : (compteRenduMessage.date || nowStamp.date),
+      time: isEditing ? nowStamp.time : (compteRenduMessage.time || nowStamp.time)
     };
-    setValidatedCompteRenduList((prev) => [stampedMessage, ...prev]);
+    if (isEditing && editingMessage) {
+      setValidatedCompteRenduList((prev) => prev.map((message, index) => (
+        index === editingMessage.index ? stampedMessage : message
+      )));
+    } else {
+      setValidatedCompteRenduList((prev) => [stampedMessage, ...prev]);
+    }
     setCompteRenduMessage(() => {
       const next = createCompteRenduMessage();
       return fullAddress ? { ...next, jeSuis: fullAddress } : next;
     });
+    setEditingMessage(null);
+    setMessageModal(null);
     logInterventionEventSafe(
       'MESSAGE_COMPTE_RENDU_VALIDATED',
       stampedMessage,
       buildInterventionMetrics('dictation.message.compte_rendu')
     );
+  };
+
+  const handleEditAmbiance = (index: number) => {
+    const message = validatedAmbianceList[index];
+    if (!message) return;
+    setAmbianceMessage(normalizeAmbianceMessage(message));
+    setEditingMessage({ type: 'ambiance', index });
+    setMessageModal('ambiance');
+  };
+
+  const handleEditCompteRendu = (index: number) => {
+    const message = validatedCompteRenduList[index];
+    if (!message) return;
+    setCompteRenduMessage(normalizeCompteRenduMessage(message));
+    setEditingMessage({ type: 'compte-rendu', index });
+    setMessageModal('compte-rendu');
+  };
+
+  const handleDeleteAmbiance = (index: number) => {
+    if (!validatedAmbianceList[index]) return;
+    if (!window.confirm('Supprimer ce message d’ambiance validé ?')) return;
+    setValidatedAmbianceList((prev) => prev.filter((_, messageIndex) => messageIndex !== index));
+    setCollapsedValidatedMessages({});
+    if (editingMessage?.type === 'ambiance' && editingMessage.index === index) {
+      setEditingMessage(null);
+      setMessageModal(null);
+    }
+  };
+
+  const handleDeleteCompteRendu = (index: number) => {
+    if (!validatedCompteRenduList[index]) return;
+    if (!window.confirm('Supprimer ce compte rendu validé ?')) return;
+    setValidatedCompteRenduList((prev) => prev.filter((_, messageIndex) => messageIndex !== index));
+    setCollapsedValidatedMessages({});
+    if (editingMessage?.type === 'compte-rendu' && editingMessage.index === index) {
+      setEditingMessage(null);
+      setMessageModal(null);
+    }
+  };
+
+  const handleCloseMessageModal = () => {
+    if (editingMessage?.type === 'ambiance') {
+      const originalMessage = validatedAmbianceList[editingMessage.index];
+      setAmbianceMessage(originalMessage ? normalizeAmbianceMessage(originalMessage) : createAmbianceMessage());
+    }
+    if (editingMessage?.type === 'compte-rendu') {
+      const originalMessage = validatedCompteRenduList[editingMessage.index];
+      setCompteRenduMessage(originalMessage ? normalizeCompteRenduMessage(originalMessage) : createCompteRenduMessage());
+    }
+    setEditingMessage(null);
+    setMessageModal(null);
   };
 
   const handleValidateOrdreInitial = () => {
@@ -2462,6 +2581,9 @@ const DictationInput = () => {
     setValidatedAmbianceList([]);
     setValidatedCompteRenduList([]);
     setCollapsedValidatedMessages({});
+    setValidatedMessagesOpen(true);
+    setEditingMessage(null);
+    setMessageModal(null);
   };
 
   const handleResetTab = () => {
