@@ -5,6 +5,7 @@ import { fr } from 'date-fns/locale';
 import { Share } from '@capacitor/share';
 // Heavy libs are loaded on demand
 import { getJsPDF } from '../utils/jspdf';
+import ViewportModal from './ViewportModal';
 
 interface ShareDialogProps {
   isOpen: boolean;
@@ -208,8 +209,8 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg w-full max-w-sm">
+    <ViewportModal onClose={onClose} closeOnBackdrop>
+      <div className="w-full max-w-sm max-h-[calc(100dvh-1.5rem)] overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)]">
         <div className="p-4 border-b flex justify-between items-center">
           <h2 className="text-xl font-bold">
             {isMapShare ? 'Partager la carte' : 'Partager l\'analyse'}
@@ -263,7 +264,7 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
           )}
         </div>
       </div>
-    </div>
+    </ViewportModal>
   );
 };
 

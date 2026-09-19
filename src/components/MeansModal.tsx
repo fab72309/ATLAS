@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowRight, Check, CheckCircle2, ChevronDown, Clock, Filter, MapPin, Plus, Trash2, X } from 'lucide-react';
 import { Swiper, SwiperSlide } from 'swiper/react';
+import type { Swiper as SwiperInstance } from 'swiper';
 import { Pagination } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/pagination';
@@ -10,6 +11,7 @@ import { readUserScopedJSON, writeUserScopedJSON } from '../utils/userStorage';
 import type { MeanItem } from '../types/means';
 import { generateMeanId } from '../utils/means';
 import { buildDoctrineMeans, getDoctrineCategories } from '../utils/meansCatalog';
+import ViewportModal from './ViewportModal';
 
 interface MeansModalProps {
   isOpen?: boolean;
@@ -155,8 +157,15 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
     assigned: false
   });
   const [collapsedCategories, setCollapsedCategories] = React.useState<Record<string, boolean>>({});
+  const mobileSwiperRef = React.useRef<SwiperInstance | null>(null);
+  const [mobileSlideIndex, setMobileSlideIndex] = React.useState(0);
   const [isFilterOpen, setIsFilterOpen] = React.useState(false);
-  const [openInfoCard, setOpenInfoCard] = React.useState<string | null>(null);
+  const [openInfoCard, setOpenInfoCard] = React.useState<{
+    id: string;
+    title: string;
+    fullName?: string;
+    capabilities?: string;
+  } | null>(null);
   const [sectorValidated, setSectorValidated] = React.useState<Record<string, boolean>>(() => {
     try {
       const parsed = readUserScopedJSON<Record<string, boolean>>(SECTOR_VALIDATION_KEY, 'local');
@@ -289,6 +298,16 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
     });
     return nodes;
   }, [sectors, sectorDrafts]);
+
+  React.useEffect(() => {
+    const swiper = mobileSwiperRef.current;
+    if (!swiper) return undefined;
+    const frame = window.requestAnimationFrame(() => {
+      swiper.update();
+      swiper.updateAutoHeight(0);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [collapsedCategories, meansList.length, sectors.length, selected.length, subsectorOpen]);
 
   React.useEffect(() => {
     setSectorDrafts((prev) => {
@@ -560,89 +579,6 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
                 );
               })}
             </div>
-            {isFilterOpen && (
-              <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                <button
-                  className="absolute inset-0 bg-black/40"
-                  onClick={() => setIsFilterOpen(false)}
-                  aria-label="Fermer les filtres"
-                />
-                <div className="relative w-full max-w-xs rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0f121a] shadow-xl p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2">
-                      <Filter className="w-4 h-4" />
-                      Filtres
-                    </div>
-                    <button
-                      onClick={() => setIsFilterOpen(false)}
-                      className="text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <div className="space-y-2 text-sm">
-                    <label className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 px-3 py-2">
-                      <div className="flex items-center gap-2 text-slate-700 dark:text-gray-200">
-                        <Clock className="w-4 h-4 text-amber-500" />
-                        Demandé
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={selectionFilters.requested}
-                        onChange={() => setSelectionFilters((prev) => ({ ...prev, requested: !prev.requested }))}
-                      />
-                    </label>
-                    <label className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 px-3 py-2">
-                      <div className="flex items-center gap-2 text-slate-700 dark:text-gray-200">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                        Sur place
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={selectionFilters.onSite}
-                        onChange={() => setSelectionFilters((prev) => ({ ...prev, onSite: !prev.onSite }))}
-                      />
-                    </label>
-                    <label className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 px-3 py-2">
-                      <div className="flex items-center gap-2 text-slate-700 dark:text-gray-200">
-                        <ArrowRight className="w-4 h-4 text-blue-500" />
-                        À affecter
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={selectionFilters.toAssign}
-                        onChange={() => setSelectionFilters((prev) => ({ ...prev, toAssign: !prev.toAssign }))}
-                      />
-                    </label>
-                    <label className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50/70 dark:bg-white/5 px-3 py-2">
-                      <div className="flex items-center gap-2 text-slate-700 dark:text-gray-200">
-                        <MapPin className="w-4 h-4 text-purple-500" />
-                        Affectés
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={selectionFilters.assigned}
-                        onChange={() => setSelectionFilters((prev) => ({ ...prev, assigned: !prev.assigned }))}
-                      />
-                    </label>
-                  </div>
-                  <div className="flex items-center justify-between gap-2 pt-1">
-                    <button
-                      onClick={resetSelectionFilters}
-                      className="text-[12px] px-3 py-1.5 rounded-lg btn-danger transition"
-                    >
-                      Réinitialiser
-                    </button>
-                    <button
-                      onClick={() => setIsFilterOpen(false)}
-                      className="text-[12px] px-3 py-1.5 rounded-lg btn-neutral transition"
-                    >
-                      Fermer
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
   );
 
@@ -763,7 +699,7 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
   );
 
   const recueilPanel = (
-    <div className="w-full min-w-0 overflow-y-auto rounded-3xl border border-slate-200/80 bg-white/88 p-4 shadow-[0_16px_40px_-28px_rgba(15,23,42,0.28)] sm:p-5 dark:border-white/10 dark:bg-white/5 dark:shadow-none">
+    <div className="w-full min-w-0 overflow-visible rounded-3xl border border-slate-200/80 bg-white/88 p-4 shadow-[0_16px_40px_-28px_rgba(15,23,42,0.28)] sm:overflow-y-auto sm:p-5 dark:border-white/10 dark:bg-white/5 dark:shadow-none">
           <div className="flex items-center justify-between gap-2">
             <h4 className="text-sm font-semibold text-slate-800 dark:text-gray-200">Recueil des moyens</h4>
             <span className="text-[11px] text-slate-500 dark:text-gray-400">{meansList.length} disponibles</span>
@@ -778,7 +714,7 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
                 <button
                   type="button"
                   onClick={() => toggleCategory(catKey)}
-                  className={`mb-1 inline-flex items-center gap-2 rounded px-2 py-1 text-[11px] font-semibold transition hover:opacity-90 ${meta.color}`}
+                  className={`mb-1 inline-flex min-h-10 items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-semibold leading-5 transition hover:opacity-90 sm:min-h-0 sm:rounded sm:px-2 sm:py-1 sm:text-[11px] sm:leading-normal ${meta.color}`}
                   aria-expanded={!isCollapsed}
                 >
                   <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isCollapsed ? '-rotate-90' : 'rotate-0'}`} />
@@ -819,7 +755,11 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
                                 onClick={(event) => {
                                   event.preventDefault();
                                   event.stopPropagation();
-                                  setOpenInfoCard((prev) => (prev === infoId ? null : infoId));
+                                  setOpenInfoCard((prev) => (
+                                    prev?.id === infoId
+                                      ? null
+                                      : { id: infoId, title, fullName: m.fullName, capabilities: m.capabilities }
+                                  ));
                                 }}
                                 className="absolute top-2 right-2 z-10 w-5 h-5 rounded-full border border-current/30 bg-white/70 dark:bg-black/20 flex items-center justify-center text-[12px] font-serif italic leading-none opacity-80 hover:opacity-100"
                                 aria-label={`Informations sur ${title}`}
@@ -829,49 +769,6 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
                               </button>
                               <div className="text-[15px] leading-tight font-medium">{title}</div>
                               {already && <div className="text-[11px] text-slate-500 dark:text-gray-300 mt-0.5">{isRequested ? 'Demandé' : 'Sur place'}</div>}
-                              {openInfoCard === infoId && (
-                                <div
-                                  className="fixed inset-0 z-[60] flex items-center justify-center p-4"
-                                  role="presentation"
-                                  onClick={(event) => event.stopPropagation()}
-                                >
-                                  <button
-                                    type="button"
-                                    className="absolute inset-0 bg-slate-950/35 backdrop-blur-[2px]"
-                                    onClick={() => setOpenInfoCard(null)}
-                                    aria-label={`Fermer les informations sur ${title}`}
-                                  />
-                                  <div
-                                    className="relative w-fit max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-2xl dark:border-white/10 dark:bg-[#10141d] sm:max-w-[36rem]"
-                                    role="dialog"
-                                    aria-modal="true"
-                                    aria-label={`Informations sur ${title}`}
-                                    onClick={(event) => event.stopPropagation()}
-                                  >
-                                    <div className="flex items-start justify-between gap-4">
-                                      <div className="min-w-0">
-                                        <div className="break-words text-base font-semibold text-slate-900 dark:text-white">{title}</div>
-                                        {m.fullName && (
-                                          <div className="mt-1 break-words text-xs text-slate-600 dark:text-gray-300">
-                                            {m.fullName}
-                                          </div>
-                                        )}
-                                      </div>
-                                      <button
-                                        type="button"
-                                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 dark:border-white/10 dark:text-gray-300 dark:hover:bg-white/10 dark:hover:text-white"
-                                        onClick={() => setOpenInfoCard(null)}
-                                        aria-label="Fermer"
-                                      >
-                                        <X className="h-4 w-4" />
-                                      </button>
-                                    </div>
-                                    <div className="mt-3 break-words text-sm leading-relaxed text-slate-600 dark:text-gray-300">
-                                      {m.capabilities || 'Aucune capacité renseignée.'}
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
                             </div>
                           );
                         })}
@@ -886,6 +783,125 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
     </div>
   );
 
+  const filterDialog = isFilterOpen ? (
+    <ViewportModal onClose={() => setIsFilterOpen(false)} closeOnBackdrop>
+      <div
+        className="relative w-full max-w-xs rounded-2xl border border-slate-200 bg-white p-4 shadow-xl dark:border-white/10 dark:bg-[#0f121a]"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Filtres des moyens"
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
+            <Filter className="h-4 w-4" />
+            Filtres
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsFilterOpen(false)}
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-gray-400 dark:hover:bg-white/10 dark:hover:text-white"
+            aria-label="Fermer les filtres"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="mt-3 space-y-2 text-sm">
+          <label className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 dark:border-white/10 dark:bg-white/5">
+            <div className="flex items-center gap-2 text-slate-700 dark:text-gray-200">
+              <Clock className="h-4 w-4 text-amber-500" />
+              Demandé
+            </div>
+            <input
+              type="checkbox"
+              checked={selectionFilters.requested}
+              onChange={() => setSelectionFilters((prev) => ({ ...prev, requested: !prev.requested }))}
+            />
+          </label>
+          <label className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 dark:border-white/10 dark:bg-white/5">
+            <div className="flex items-center gap-2 text-slate-700 dark:text-gray-200">
+              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+              Sur place
+            </div>
+            <input
+              type="checkbox"
+              checked={selectionFilters.onSite}
+              onChange={() => setSelectionFilters((prev) => ({ ...prev, onSite: !prev.onSite }))}
+            />
+          </label>
+          <label className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 dark:border-white/10 dark:bg-white/5">
+            <div className="flex items-center gap-2 text-slate-700 dark:text-gray-200">
+              <ArrowRight className="h-4 w-4 text-blue-500" />
+              À affecter
+            </div>
+            <input
+              type="checkbox"
+              checked={selectionFilters.toAssign}
+              onChange={() => setSelectionFilters((prev) => ({ ...prev, toAssign: !prev.toAssign }))}
+            />
+          </label>
+          <label className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 dark:border-white/10 dark:bg-white/5">
+            <div className="flex items-center gap-2 text-slate-700 dark:text-gray-200">
+              <MapPin className="h-4 w-4 text-purple-500" />
+              Affectés
+            </div>
+            <input
+              type="checkbox"
+              checked={selectionFilters.assigned}
+              onChange={() => setSelectionFilters((prev) => ({ ...prev, assigned: !prev.assigned }))}
+            />
+          </label>
+        </div>
+        <div className="flex items-center justify-between gap-2 pt-3">
+          <button
+            type="button"
+            onClick={resetSelectionFilters}
+            className="rounded-lg px-3 py-1.5 text-[12px] btn-danger transition"
+          >
+            Réinitialiser
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsFilterOpen(false)}
+            className="rounded-lg px-3 py-1.5 text-[12px] btn-neutral transition"
+          >
+            Fermer
+          </button>
+        </div>
+      </div>
+    </ViewportModal>
+  ) : null;
+
+  const infoDialog = openInfoCard ? (
+    <ViewportModal onClose={() => setOpenInfoCard(null)} closeOnBackdrop>
+      <div
+        className="relative w-fit max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-2xl dark:border-white/10 dark:bg-[#10141d] sm:max-w-[36rem]"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Informations sur ${openInfoCard.title}`}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="break-words text-base font-semibold text-slate-900 dark:text-white">{openInfoCard.title}</div>
+            {openInfoCard.fullName && (
+              <div className="mt-1 break-words text-xs text-slate-600 dark:text-gray-300">{openInfoCard.fullName}</div>
+            )}
+          </div>
+          <button
+            type="button"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-900 dark:border-white/10 dark:text-gray-300 dark:hover:bg-white/10 dark:hover:text-white"
+            onClick={() => setOpenInfoCard(null)}
+            aria-label="Fermer"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="mt-3 break-words text-sm leading-relaxed text-slate-600 dark:text-gray-300">
+          {openInfoCard.capabilities || 'Aucune capacité renseignée.'}
+        </div>
+      </div>
+    </ViewportModal>
+  ) : null;
+
   const content = (
     <div className="flex min-h-0 w-full flex-1 flex-col gap-4 overflow-visible p-2 sm:gap-5 sm:p-4 md:overflow-hidden">
       <div className="min-h-0 w-full md:hidden">
@@ -896,10 +912,15 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
           autoHeight
           observer
           observeParents
+          observeSlideChildren
           allowTouchMove
           resistance
           resistanceRatio={0.85}
-          pagination={{ clickable: true }}
+          onSwiper={(swiper) => {
+            mobileSwiperRef.current = swiper;
+          }}
+          onSlideChange={(swiper) => setMobileSlideIndex(swiper.activeIndex)}
+          pagination={false}
           className="atlas-mobile-slider"
           aria-label="Navigation de la gestion des moyens"
         >
@@ -907,6 +928,22 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
           <SwiperSlide className="!h-auto">{sectorsPanel}</SwiperSlide>
           <SwiperSlide className="!h-auto">{selectionPanel}</SwiperSlide>
         </Swiper>
+        <div className="mt-2 flex min-h-7 items-center justify-center gap-1.5" aria-label="Position dans la gestion des moyens">
+          {['Recueil des moyens', 'Secteurs', 'Sélection'].map((label, index) => (
+            <button
+              key={label}
+              type="button"
+              onClick={() => mobileSwiperRef.current?.slideTo(index)}
+              className="flex min-h-7 min-w-7 items-center justify-center rounded-full"
+              aria-label={`Afficher ${label}`}
+              aria-current={mobileSlideIndex === index ? 'step' : undefined}
+            >
+              <span
+                className={`block h-2 rounded-full transition-all ${mobileSlideIndex === index ? 'w-5 bg-blue-600' : 'w-2 bg-slate-300 dark:bg-slate-600'}`}
+              />
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="hidden min-h-0 flex-1 flex-col gap-5 overflow-hidden md:flex md:flex-row">
@@ -918,6 +955,8 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
           {recueilPanel}
         </div>
       </div>
+      {filterDialog}
+      {infoDialog}
     </div>
   );
 
@@ -933,8 +972,8 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-      <div className="bg-white/90 dark:bg-[#0f121a] border border-slate-200/80 dark:border-white/10 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto flex flex-col">
+    <ViewportModal onClose={onClose}>
+      <div className="flex w-full max-w-6xl max-h-[calc(100dvh-1.5rem)] flex-col overflow-y-auto rounded-2xl border border-slate-200/80 bg-white/90 shadow-2xl dark:border-white/10 dark:bg-[#0f121a] sm:max-h-[calc(100dvh-2rem)]">
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200/80 dark:border-white/10">
           <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Ajouter des moyens</h3>
           <button onClick={onClose} className="p-2 text-slate-500 hover:text-slate-700 dark:text-gray-400 dark:hover:text-white">
@@ -943,7 +982,7 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
         </div>
         {content}
       </div>
-    </div>
+    </ViewportModal>
   );
 };
 

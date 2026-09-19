@@ -14,6 +14,7 @@ import {
   type InterventionHistoryItem
 } from '../services/interventionsService';
 import { getAuthenticatedUserId } from '../services/supabase';
+import ViewportModal from '../components/ViewportModal';
 
 const ROLE_OPTIONS_BASE = [
   { value: 'chef_site', label: 'Chef de site' },
@@ -582,7 +583,7 @@ const CommandTypeChoice = () => {
       </div>
 
       {showInterventionModal && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-3 sm:p-4">
+        <ViewportModal onClose={() => setShowInterventionModal(false)}>
           <div className="max-h-[calc(100dvh-1.5rem)] w-full max-w-lg space-y-6 overflow-y-auto rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-white/10 dark:bg-[#121212] sm:max-h-[calc(100dvh-2rem)] sm:p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -640,11 +641,11 @@ const CommandTypeChoice = () => {
               </div>
             </div>
           </div>
-        </div>
+        </ViewportModal>
       )}
 
       {showHistoryModal && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-3 sm:p-4">
+        <ViewportModal onClose={() => setShowHistoryModal(false)}>
           <div className="max-h-[calc(100dvh-1.5rem)] w-full max-w-3xl space-y-6 overflow-y-auto rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-white/10 dark:bg-[#121212] sm:max-h-[calc(100dvh-2rem)] sm:p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -742,11 +743,11 @@ const CommandTypeChoice = () => {
               </button>
             </div>
           </div>
-        </div>
+        </ViewportModal>
       )}
 
       {showScanModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 sm:p-4">
+        <ViewportModal onClose={handleCloseScanModal}>
           <div className="max-h-[calc(100dvh-1.5rem)] w-full max-w-lg space-y-6 overflow-y-auto rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-white/10 dark:bg-[#121212] sm:max-h-[calc(100dvh-2rem)] sm:p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -803,11 +804,16 @@ const CommandTypeChoice = () => {
               </div>
             </div>
           </div>
-        </div>
+        </ViewportModal>
       )}
 
       {showMetadataModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4">
+        <ViewportModal
+          onClose={() => {
+            setShowMetadataModal(false);
+            setShowInterventionModal(true);
+          }}
+        >
           <div className="max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl space-y-6 overflow-y-auto rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-white/10 dark:bg-[#101010] sm:max-h-[calc(100dvh-2rem)] sm:p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -953,7 +959,7 @@ const CommandTypeChoice = () => {
               </button>
             </div>
           </div>
-        </div>
+        </ViewportModal>
       )}
     </div>
   );

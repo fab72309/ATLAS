@@ -211,41 +211,11 @@ textarea {
   width: 100%;
 }
 
-.atlas-mobile-slider .swiper-pagination {
-  position: relative !important;
-  inset: auto !important;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 0.25rem;
-  height: 0.75rem;
-  margin-top: 0.75rem;
-}
-
-.atlas-mobile-slider .swiper-pagination-bullet {
-  width: 0.45rem !important;
-  height: 0.45rem !important;
-  margin: 0 !important;
-  background-color: rgba(100, 116, 139, 0.35) !important;
-  opacity: 1 !important;
-  transition: width 160ms ease, background-color 160ms ease;
-}
-
-.atlas-mobile-slider .swiper-pagination-bullet-active {
-  width: 1.25rem !important;
-  border-radius: 999px;
-  background-color: #2563eb !important;
-}
-
-html.dark .atlas-mobile-slider .swiper-pagination-bullet {
-  background-color: rgba(226, 232, 240, 0.35) !important;
-}
-
-html.dark .atlas-mobile-slider .swiper-pagination-bullet-active {
-  background-color: #60a5fa !important;
-}
-
 @media (min-width: 768px) {
+  .soiec-mobile-intro-slide {
+    display: none !important;
+  }
+
   .soiec-board-slider .swiper-wrapper {
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
