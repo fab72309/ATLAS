@@ -92,7 +92,7 @@ const Layout = () => {
         </div>
 
         <div className="fixed left-0 top-0 z-30 safe-left safe-top">
-          <div className="flex gap-3">
+          <div className="flex gap-2 sm:gap-3">
           <button
             onClick={() => setOpen(true)}
             className="atlas-action atlas-panel text-slate-900 dark:text-white transition-all duration-200 hover:scale-[1.03] active:scale-95"
@@ -119,32 +119,32 @@ const Layout = () => {
             <button
               type="button"
               onClick={() => setProfileMenuOpen((prev) => !prev)}
-              className="atlas-panel flex max-w-[250px] items-center gap-3 rounded-2xl px-3 py-2 text-slate-700 dark:text-gray-200 transition-colors sm:max-w-[280px] sm:px-3.5 sm:py-2.5"
+              className="atlas-panel flex w-fit max-w-[calc(100vw-7.5rem)] items-center gap-2 rounded-2xl px-2 py-1.5 text-slate-700 dark:text-gray-200 transition-colors sm:max-w-[280px] sm:gap-3 sm:px-3.5 sm:py-2.5"
               aria-haspopup="menu"
               aria-expanded={profileMenuOpen}
             >
               {roleBadge && (
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border border-slate-200/80 bg-slate-200/80 dark:border-white/10 dark:bg-black/40 sm:h-9 sm:w-9">
-                  <RoleBadgeIcon role={roleBadge} className="h-5 w-5 sm:h-6 sm:w-6" />
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-slate-200/80 bg-slate-200/80 dark:border-white/10 dark:bg-black/40 sm:h-9 sm:w-9 sm:rounded-xl">
+                  <RoleBadgeIcon role={roleBadge} className="h-4 w-4 sm:h-6 sm:w-6" />
                 </div>
               )}
               <div className="min-w-0 text-left leading-snug">
-                <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-gray-400">
+                <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-gray-400 sm:text-[10px] sm:tracking-[0.18em]">
                   Session active
                 </div>
-                <div className="truncate text-[11px] font-semibold sm:text-xs">
+                <div className="truncate text-[10px] font-semibold sm:text-xs">
                   {profileName}
                 </div>
-                <div className="truncate text-[11px] text-slate-500 dark:text-gray-400">
+                <div className="truncate text-[10px] text-slate-500 dark:text-gray-400 sm:text-[11px]">
                   {employmentLabel}
                 </div>
               </div>
-              <ChevronDown className={`w-4 h-4 text-slate-500 dark:text-gray-300 transition-transform ${profileMenuOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-slate-500 dark:text-gray-300 transition-transform sm:h-4 sm:w-4 ${profileMenuOpen ? 'rotate-180' : ''}`} />
             </button>
             {profileMenuOpen && (
               <div
                 role="menu"
-                className="atlas-panel absolute right-0 mt-2 w-52 rounded-2xl p-2 text-sm text-slate-700 dark:text-gray-200"
+                className="atlas-panel absolute right-0 mt-2 w-[min(13rem,calc(100vw-2rem))] rounded-2xl p-2 text-sm text-slate-700 dark:text-gray-200"
               >
                 <button
                   type="button"
@@ -172,7 +172,7 @@ const Layout = () => {
           </div>
         </div>
         </div>
-        <div className="fixed bottom-0 right-0 z-30 safe-bottom safe-right">
+        <div className="fixed bottom-0 right-0 z-30 hidden safe-bottom safe-right sm:block">
           <div className="atlas-panel rounded-2xl px-3 py-2 text-[11px] text-slate-500 dark:text-gray-400">
           {APP_NAME} — {APP_VERSION}
         </div>

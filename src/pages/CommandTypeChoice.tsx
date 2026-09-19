@@ -534,14 +534,14 @@ const CommandTypeChoice = () => {
   }, [showMetadataModal, storedStreetNumber, storedStreetName, storedCity, storedRole]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden bg-slate-50 text-slate-900 dark:bg-[#0A0A0A] dark:text-white">
+    <div className="min-h-screen flex flex-col items-center justify-center relative overflow-x-hidden overflow-y-auto bg-slate-50 text-slate-900 dark:bg-[#0A0A0A] dark:text-white">
       {/* Background Ambient Glow */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-200/70 dark:bg-blue-900/20 rounded-full blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-red-200/60 dark:bg-red-900/20 rounded-full blur-[120px]" />
       </div>
 
-      <div className="relative z-10 w-full max-w-4xl mx-auto px-4 py-8 flex flex-col items-center h-full">
+      <div className="relative z-10 w-full max-w-4xl mx-auto px-3 pt-20 pb-6 sm:px-4 sm:py-8 flex flex-col items-center">
         <div className="flex flex-col items-center mb-8 animate-fade-in-down">
           <h1 className="text-4xl md:text-5xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-slate-900 to-slate-500 dark:from-white dark:to-gray-400 mb-2">
             A.T.L.A.S
@@ -582,12 +582,12 @@ const CommandTypeChoice = () => {
       </div>
 
       {showInterventionModal && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full max-w-lg bg-white dark:bg-[#121212] border border-slate-200 dark:border-white/10 rounded-3xl shadow-2xl p-6 space-y-6">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-3 sm:p-4">
+          <div className="max-h-[calc(100dvh-1.5rem)] w-full max-w-lg space-y-6 overflow-y-auto rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-white/10 dark:bg-[#121212] sm:max-h-[calc(100dvh-2rem)] sm:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs uppercase text-slate-500 dark:text-gray-400 tracking-[0.3em]">Gestion d&apos;intervention</p>
-                <h3 className="text-2xl font-bold">Que souhaitez-vous faire ?</h3>
+                <h3 className="text-xl font-bold sm:text-2xl">Que souhaitez-vous faire ?</h3>
               </div>
               <button
                 type="button"
@@ -644,12 +644,12 @@ const CommandTypeChoice = () => {
       )}
 
       {showHistoryModal && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full max-w-3xl bg-white dark:bg-[#121212] border border-slate-200 dark:border-white/10 rounded-3xl shadow-2xl p-6 space-y-6">
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-3 sm:p-4">
+          <div className="max-h-[calc(100dvh-1.5rem)] w-full max-w-3xl space-y-6 overflow-y-auto rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-white/10 dark:bg-[#121212] sm:max-h-[calc(100dvh-2rem)] sm:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs uppercase text-slate-500 dark:text-gray-400 tracking-[0.3em]">Historique</p>
-                <h3 className="text-2xl font-bold">Interventions enregistrées</h3>
+                <h3 className="text-xl font-bold sm:text-2xl">Interventions enregistrées</h3>
               </div>
               <button
                 type="button"
@@ -746,12 +746,12 @@ const CommandTypeChoice = () => {
       )}
 
       {showScanModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-          <div className="w-full max-w-lg bg-white dark:bg-[#121212] border border-slate-200 dark:border-white/10 rounded-3xl shadow-2xl p-6 space-y-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 sm:p-4">
+          <div className="max-h-[calc(100dvh-1.5rem)] w-full max-w-lg space-y-6 overflow-y-auto rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-white/10 dark:bg-[#121212] sm:max-h-[calc(100dvh-2rem)] sm:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs uppercase text-slate-500 dark:text-gray-400 tracking-[0.3em]">Gestion d&apos;intervention</p>
-                <h3 className="text-2xl font-bold">Scanner un QR Code</h3>
+                <h3 className="text-xl font-bold sm:text-2xl">Scanner un QR Code</h3>
               </div>
               <button
                 type="button"
@@ -807,12 +807,12 @@ const CommandTypeChoice = () => {
       )}
 
       {showMetadataModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4">
-          <div className="w-full max-w-2xl bg-white dark:bg-[#101010] border border-slate-200 dark:border-white/10 rounded-3xl shadow-2xl p-6 space-y-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-4">
+          <div className="max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl space-y-6 overflow-y-auto rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-white/10 dark:bg-[#101010] sm:max-h-[calc(100dvh-2rem)] sm:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs uppercase text-slate-500 dark:text-gray-400 tracking-[0.3em]">Nouvelle intervention</p>
-                <h3 className="text-2xl font-bold">Renseignements initiaux</h3>
+                <h3 className="text-xl font-bold sm:text-2xl">Renseignements initiaux</h3>
               </div>
               <button
                 type="button"
@@ -928,7 +928,7 @@ const CommandTypeChoice = () => {
                 </div>
               </div>
             </div>
-            <div className="flex flex-wrap gap-3 justify-end">
+            <div className="flex flex-wrap gap-3 justify-end pb-[env(safe-area-inset-bottom)]">
               {createInterventionError && (
                 <p className="text-xs text-red-500 mr-auto">{createInterventionError}</p>
               )}

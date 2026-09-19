@@ -117,14 +117,14 @@ const SituationInput = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden bg-slate-50 text-slate-900 dark:bg-[#0A0A0A] dark:text-white">
+    <div className="min-h-screen flex flex-col items-center justify-center relative overflow-x-hidden overflow-y-auto bg-slate-50 text-slate-900 dark:bg-[#0A0A0A] dark:text-white">
       {/* Background Ambient Glow */}
       <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-200/70 dark:bg-blue-900/10 rounded-full blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-200/60 dark:bg-purple-900/10 rounded-full blur-[120px]" />
       </div>
 
-      <div className="relative z-10 w-full max-w-4xl mx-auto px-4 py-6 flex flex-col items-center h-full">
+      <div className="relative z-10 w-full max-w-4xl mx-auto px-3 pt-20 pb-4 sm:px-4 sm:py-6 flex flex-col items-center">
         <div className="flex flex-col items-center mb-6 animate-fade-in-down">
           <h1 className="text-2xl md:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-slate-900 to-slate-500 dark:from-white dark:to-gray-400 mb-1">
             A.T.L.A.S

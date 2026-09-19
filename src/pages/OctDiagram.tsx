@@ -1026,7 +1026,7 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
 
   return (
     <div
-      className={`text-slate-900 dark:text-white relative overflow-hidden ${embedded ? 'w-full' : 'min-h-screen bg-slate-50 dark:bg-[#0A0A0A]'}`}
+      className={`text-slate-900 dark:text-white relative overflow-x-hidden overflow-y-auto ${embedded ? 'w-full' : 'min-h-screen bg-slate-50 dark:bg-[#0A0A0A]'}`}
     >
       {!embedded && (
         <>
@@ -1035,7 +1035,7 @@ export const OctDiagram: React.FC<OctDiagramProps> = ({ embedded = false, availa
         </>
       )}
 
-      <div className={`${embedded ? 'relative z-10 w-full space-y-6' : 'relative z-10 max-w-7xl mx-auto px-4 py-8 space-y-6'}`}>
+      <div className={`${embedded ? 'relative z-10 w-full space-y-6' : 'relative z-10 max-w-7xl mx-auto w-full px-3 pt-20 pb-6 space-y-6 sm:px-4 sm:py-8'}`}>
         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-sm text-slate-900 dark:text-cyan-200 uppercase tracking-[0.25em]">
