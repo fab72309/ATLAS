@@ -602,13 +602,13 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
                 Aucun secteur pour le moment.
               </div>
             )}
-            <div className="flex flex-wrap items-start gap-3 pt-3">
+            <div className="grid grid-cols-1 items-start gap-3 pt-3 sm:grid-cols-2">
               {sectors.map((sector) => {
                 const subsectors = sector.children.filter((c) => c.type === 'subsector');
                 return (
-                  <div key={sector.id} className="w-full max-w-full space-y-2 rounded-2xl border border-slate-200/80 bg-white/72 p-3 dark:border-white/10 dark:bg-black/20 sm:w-fit">
-                    <div className="inline-grid w-full grid-cols-1 items-center gap-1.5 sm:w-auto sm:grid-cols-[14rem_auto_auto]">
-                      <div className="relative w-full">
+                  <div key={sector.id} className="min-w-0 w-full max-w-full space-y-2 rounded-2xl border border-slate-200/80 bg-white/72 p-3 dark:border-white/10 dark:bg-black/20">
+                    <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1.5">
+                      <div className="relative min-w-0 w-full">
                         <input
                           value={sectorDrafts[sector.id] ?? sector.label}
                           onChange={(e) => {
@@ -634,7 +634,7 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
                           setSectorDrafts((prev) => ({ ...prev, [sector.id]: label }));
                           setSectorValidated((prev) => ({ ...prev, [sector.id]: true }));
                         }}
-                        className="rounded-md border border-blue-400/40 bg-blue-600 px-2.5 py-1.5 text-[11px] text-white transition hover:bg-blue-500"
+                        className="whitespace-nowrap rounded-md border border-blue-400/40 bg-blue-600 px-2.5 py-1.5 text-[11px] text-white transition hover:bg-blue-500"
                       >
                         {sectorValidated[sector.id] ? 'Mettre à jour' : 'Valider'}
                       </button>
@@ -647,7 +647,7 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
                       </button>
                       <button
                         onClick={() => setSubsectorOpen((prev) => ({ ...prev, [sector.id]: !prev[sector.id] }))}
-                        className="flex w-full items-center justify-between rounded-md border border-slate-200 bg-slate-100 px-2 py-1 text-[10px] text-slate-600 transition hover:bg-slate-200 dark:border-white/10 dark:bg-white/5 dark:text-gray-200 dark:hover:bg-white/10 sm:col-span-3"
+                        className="col-span-3 flex w-full items-center justify-between rounded-md border border-slate-200 bg-slate-100 px-2 py-1 text-[10px] text-slate-600 transition hover:bg-slate-200 dark:border-white/10 dark:bg-white/5 dark:text-gray-200 dark:hover:bg-white/10"
                       >
                         <span className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-gray-300">Sous-secteurs</span>
                         <ChevronDown
@@ -714,11 +714,11 @@ const MeansModal: React.FC<MeansModalProps> = ({ isOpen = true, inline = false, 
                 <button
                   type="button"
                   onClick={() => toggleCategory(catKey)}
-                  className={`mb-1 inline-flex min-h-10 items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-semibold leading-5 transition hover:opacity-90 sm:min-h-0 sm:rounded sm:px-2 sm:py-1 sm:text-[11px] sm:leading-normal ${meta.color}`}
+                  className={`mb-1 flex w-full min-h-10 items-center justify-start gap-2 rounded-lg px-3 py-2 text-left text-[13px] font-semibold leading-5 transition hover:opacity-90 sm:inline-flex sm:min-h-0 sm:w-fit sm:justify-center sm:rounded sm:px-2 sm:py-1 sm:text-[11px] sm:leading-normal ${meta.color}`}
                   aria-expanded={!isCollapsed}
                 >
-                  <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isCollapsed ? '-rotate-90' : 'rotate-0'}`} />
-                  <span>{meta.label}</span>
+                  <ChevronDown className={`pointer-events-none h-3.5 w-3.5 transition-transform ${isCollapsed ? '-rotate-90' : 'rotate-0'}`} />
+                  <span className="pointer-events-none">{meta.label}</span>
                 </button>
                 {!isCollapsed && (() => {
                   const standalone = moyens.filter((item) => !item.isGroup);

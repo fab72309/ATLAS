@@ -40,7 +40,7 @@ const SitacToolbar: React.FC<SitacToolbarProps> = ({
             <div
                 className={`pointer-events-auto relative max-w-full rounded-2xl p-1.5 transition-all duration-300 ${isCollapsed
                     ? 'w-16 bg-white/10 border border-white/25 shadow-[0_12px_40px_rgba(0,0,0,0.35)] backdrop-blur-xl backdrop-saturate-150 overflow-hidden'
-                    : 'w-full overflow-x-auto bg-white/10 border border-white/20 shadow-[0_8px_24px_rgba(0,0,0,0.25)] backdrop-blur-xl backdrop-saturate-150'
+                    : 'w-fit overflow-x-auto bg-white/10 border border-white/20 shadow-[0_8px_24px_rgba(0,0,0,0.25)] backdrop-blur-xl backdrop-saturate-150'
                     }`}
             >
                 {isCollapsed && (

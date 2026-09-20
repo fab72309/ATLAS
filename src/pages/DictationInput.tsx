@@ -388,8 +388,9 @@ const DemandesSection: React.FC<DemandesSectionProps> = ({ value, onChange, opti
           <label className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400">Autres moyens SP</label>
           <input
             value={value.autresMoyensSp}
-            onChange={(e) => handleFieldChange('autresMoyensSp', e.target.value)}
+            onChange={(event) => handleFieldChange('autresMoyensSp', event.target.value)}
             placeholder="Précisions"
+            aria-label="Autres moyens SP"
             className={MESSAGE_INPUT_CLASS}
           />
         </div>
@@ -415,8 +416,9 @@ const DemandesSection: React.FC<DemandesSectionProps> = ({ value, onChange, opti
         <label className="text-xs uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400">Autre(s)</label>
         <input
           value={value.autres}
-          onChange={(e) => handleFieldChange('autres', e.target.value)}
+          onChange={(event) => handleFieldChange('autres', event.target.value)}
           placeholder="Autres demandes"
+          aria-label="Autre(s)"
           className={MESSAGE_INPUT_CLASS}
         />
       </div>

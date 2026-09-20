@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Activity, ArrowRight, Clock3, History, Map, Network, Radio } from 'lucide-react';
+import { ArrowRight, Clock3, History, Map, Radio } from 'lucide-react';
 import ShieldFlameIcon from '../components/ShieldFlameIcon';
 import HistoryDialog from '../components/HistoryDialog';
 
@@ -10,8 +10,8 @@ const Home = () => {
   const primaryActions = [
     {
       title: 'Fonctions opérationnelles',
-      eyebrow: 'Conduite',
-      description: 'Cadres de commandement et outils de conduite.',
+      eyebrow: 'Commandement',
+      description: 'Cadres et outils de commandement.',
       icon: <ShieldFlameIcon className="h-9 w-9 glossy-blue-icon" />,
       action: () => navigate('/functions'),
       ariaLabel: 'Ouvrir fonctions opérationnelles',
@@ -34,23 +34,6 @@ const Home = () => {
     },
   ];
 
-  const quickActions = [
-    {
-      title: 'SITAC',
-      description: 'Carte tactique',
-      icon: <Activity className="h-5 w-5" />,
-      action: () => navigate('/sitac'),
-      ariaLabel: 'Ouvrir SITAC',
-    },
-    {
-      title: 'OCT',
-      description: 'Organigramme transmissions',
-      icon: <Network className="h-5 w-5" />,
-      action: () => navigate('/oct'),
-      ariaLabel: 'Ouvrir OCT',
-    },
-  ];
-
   return (
     <div className="relative min-h-screen text-slate-900 dark:text-white">
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 pb-24 pt-36 safe-left safe-right safe-bottom sm:px-6 sm:pt-28 lg:px-8">
@@ -66,35 +49,12 @@ const Home = () => {
                   A.T.L.A.S
                 </p>
                 <h1 className="max-w-xl text-4xl font-black leading-[0.98] text-slate-950 dark:text-white sm:text-5xl lg:text-6xl">
-                  Poste de conduite ATLAS
+                  Poste de commandement ATLAS
                 </h1>
                 <p className="max-w-lg text-base leading-7 text-slate-600 dark:text-gray-300">
                   Accès direct aux modules tactiques, aux communications et aux repères terrain.
                 </p>
               </div>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              {quickActions.map((action) => (
-                <button
-                  key={action.title}
-                  type="button"
-                  onClick={action.action}
-                  aria-label={action.ariaLabel}
-                  className="atlas-panel group flex items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left text-slate-800 hover:border-slate-300 dark:text-gray-100 dark:hover:border-white/20"
-                >
-                  <span className="flex min-w-0 items-center gap-3">
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-950">
-                      {action.icon}
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block text-sm font-bold">{action.title}</span>
-                      <span className="block truncate text-xs text-slate-500 dark:text-gray-400">{action.description}</span>
-                    </span>
-                  </span>
-                  <ArrowRight className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5 dark:text-gray-500" />
-                </button>
-              ))}
             </div>
 
             <button

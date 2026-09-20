@@ -34,25 +34,23 @@ const renderHome = () => render(
 );
 
 describe('Home', () => {
-  it('shows operational hub actions and quick access modules', () => {
+  it('shows operational hub actions without SITAC or OCT shortcuts', () => {
     renderHome();
 
-    expect(screen.getByRole('heading', { name: /poste de conduite atlas/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /poste de commandement atlas/i })).toBeInTheDocument();
+    expect(screen.getByText('Commandement')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /ouvrir fonctions opérationnelles/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /ouvrir communication ops/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /ouvrir zonage opérationnel/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /ouvrir sitac/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /ouvrir oct/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /ouvrir sitac/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /ouvrir oct/i })).not.toBeInTheDocument();
   });
 
-  it('routes primary and quick actions to existing modules', () => {
+  it('routes the functions action to the profile-aware entry point', () => {
     renderHome();
 
-    fireEvent.click(screen.getByRole('button', { name: /ouvrir sitac/i }));
-    expect(screen.getByTestId('location')).toHaveTextContent('/sitac');
-
-    fireEvent.click(screen.getByRole('button', { name: /ouvrir oct/i }));
-    expect(screen.getByTestId('location')).toHaveTextContent('/oct');
+    fireEvent.click(screen.getByRole('button', { name: /ouvrir fonctions opérationnelles/i }));
+    expect(screen.getByTestId('location')).toHaveTextContent('/functions');
   });
 
   it('opens the history dialog from the visible history action', () => {
