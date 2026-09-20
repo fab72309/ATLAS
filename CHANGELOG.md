@@ -1,5 +1,10 @@
 # Changelog
 
+## Alpha-0.9.2 — 2026-09-20
+- Rédaction des messages intégrée au cadre principal de l’intervention avec onglets opérationnels toujours visibles.
+- Navigation cohérente entre rédaction, validation, édition et changement de fonctionnalité, y compris sur mobile.
+- Menu latéral recentré sur les fonctions opérationnelles.
+
 ## Alpha-0.8.1 — 2026-09-19
 - Refonte responsive de l’onglet Moyens : sélection, secteurs et recueil optimisés.
 - Statut des moyens harmonisé entre bordures pleines et pointillées selon « Sur place » ou « Demandé ».

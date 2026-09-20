@@ -1,27 +1,11 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { NAV_ITEMS, type FavoriteKey } from '../utils/favorites';
-import { Star, Settings, Search, X, ChevronRight, LogOut } from 'lucide-react';
+import { NAV_ITEMS } from '../utils/favorites';
+import { Settings, Search, X, ChevronRight, LogOut } from 'lucide-react';
 import RoleBadgeIcon from './RoleBadgeIcon';
 import { useProfile } from '../contexts/ProfileContext';
-import { EMPLOYMENT_LEVEL_OPTIONS, SHORTCUT_OPTIONS, type ShortcutKey } from '../constants/profile';
+import { EMPLOYMENT_LEVEL_OPTIONS } from '../constants/profile';
 import { useAuth } from '../contexts/AuthContext';
-
-const SHORTCUT_TO_NAV_KEY: Record<ShortcutKey, FavoriteKey> = {
-  functions: 'functions',
-  communication: 'communication',
-  operational_zoning: 'zoning',
-  sitac: 'sitac',
-  oct: 'oct'
-};
-
-const NAV_TO_SHORTCUT_KEY: Partial<Record<FavoriteKey, ShortcutKey>> = {
-  functions: 'functions',
-  communication: 'communication',
-  zoning: 'operational_zoning',
-  sitac: 'sitac',
-  oct: 'oct'
-};
 
 interface SideMenuProps {
   open: boolean;
@@ -33,9 +17,8 @@ const SideMenu: React.FC<SideMenuProps> = ({ open, onClose }) => {
   const location = useLocation();
   const [query, setQuery] = React.useState('');
   const [opsOpen, setOpsOpen] = React.useState(true);
-  const [shortcutSaving, setShortcutSaving] = React.useState(false);
   const opsKeys = ['group', 'column', 'site'] as const;
-  const { profile, updateProfile } = useProfile();
+  const { profile } = useProfile();
   const { logout, user } = useAuth();
 
   const filtered = React.useMemo(() => {
@@ -46,21 +29,6 @@ const SideMenu: React.FC<SideMenuProps> = ({ open, onClose }) => {
   }, [query]);
 
   const isActive = (path: string) => location.pathname === path;
-
-  const shortcutKeys = React.useMemo(() => {
-    const keys = (profile?.shortcut_keys || []) as string[];
-    return keys.filter((key): key is ShortcutKey => SHORTCUT_OPTIONS.some((option) => option.key === key));
-  }, [profile]);
-
-  const favoriteKeySet = React.useMemo(() => {
-    const mapped = shortcutKeys.map((key) => SHORTCUT_TO_NAV_KEY[key]);
-    return new Set<FavoriteKey>(mapped);
-  }, [shortcutKeys]);
-
-  const favoriteItems = React.useMemo(
-    () => NAV_ITEMS.filter((item) => favoriteKeySet.has(item.key)),
-    [favoriteKeySet]
-  );
 
   const profileName = React.useMemo(() => {
     const parts = [profile?.first_name, profile?.last_name].filter(Boolean);
@@ -85,20 +53,6 @@ const SideMenu: React.FC<SideMenuProps> = ({ open, onClose }) => {
         return null;
     }
   }, [profile?.employment_level]);
-
-  const handleToggleShortcut = async (key: FavoriteKey) => {
-    const shortcutKey = NAV_TO_SHORTCUT_KEY[key];
-    if (!shortcutKey || !profile || shortcutSaving) return;
-    const next = new Set(shortcutKeys);
-    if (next.has(shortcutKey)) {
-      next.delete(shortcutKey);
-    } else {
-      next.add(shortcutKey);
-    }
-    setShortcutSaving(true);
-    await updateProfile({ shortcut_keys: Array.from(next) });
-    setShortcutSaving(false);
-  };
 
   const handleLogout = async () => {
     try {
@@ -128,7 +82,7 @@ const SideMenu: React.FC<SideMenuProps> = ({ open, onClose }) => {
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Rechercher..."
+              placeholder="Rechercher une fonction..."
               className="min-h-11 w-full rounded-xl bg-slate-100 py-2 pl-9 pr-3 text-sm text-slate-900 transition-all placeholder:text-slate-500 hover:bg-slate-200 focus:bg-slate-200 focus:outline-none focus:ring-1 focus:ring-slate-400/40 dark:bg-white/5 dark:text-white dark:placeholder:text-gray-500 dark:hover:bg-white/10 dark:focus:bg-white/10 dark:focus:ring-white/20"
             />
           </div>
@@ -144,26 +98,6 @@ const SideMenu: React.FC<SideMenuProps> = ({ open, onClose }) => {
         {/* Content */}
         <div className="flex-1 space-y-6 overflow-y-auto p-4 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10">
 
-          {/* Favorites Section */}
-          <div>
-            <div className="mb-3 px-2 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-gray-500">Favoris</div>
-            <div className="space-y-1">
-              {favoriteItems.length === 0 && (
-                <div className="rounded-xl border border-dashed border-slate-200 px-3 py-3 text-sm text-slate-500 dark:border-white/10 dark:text-gray-500">Aucun favori épinglé</div>
-              )}
-              {favoriteItems.map((item) => {
-                return (
-                  <div key={item.key} className={`group flex items-center gap-2 rounded-xl transition-all duration-200 ${isActive(item.path) ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200 dark:bg-blue-600/20 dark:text-blue-400 dark:ring-blue-500/30' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-white'}`}>
-                    <button onClick={() => { navigate(item.path); onClose(); }} className="flex min-h-11 flex-1 items-center gap-3 px-3 text-left">
-                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                      <span className="font-medium">{item.label}</span>
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
           {/* Operational Functions Section */}
           <div>
             <button
@@ -176,7 +110,7 @@ const SideMenu: React.FC<SideMenuProps> = ({ open, onClose }) => {
 
             <div className={`space-y-1 overflow-hidden transition-all duration-300 ${opsOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
               {opsKeys.map((k) => {
-                const item = NAV_ITEMS.find(n => n.key === k);
+                const item = filtered.find(n => n.key === k);
                 if (!item) return null;
                 const active = isActive(item.path);
                 return (
@@ -187,31 +121,6 @@ const SideMenu: React.FC<SideMenuProps> = ({ open, onClose }) => {
                       </div>
                       <span className={`font-medium ${active ? 'text-blue-700 dark:text-blue-400' : 'text-slate-700 group-hover:text-slate-900 dark:text-gray-300 dark:group-hover:text-white'}`}>{item.label}</span>
                     </button>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Other Navigation Section */}
-          <div>
-            <div className="mb-3 px-2 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-gray-500">Navigation</div>
-            <div className="space-y-1">
-              {filtered.filter((n) => !opsKeys.includes(n.key as (typeof opsKeys)[number])).map((item) => {
-                const active = isActive(item.path);
-                return (
-                  <div key={item.key} className={`group flex items-center gap-2 rounded-xl transition-all duration-200 ${active ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-200 dark:bg-blue-600/20 dark:text-blue-400 dark:ring-blue-500/30' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-gray-300 dark:hover:bg-white/5 dark:hover:text-white'}`}>
-                    <button onClick={() => { navigate(item.path); onClose(); }} className="min-h-11 flex-1 px-3 text-left font-medium">{item.label}</button>
-                    {NAV_TO_SHORTCUT_KEY[item.key] && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); void handleToggleShortcut(item.key); }}
-                        disabled={shortcutSaving}
-                        className={`mr-1 flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${favoriteKeySet.has(item.key) ? 'text-yellow-500 hover:bg-yellow-200/40 dark:text-yellow-400 dark:hover:bg-yellow-400/10' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:text-gray-600 dark:hover:bg-white/5 dark:hover:text-gray-400'} ${shortcutSaving ? 'cursor-not-allowed opacity-60' : ''}`}
-                        aria-label={favoriteKeySet.has(item.key) ? `Retirer ${item.label} des favoris` : `Ajouter ${item.label} aux favoris`}
-                      >
-                        <Star className={`h-4 w-4 ${favoriteKeySet.has(item.key) ? 'fill-yellow-400' : ''}`} />
-                      </button>
-                    )}
                   </div>
                 );
               })}

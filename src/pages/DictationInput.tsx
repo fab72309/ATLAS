@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { createPortal } from 'react-dom';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Sparkles, ClipboardCopy, Share2, FileText, ImageDown, Check, QrCode, LocateFixed, Archive, Clock, ChevronRight, X, Radio, MessageSquareText, Pencil, Trash2 } from 'lucide-react';
 import { Swiper, SwiperSlide } from 'swiper/react';
@@ -563,7 +562,7 @@ const DictationInput = () => {
   const { tree: octTree } = useOctTree();
   const { settings: appSettings } = useAppSettings();
   const defaultTab = appSettings.defaultOperationalTab as OperationalTabId;
-  const [activeTab, setActiveTab] = useState<'soiec' | 'moyens' | 'oct' | 'message' | 'sitac' | 'aide'>(() => defaultTab || 'moyens');
+  const [activeTab, setActiveTab] = useState<OperationalTabId>(() => defaultTab || 'moyens');
   const [ambianceMessage, setAmbianceMessage] = useState<AmbianceMessage>(() => createAmbianceMessage());
   const [compteRenduMessage, setCompteRenduMessage] = useState<CompteRenduMessage>(() => createCompteRenduMessage());
   const [validatedAmbianceList, setValidatedAmbianceList] = useState<AmbianceMessage[]>([]);
@@ -906,7 +905,7 @@ const DictationInput = () => {
       }
     };
   }, [ordreData, type, address, city, streetNumber, streetName, soiecLabel, selectedRisks, additionalInfo, orderTime, roleLabel]);
-  const tabs = [
+  const tabs: Array<{ id: OperationalTabId; label: string }> = [
     { id: 'moyens' as const, label: 'Moyens' },
     { id: 'message' as const, label: 'Messages' },
     { id: 'soiec' as const, label: soiecLabel },
@@ -914,6 +913,22 @@ const DictationInput = () => {
     { id: 'sitac' as const, label: 'SITAC' },
     { id: 'aide' as const, label: 'Aide opérationnelle' }
   ];
+
+  const renderOperationalTabButtons = () => tabs.map((tab) => {
+    const isActive = activeTab === tab.id;
+    return (
+      <button
+        key={tab.id}
+        type="button"
+        onClick={() => handleOperationalTabChange(tab.id)}
+        role="tab"
+        aria-selected={isActive}
+        className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-2 text-xs font-semibold transition btn-neutral sm:px-3 sm:text-sm ${isActive ? 'text-slate-900 dark:text-white' : 'text-slate-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'}`}
+      >
+        {tab.label}
+      </button>
+    );
+  });
 
   const renderTabContent = () => {
     if (activeTab === 'soiec') {
@@ -1601,6 +1616,75 @@ const DictationInput = () => {
         ? 'bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-600/20'
         : 'bg-slate-900 hover:bg-slate-800 text-white shadow-lg shadow-slate-900/20 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100';
 
+      if (messageModal) {
+        return (
+          <div className="flex min-w-0 flex-col gap-4">
+            <section className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm dark:border-white/10 dark:bg-white/5 md:p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex min-w-0 items-start gap-3">
+                  <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
+                    isAmbianceModal
+                      ? 'bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-300'
+                      : 'bg-slate-100 text-slate-800 dark:bg-white/10 dark:text-white'
+                  }`}>
+                    {isAmbianceModal ? <Radio className="h-5 w-5" /> : <MessageSquareText className="h-5 w-5" />}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400">
+                      {isEditingActiveMessage ? 'Modification du message' : 'Rédaction du message'}
+                    </p>
+                    <h3 className="mt-0.5 break-words text-xl font-bold text-slate-950 dark:text-white md:text-2xl">{activeTitle}</h3>
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                      <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 font-medium text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-gray-300">
+                        {roleLabel || 'Chef de groupe'}
+                      </span>
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-medium ${
+                        activeDraftMessage.stamped
+                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+                          : 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-gray-300'
+                      }`}>
+                        <Clock className="h-3.5 w-3.5" />
+                        {activeDraftMessage.stamped ? 'Horodaté' : 'Brouillon en cours'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCloseMessageModal}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-slate-300 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-gray-300 dark:hover:border-white/20 dark:hover:text-white"
+                  aria-label="Fermer la rédaction"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </section>
+
+            <div className="min-w-0">
+              <div className="hidden md:block">
+                {activeModalContent}
+              </div>
+              <div className="md:hidden">
+                {mobileModalContent}
+              </div>
+            </div>
+
+            <div className="sticky bottom-2 z-20 pb-[calc(env(safe-area-inset-bottom)+0.25rem)] sm:bottom-3">
+              <div className="flex w-full items-center rounded-2xl border border-slate-200/80 bg-white/95 p-2.5 shadow-[0_18px_48px_-34px_rgba(15,23,42,0.4)] backdrop-blur dark:border-white/10 dark:bg-[#0f172a]/95 md:p-3">
+                <button
+                  type="button"
+                  onClick={activeAction}
+                  data-no-pill
+                  className={`min-h-12 flex-1 rounded-xl px-4 py-3 text-sm font-bold transition sm:px-5 sm:text-base ${activeActionClass}`}
+                >
+                  {activeActionLabel}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
       return (
         <div className="flex flex-col gap-5">
           <details
@@ -1815,79 +1899,6 @@ const DictationInput = () => {
             </div>
           </section>
 
-          {messageModal && typeof document !== 'undefined' && createPortal(
-            <div className="fixed inset-0 z-[999] overflow-hidden bg-slate-950/60 backdrop-blur-[6px]">
-              <div className="absolute inset-0 atlas-grid opacity-40" />
-              <div className="relative flex h-[100dvh] w-[100dvw] flex-col overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.95),_rgba(241,245,249,0.98)_48%,_rgba(226,232,240,0.98)_100%)] dark:bg-[radial-gradient(circle_at_top_left,_rgba(15,23,42,0.98),_rgba(10,14,24,0.99)_52%,_rgba(2,6,23,1)_100%)]">
-                <div className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-white/75 via-white/30 to-transparent dark:from-white/5 dark:via-transparent" />
-                <div className="relative flex min-h-0 h-full w-full flex-1 flex-col overflow-hidden border-white/70 bg-white/88 shadow-[0_28px_90px_-40px_rgba(15,23,42,0.5)] backdrop-blur-xl dark:border-white/10 dark:bg-[#0c1220]/92">
-                  <div className="border-b border-slate-200/80 bg-white/80 px-3 py-3 backdrop-blur dark:border-white/10 dark:bg-[#0c1220]/85 sm:px-4 md:px-6 md:py-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex min-w-0 items-start gap-3">
-                        <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
-                          isAmbianceModal
-                            ? 'bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-300'
-                            : 'bg-slate-100 text-slate-800 dark:bg-white/10 dark:text-white'
-                        }`}>
-                          {isAmbianceModal ? <Radio className="h-5 w-5" /> : <MessageSquareText className="h-5 w-5" />}
-                        </span>
-                        <div className="min-w-0">
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-gray-400">
-                            {isEditingActiveMessage ? 'Modification du message' : 'Rédaction du message'}
-                          </p>
-                          <h3 className="mt-0.5 break-words text-lg font-bold text-slate-950 dark:text-white sm:text-xl md:text-2xl">{activeTitle}</h3>
-                          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                            <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 font-medium text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-gray-300">
-                              {roleLabel || 'Chef de groupe'}
-                            </span>
-                            <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-medium ${
-                              activeDraftMessage.stamped
-                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
-                                : 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-gray-300'
-                            }`}>
-                              <Clock className="h-3.5 w-3.5" />
-                              {activeDraftMessage.stamped ? 'Horodaté' : 'Brouillon en cours'}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleCloseMessageModal}
-                        className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition hover:border-slate-300 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-gray-300 dark:hover:border-white/20 dark:hover:text-white"
-                        aria-label="Fermer la fenêtre"
-                      >
-                        <X className="h-5 w-5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 pb-28 sm:px-4 sm:py-4 md:px-6 md:py-5 md:pb-28">
-                    <div className="hidden md:block">
-                      {activeModalContent}
-                    </div>
-                    <div className="md:hidden">
-                      {mobileModalContent}
-                    </div>
-                  </div>
-
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:px-4 md:px-6 md:pb-[calc(1.5rem+env(safe-area-inset-bottom))]">
-                    <div className="pointer-events-auto flex w-full items-center rounded-2xl border border-slate-200/80 bg-white/95 p-2.5 shadow-[0_18px_48px_-34px_rgba(15,23,42,0.4)] backdrop-blur dark:border-white/10 dark:bg-[#0f172a]/95 md:p-3">
-                      <button
-                        type="button"
-                        onClick={activeAction}
-                        data-no-pill
-                        className={`min-h-12 flex-1 rounded-xl px-4 py-3 text-sm font-bold transition sm:px-5 sm:text-base ${activeActionClass}`}
-                      >
-                        {activeActionLabel}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>,
-            document.body
-          )}
         </div>
       );
     }
@@ -2322,6 +2333,13 @@ const DictationInput = () => {
     setEditingMessage(null);
     setMessageModal(null);
   };
+
+  function handleOperationalTabChange(nextTab: OperationalTabId) {
+    if (messageModal) {
+      handleCloseMessageModal();
+    }
+    setActiveTab(nextTab);
+  }
 
   const handleValidateOrdreInitial = () => {
     if (!ordreData) {
@@ -2763,20 +2781,12 @@ const DictationInput = () => {
         <div className="w-full flex-1 flex flex-col relative animate-fade-in-down md:min-h-0" style={{ animationDelay: '0.3s' }}>
           <div className="w-full flex-1 flex flex-col bg-white/90 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl overflow-visible md:overflow-hidden md:min-h-0 shadow-lg shadow-black/30 backdrop-blur-sm">
             <div className="flex flex-col gap-2 px-2 py-2 border-b border-slate-200 dark:border-white/10 bg-slate-100/70 dark:bg-white/5 sm:flex-row sm:flex-wrap sm:items-center sm:px-3">
-              <div className="flex min-w-0 w-full gap-1.5 overflow-x-auto overscroll-x-contain pb-0.5 [scrollbar-width:none] sm:w-auto sm:flex-wrap sm:gap-2 sm:overflow-visible sm:pb-0">
-                {tabs.map((tab) => {
-                  const isActive = activeTab === tab.id;
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      aria-selected={isActive}
-                      className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-2 text-xs font-semibold transition btn-neutral sm:px-3 sm:text-sm ${isActive ? 'text-slate-900 dark:text-white' : 'text-slate-500 hover:text-slate-900 dark:text-gray-400 dark:hover:text-white'}`}
-                    >
-                      {tab.label}
-                    </button>
-                  );
-                })}
+              <div
+                role="tablist"
+                aria-label="Navigation opérationnelle"
+                className="flex min-w-0 w-full gap-1.5 overflow-x-auto overscroll-x-contain pb-0.5 [scrollbar-width:none] sm:w-auto sm:flex-wrap sm:gap-2 sm:overflow-visible sm:pb-0"
+              >
+                {renderOperationalTabButtons()}
               </div>
               <div className="flex w-full min-w-0 flex-wrap items-center justify-end gap-1.5 sm:ml-auto sm:w-auto sm:gap-3">
                 {syncStatus !== 'idle' && (
