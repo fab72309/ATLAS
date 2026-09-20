@@ -162,6 +162,12 @@ textarea::placeholder {
   @apply text-gray-400;
 }
 
+input:focus::placeholder,
+textarea:focus::placeholder {
+  color: transparent;
+  opacity: 0;
+}
+
 textarea {
   @apply bg-transparent;
 }

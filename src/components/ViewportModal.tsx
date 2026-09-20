@@ -34,7 +34,7 @@ const ViewportModal: React.FC<ViewportModalProps> = ({
 
   return createPortal(
     <div
-      className={`fixed inset-0 z-[1000] flex min-h-[100dvh] items-center justify-center overflow-y-auto overscroll-contain bg-slate-950/65 p-3 backdrop-blur-sm sm:p-4 ${className}`}
+      className={`fixed inset-0 z-[1000] box-border flex h-[100dvh] max-h-[100dvh] items-start justify-center overflow-x-hidden overflow-y-auto overscroll-contain bg-slate-950/65 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-[max(0.5rem,env(safe-area-inset-top))] backdrop-blur-sm sm:items-center sm:p-4 ${className}`}
       onMouseDown={(event) => {
         if (closeOnBackdrop && event.target === event.currentTarget) onClose?.();
       }}

@@ -814,7 +814,7 @@ const CommandTypeChoice = () => {
             setShowInterventionModal(true);
           }}
         >
-          <div className="max-h-[calc(100dvh-1.5rem)] w-full max-w-2xl space-y-6 overflow-y-auto rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-white/10 dark:bg-[#101010] sm:max-h-[calc(100dvh-2rem)] sm:p-6">
+          <div className="box-border max-h-[calc(100dvh-1rem)] w-full max-w-[calc(100vw-1rem)] min-w-0 space-y-6 overflow-x-hidden overflow-y-auto overscroll-contain rounded-3xl border border-slate-200 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl dark:border-white/10 dark:bg-[#101010] sm:max-h-[calc(100dvh-2rem)] sm:max-w-2xl sm:p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs uppercase text-slate-500 dark:text-gray-400 tracking-[0.3em]">Nouvelle intervention</p>
@@ -832,36 +832,36 @@ const CommandTypeChoice = () => {
                 ✕
               </button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2 md:col-span-2">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              <div className="col-span-2 min-w-0 space-y-2">
                 <label className="text-xs uppercase tracking-wide text-slate-500 dark:text-gray-400">Adresse</label>
                 <div className="grid grid-cols-1 md:grid-cols-[0.5fr,1.2fr,1fr] gap-2">
-                  <div className="space-y-1">
+                  <div className="min-w-0 space-y-1">
                     <span className="text-[11px] uppercase tracking-wide text-slate-400 dark:text-gray-500">Numero</span>
                     <input
                       value={interventionMeta.streetNumber}
                       onChange={(e) => handleMetadataChange('streetNumber', e.target.value)}
-                      className="w-full px-4 py-2 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-red-500/40"
+                      className="block min-w-0 w-full px-3 py-2 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-red-500/40"
                       placeholder="12"
                       inputMode="numeric"
                     />
                   </div>
-                  <div className="space-y-1">
+                  <div className="min-w-0 space-y-1">
                     <span className="text-[11px] uppercase tracking-wide text-slate-400 dark:text-gray-500">Adresse</span>
                     <input
                       value={interventionMeta.streetName}
                       onChange={(e) => handleMetadataChange('streetName', e.target.value)}
-                      className="w-full px-4 py-2 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-red-500/40"
+                      className="block min-w-0 w-full px-3 py-2 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-red-500/40"
                       placeholder="Rue des Secours"
                     />
                   </div>
-                  <div className="space-y-1">
+                  <div className="min-w-0 space-y-1">
                     <span className="text-[11px] uppercase tracking-wide text-slate-400 dark:text-gray-500">Ville</span>
                     <div className="flex items-center gap-2">
                       <input
                         value={interventionMeta.city}
                         onChange={(e) => handleMetadataChange('city', e.target.value)}
-                        className="flex-1 px-4 py-2 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-red-500/40"
+                        className="min-w-0 flex-1 px-3 py-2 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-red-500/40"
                         placeholder="Paris"
                       />
                       <button
@@ -883,25 +883,25 @@ const CommandTypeChoice = () => {
                 </div>
                 {geoError && <p className="text-xs text-red-500">{geoError}</p>}
               </div>
-              <div className="space-y-2">
+              <div className="col-span-1 min-w-0 space-y-2">
                 <label className="text-xs uppercase tracking-wide text-slate-500 dark:text-gray-400">Date</label>
                 <input
                   type="date"
                   value={interventionMeta.date}
                   onChange={(e) => handleMetadataChange('date', e.target.value)}
-                  className="w-full px-4 py-2 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-red-500/40"
+                  className="block min-w-0 w-full px-2.5 py-2 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-red-500/40 sm:px-4"
                 />
               </div>
-              <div className="space-y-2">
+              <div className="col-span-1 min-w-0 space-y-2">
                 <label className="text-xs uppercase tracking-wide text-slate-500 dark:text-gray-400">Heure</label>
                 <input
                   type="time"
                   value={interventionMeta.time}
                   onChange={(e) => handleMetadataChange('time', e.target.value)}
-                  className="w-full px-4 py-2 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-red-500/40"
+                  className="block min-w-0 w-full px-2.5 py-2 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-red-500/40 sm:px-4"
                 />
               </div>
-              <div className="space-y-2 md:col-span-2">
+              <div className="col-span-2 min-w-0 space-y-2">
                 <label className="text-xs uppercase tracking-wide text-slate-500 dark:text-gray-400">Fonction</label>
                   <select
                     value={interventionMeta.role}
@@ -916,7 +916,7 @@ const CommandTypeChoice = () => {
                     ))}
                   </select>
               </div>
-              <div className="space-y-2 md:col-span-2">
+              <div className="col-span-2 min-w-0 space-y-2">
                 <label className="text-xs uppercase tracking-wide text-slate-500 dark:text-gray-400">Formation / exercice</label>
                 <div className="flex items-start gap-3">
                   <input
@@ -953,7 +953,7 @@ const CommandTypeChoice = () => {
                 onClick={handleConfirmMetadata}
                 disabled={isCreatingIntervention}
                 data-no-pill
-                className="px-6 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-semibold transition"
+                className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isCreatingIntervention ? 'Création...' : 'Valider'}
               </button>

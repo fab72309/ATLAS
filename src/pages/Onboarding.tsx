@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useProfile } from '../contexts/ProfileContext';
@@ -6,7 +6,6 @@ import RoleBadgeIcon from '../components/RoleBadgeIcon';
 import {
   EMPLOYMENT_LEVEL_OPTIONS,
   normalizeEmploymentLevel,
-  SHORTCUT_OPTIONS,
   type EmploymentLevel,
   type ShortcutKey
 } from '../constants/profile';
@@ -27,11 +26,6 @@ const Onboarding = () => {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const profileLabel = useMemo(() => {
-    const parts = [profile?.first_name, profile?.last_name].filter(Boolean);
-    return parts.length > 0 ? parts.join(' ') : 'Profil utilisateur';
-  }, [profile?.first_name, profile?.last_name]);
-
   useEffect(() => {
     if (!profile) return;
     setEmploymentLevel(normalizeEmploymentLevel(profile.employment_level) ?? '');
@@ -45,11 +39,6 @@ const Onboarding = () => {
       const defaults = EMPLOYMENT_LEVEL_OPTIONS.find((option) => option.value === value)?.defaultShortcuts ?? [];
       setShortcutKeys(defaults as ShortcutKey[]);
     }
-  };
-
-  const toggleShortcut = (key: ShortcutKey) => {
-    setCustomized(true);
-    setShortcutKeys((prev) => (prev.includes(key) ? prev.filter((item) => item !== key) : [...prev, key]));
   };
 
   const handleSubmit = async () => {
@@ -89,14 +78,6 @@ const Onboarding = () => {
 
       <div className="relative w-full max-w-2xl bg-white/90 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-3xl p-8 shadow-2xl backdrop-blur-md space-y-6">
         <div className="space-y-2">
-          <p className="text-sm text-slate-500 dark:text-gray-400">Bienvenue {profileLabel}</p>
-          <h1 className="text-2xl font-bold">Finalisons votre onboarding</h1>
-          <p className="text-sm text-slate-500 dark:text-gray-400">
-            Indiquez votre niveau d’emploi pour adapter les raccourcis et la configuration initiale.
-          </p>
-        </div>
-
-        <div className="space-y-2">
           <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Niveau d’emploi</label>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {EMPLOYMENT_LEVEL_OPTIONS.map((option) => (
@@ -122,33 +103,6 @@ const Onboarding = () => {
           <p className="text-xs text-slate-500 dark:text-gray-400">
             Ce grade peut être modifié à tout moment dans Paramètres &gt; Profil.
           </p>
-        </div>
-
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <label className="text-sm font-medium text-slate-600 dark:text-gray-300">Raccourcis recommandés</label>
-            <span className="text-xs text-slate-400">Personnalisables</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {SHORTCUT_OPTIONS.map((shortcut) => (
-              <label
-                key={shortcut.key}
-                className={`flex items-center gap-3 rounded-2xl border px-4 py-3 text-sm transition ${
-                  shortcutKeys.includes(shortcut.key)
-                    ? 'border-blue-500/40 bg-blue-500/10 text-slate-900 dark:text-white'
-                    : 'border-slate-200 bg-slate-100 text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-gray-300'
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  className="h-4 w-4"
-                  checked={shortcutKeys.includes(shortcut.key)}
-                  onChange={() => toggleShortcut(shortcut.key)}
-                />
-                <span>{shortcut.label}</span>
-              </label>
-            ))}
-          </div>
         </div>
 
         <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-100 dark:bg-white/5 px-4 py-3 text-xs text-slate-500 dark:text-gray-400">

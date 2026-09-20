@@ -187,6 +187,7 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
 
   // Local State
   const [baseLayer, setBaseLayer] = useState<BaseLayerKey>('plan');
+  const initialBaseLayerRef = useRef<BaseLayerKey>(baseLayer);
   const [searchValue, setSearchValue] = useState('');
   const [activeSymbol, setActiveSymbol] = useState<SymbolAsset | null>(SYMBOL_ASSETS[0] || null);
   const [mapInstance, setMapInstance] = useState<maplibregl.Map | null>(null);
@@ -458,7 +459,7 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
     type MapOptionsWithPreserve = maplibregl.MapOptions & { preserveDrawingBuffer?: boolean };
     const mapOptions: MapOptionsWithPreserve = {
       container: containerRef.current,
-      style: BASE_STYLES[baseLayer],
+      style: BASE_STYLES[initialBaseLayerRef.current],
       center: DEFAULT_VIEW.center as LngLatLike,
       zoom: DEFAULT_VIEW.zoom,
       attributionControl: false,
@@ -479,7 +480,7 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
       map.remove();
       mapRef.current = null;
     };
-  }, [baseLayer]);
+  }, []);
 
   // Base Layer Switching
   useEffect(() => {
