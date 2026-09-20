@@ -12,6 +12,7 @@ interface SitacFabricCanvasProps {
     width: number;
     height: number;
     activeSymbol: SymbolAsset | null;
+    allowPointerPassthrough?: boolean;
 }
 
 type LooseFeatureProperties = Partial<SITACFeatureProperties> & {
@@ -120,7 +121,7 @@ const copyFabricMeta = (source: fabric.Object, target: fabric.Object) => {
     }
 };
 
-const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, height, activeSymbol }) => {
+const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, height, activeSymbol, allowPointerPassthrough = false }) => {
     const canvasEl = useRef<HTMLCanvasElement>(null);
     const fabricCanvas = useRef<fabric.Canvas | null>(null);
     const syncingFromFabric = useRef(false);
@@ -194,17 +195,16 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                         imgMeta.colorizable = properties.colorizable;
                         imgMeta.iconName = properties.iconName;
 
-                        flagIfMonochrome(img);
-
-                        const symbolColor = properties.color || '#ef4444';
-                        const filter = new fabric.filters.BlendColor({
-                            color: symbolColor,
-                            mode: 'tint',
-                            alpha: 1
-                        });
-                        img.filters = [filter];
-                        img.applyFilters();
-                        imgMeta.colorizable = true;
+                        if (imgMeta.colorizable === true) {
+                            const symbolColor = properties.color || '#ef4444';
+                            const filter = new fabric.filters.BlendColor({
+                                color: symbolColor,
+                                mode: 'tint',
+                                alpha: 1
+                            });
+                            img.filters = [filter];
+                            img.applyFilters();
+                        }
 
                         canvas.add(img);
                         canvas.renderAll();
@@ -459,6 +459,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
         canvas.off('mouse:down');
         canvas.off('mouse:move');
         canvas.off('mouse:up');
+        canvas.off('mouse:dblclick');
 
         if (mode === 'draw_freehand') {
             canvas.isDrawingMode = true;
@@ -477,6 +478,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
             const points: { x: number; y: number }[] = [];
             const lines: fabric.Line[] = [];
             let activeLine: fabric.Line | null = null;
+            let polygonFinished = false;
 
             canvas.on('mouse:down', (options) => {
                 const pointer = canvas.getScenePoint(options.e);
@@ -489,6 +491,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                     originX: 'center', originY: 'center',
                     selectable: false, evented: false
                 });
+                (point as unknown as FabricMetaObject).isTransient = true;
                 canvas.add(point);
 
                 if (points.length > 1) {
@@ -501,6 +504,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                         selectable: false,
                         evented: false
                     });
+                    (line as unknown as FabricMetaObject).isTransient = true;
                     lines.push(line);
                     canvas.add(line);
                 }
@@ -532,6 +536,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                     evented: false,
                     opacity: 0.7
                 });
+                (activeLine as unknown as FabricMetaObject).isTransient = true;
                 canvas.add(activeLine);
                 canvas.requestRenderAll();
             });
@@ -541,9 +546,12 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
             });
 
             const finishPolygon = () => {
+                if (polygonFinished || points.length < 3) return;
+                polygonFinished = true;
+
                 // Remove temp UI
                 canvas.getObjects().forEach(o => {
-                    if (!o.selectable && (o.type === 'line' || o.type === 'circle')) {
+                    if ((o as FabricMetaObject).isTransient === true) {
                         canvas.remove(o);
                     }
                 });
@@ -804,19 +812,20 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                         setBaseTransform(img, map);
                     }
                     // Attach metadata
-                    flagIfMonochrome(img);
                     const imgMeta = img as FabricMetaImage;
-                    imgMeta.colorizable = true;
+                    imgMeta.colorizable = activeSymbol.colorizable === true;
                     imgMeta.iconName = activeSymbol.id;
 
-                    const symbolColor = drawingColor || '#ef4444';
-                    const filter = new fabric.filters.BlendColor({
-                        color: symbolColor,
-                        mode: 'tint',
-                        alpha: 1
-                    });
-                    img.filters = [filter];
-                    img.applyFilters();
+                    if (imgMeta.colorizable) {
+                        const symbolColor = drawingColor || '#ef4444';
+                        const filter = new fabric.filters.BlendColor({
+                            color: symbolColor,
+                            mode: 'tint',
+                            alpha: 1
+                        });
+                        img.filters = [filter];
+                        img.applyFilters();
+                    }
 
                     canvas.add(img);
                     canvas.setActiveObject(img);
@@ -865,9 +874,8 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
             img.scaleToWidth(50);
 
             // Attach metadata
-            flagIfMonochrome(img);
             const imgMeta = img as FabricMetaImage;
-            imgMeta.colorizable = true;
+            imgMeta.colorizable = asset.colorizable === true;
             imgMeta.iconName = asset.id;
 
             if (map) {
@@ -876,14 +884,16 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
                 setBaseTransform(img, map);
             }
 
-            const symbolColor = drawingColor || '#ef4444';
-            const filter = new fabric.filters.BlendColor({
-                color: symbolColor,
-                mode: 'tint',
-                alpha: 1
-            });
-            img.filters = [filter];
-            img.applyFilters();
+            if (imgMeta.colorizable) {
+                const symbolColor = drawingColor || '#ef4444';
+                const filter = new fabric.filters.BlendColor({
+                    color: symbolColor,
+                    mode: 'tint',
+                    alpha: 1
+                });
+                img.filters = [filter];
+                img.applyFilters();
+            }
 
             canvas.add(img);
             canvas.setActiveObject(img);
@@ -976,6 +986,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
             }
             const features: Array<{ type: 'Feature'; id: string; geometry: Geometry; properties: LooseFeatureProperties }> = [];
             canvas.getObjects().forEach((obj) => {
+                if ((obj as FabricMetaObject).isTransient === true) return;
                 const fabricObj = obj as FabricGeoObject;
                 if (!fabricObj.geoPosition && map) {
                     refreshGeoTransform(fabricObj, map);
@@ -1394,7 +1405,7 @@ const SitacFabricCanvas: React.FC<SitacFabricCanvasProps> = ({ map, width, heigh
     }, [map]);
 
 
-    const allowPointerEvents = locked || mode.startsWith('draw_');
+    const allowPointerEvents = !allowPointerPassthrough && (locked || mode.startsWith('draw_'));
 
     return (
         <div

@@ -763,10 +763,9 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
       return;
     }
     setGeoError(null);
+    useSitacStore.getState().setMode('select');
     setIsPlacingIntervention(true);
-    const hasStored = Number.isFinite(interventionLat) && Number.isFinite(interventionLng);
-    const startLat = hasStored ? (interventionLat as number) : map.getCenter().lat;
-    const startLng = hasStored ? (interventionLng as number) : map.getCenter().lng;
+    const { lat: startLat, lng: startLng } = map.getCenter();
     if (!Number.isFinite(startLat) || !Number.isFinite(startLng)) return;
     if (!markerRef.current) {
       markerRef.current = new maplibregl.Marker({ color: '#ef4444', draggable: true })
@@ -774,15 +773,14 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
         .addTo(map);
     } else {
       markerRef.current.setLngLat([startLng, startLat]);
+      markerRef.current.setDraggable(true);
     }
   }, [applyInterventionLocation, interventionLat, interventionLng, isPlacingIntervention]);
 
   useEffect(() => {
     const marker = markerRef.current;
     if (!marker) return;
-    if (typeof marker.setDraggable === 'function') {
-      marker.setDraggable(isPlacingIntervention);
-    }
+    marker.setDraggable(isPlacingIntervention);
     if (!isPlacingIntervention) return;
     const handleDragEnd = () => {
       const pos = marker.getLngLat?.();
@@ -1043,6 +1041,7 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
         height={dimensions.height}
         map={mapInstance}
         activeSymbol={activeSymbol}
+        allowPointerPassthrough={isPlacingIntervention}
       />
 
       {/* Main UI Overlay */}
@@ -1084,7 +1083,7 @@ const SitacMap: React.FC<SitacMapProps> = ({ embedded = false, interventionAddre
       )}
       {isPlacingIntervention && (
         <div className="absolute bottom-6 left-1/2 z-30 -translate-x-1/2 pointer-events-none rounded-full bg-black/70 border border-white/20 px-4 py-2 text-xs text-white/90 shadow-[0_8px_20px_rgba(0,0,0,0.35)]">
-          Faites glisser l'indicateur pour positionner l'intervention
+          Faites glisser le repère, puis validez la position
         </div>
       )}
     </div>
