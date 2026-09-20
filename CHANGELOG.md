@@ -1,5 +1,11 @@
 # Changelog
 
+## Alpha-0.9.3 — 2026-09-20
+- Barre d’outils SITAC ajustée au contenu.
+- Le marqueur d’intervention reste visible lors d’un changement de fond de carte et se place au centre de la vue avant ajustement manuel.
+- Les symboles colorés conservent leur apparence dans la carte et les éléments temporaires de tracé ne sont plus enregistrés.
+- Stabilisation de la création des polygones afin d’éviter les duplications involontaires.
+
 ## Alpha-0.9.2 — 2026-09-20
 - Rédaction des messages intégrée au cadre principal de l’intervention avec onglets opérationnels toujours visibles.
 - Navigation cohérente entre rédaction, validation, édition et changement de fonctionnalité, y compris sur mobile.
